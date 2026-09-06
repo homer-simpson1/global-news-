@@ -419,7 +419,10 @@ function build5W1HParagraph(
   title: string,
   content: string
 ): string {
-  return `${summary.when}，在${summary.where}，${summary.who}证实最新核心进展：${summary.what}。究其起因，主要是${summary.why}。该事件带来的直接后果是，${summary.consequence}`;
+  const cleanWhat = (summary.what || '').trim().replace(/[。！!.]+$/, '');
+  const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '');
+  const cleanConsequence = (summary.consequence || '').trim().replace(/[。！!.]+$/, '');
+  return `${summary.when}，在${summary.where}，${summary.who}证实最新核心进展：${cleanWhat}。究其起因，主要是${cleanWhy}。该事件带来的直接后果是，${cleanConsequence}。`;
 }
 
 export async function fetchAggregatedNews(): Promise<NewsItem[]> {

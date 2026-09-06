@@ -27,11 +27,11 @@ export default function Summary5W1HView({
     const when = summary.when || (time ? `本日 ${time}` : '今日');
     const where = summary.where || '涉事相关区域';
     const who = summary.who || '相关核心主体';
-    const what = summary.what || (title ? title.replace(/^【.*?】\s*/, '') : '发布最新核心进展');
-    const why = summary.why || '相关宏观环境与地缘格局变动驱动';
-    const consequence = summary.consequence || '对市场资产与决策带来后续连锁传导。';
+    const cleanWhat = (summary.what || (title ? title.replace(/^【.*?】\s*/, '') : '发布最新核心进展')).trim().replace(/[。！!.]+$/, '');
+    const cleanWhy = (summary.why || '相关宏观环境与地缘格局变动驱动').trim().replace(/[。！!.]+$/, '');
+    const cleanConsequence = (summary.consequence || '对市场资产与决策带来后续连锁传导').trim().replace(/[。！!.]+$/, '');
 
-    paragraph = `${when}，在${where}，${who}证实最新核心进展：${what}。究其起因，主要是${why}。该事件带来的直接后果是，${consequence}`;
+    paragraph = `${when}，在${where}，${who}证实最新核心进展：${cleanWhat}。究其起因，主要是${cleanWhy}。该事件带来的直接后果是，${cleanConsequence}。`;
   }
 
   // 3. 保底段落生成（确保永远有一段通顺的 5W1H 总结）
