@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { NewsItem } from '@/lib/types';
 import { ExternalLink, BookOpen, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import Summary5W1HView from './Summary5W1HView';
 
 interface NewsCardProps {
   item: NewsItem;
@@ -15,7 +16,7 @@ export default function NewsCard({ item }: NewsCardProps) {
     <div
       className={`rounded-2xl transition-all duration-200 ${
         expanded
-          ? 'bg-white border-2 border-blue-500 shadow-lg'
+          ? 'bg-white border-2 border-blue-500 shadow-xl ring-2 ring-blue-100'
           : 'bg-white hover:bg-slate-50/60 border border-slate-200 shadow-sm hover:shadow-md'
       }`}
     >
@@ -23,15 +24,15 @@ export default function NewsCard({ item }: NewsCardProps) {
         {/* 顶部元数据行：信源、时间与核心互动小圆点 */}
         <div className="flex items-center justify-between gap-3 mb-3.5 flex-wrap">
           <div className="flex items-center gap-3 flex-wrap">
-            {/* 核心互动小圆点按钮（满足用户诉求：每个报道都有小圆点，点击展开详细总结） */}
+            {/* 核心互动小圆点按钮（点击展开/收起 5W1H 详细总结） */}
             <button
               onClick={() => setExpanded(!expanded)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all cursor-pointer select-none ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border transition-all cursor-pointer select-none ${
                 expanded
                   ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                   : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'
               }`}
-              title="点击小圆点展开详细事实总结"
+              title="点击小圆点展开详细 5W1H 事实总结"
             >
               <span className="relative flex h-3 w-3 items-center justify-center">
                 {expanded ? (
@@ -44,7 +45,7 @@ export default function NewsCard({ item }: NewsCardProps) {
                 )}
               </span>
               <span className="text-xs font-bold">
-                {expanded ? '收起报道总结' : '点击小圆点展开详细总结'}
+                {expanded ? '收起 5W1H 详细小结 ▴' : '点击小圆点展开 5W1H 总结 ▾'}
               </span>
             </button>
 
@@ -68,13 +69,19 @@ export default function NewsCard({ item }: NewsCardProps) {
           )}
         </div>
 
-        {/* 报道大标题：高对比度大黑字，字号放大至 20px */}
-        <h3
+        {/* 报道大标题：让人一眼看清发生了什么，高对比度黑字，点击展开 5W1H */}
+        <div
           onClick={() => setExpanded(!expanded)}
-          className="text-lg md:text-xl font-bold text-slate-900 leading-snug tracking-tight mb-4 hover:text-blue-600 transition-colors cursor-pointer"
+          className="cursor-pointer group mb-4"
+          title="点击标题展开/收起 5W1H 详细小结"
         >
-          {item.title}
-        </h3>
+          <h3 className="text-lg md:text-xl font-bold text-slate-900 leading-snug tracking-tight group-hover:text-blue-600 transition-colors flex items-start justify-between gap-3">
+            <span className="flex-1">{item.title}</span>
+            <span className="text-xs text-blue-700 bg-blue-50 group-hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-full flex-shrink-0 mt-0.5 font-semibold">
+              {expanded ? '收起 5W1H ▴' : '5W1H 详情 ▾'}
+            </span>
+          </h3>
+        </div>
 
         {/* 核心结论大卡片：清爽、高可读性 */}
         <div className="mb-3.5 p-4 rounded-xl bg-slate-50 border-l-4 border-blue-600 text-sm md:text-base text-slate-800 leading-relaxed">
@@ -95,7 +102,7 @@ export default function NewsCard({ item }: NewsCardProps) {
 
         {/* 对华与社会治理视点（如有） */}
         {item.chinaPolicyAngle && (
-          <div className="p-4 rounded-xl bg-amber-50/70 border-l-4 border-amber-500 text-sm md:text-base text-slate-800 leading-relaxed">
+          <div className="mb-3 p-4 rounded-xl bg-amber-50/70 border-l-4 border-amber-500 text-sm md:text-base text-slate-800 leading-relaxed">
             <div className="text-xs font-bold text-amber-800 mb-1">
               🇨🇳 治理与政策分析
             </div>
@@ -103,32 +110,41 @@ export default function NewsCard({ item }: NewsCardProps) {
           </div>
         )}
 
-        {/* 点击圆点展开的详细报道事实总结 */}
+        {/* 点击标题或圆点展开的详细 5W1H 报道事实总结 */}
         {expanded && (
           <div className="mt-5 pt-5 border-t border-slate-200 space-y-4 animate-in fade-in duration-150">
-            <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
-              <BookOpen className="w-4 h-4 text-blue-600" />
-              <span>深度事实详细总结</span>
-            </div>
+            {/* 核心 5W1H 结构化卡片 */}
+            <Summary5W1HView
+              summary={item.summary5W1H}
+              title={item.title}
+              time={item.publishedAt}
+              source={item.source}
+            />
 
             {/* 3条结构化事实点 */}
-            <div className="space-y-3 bg-slate-50 p-4 md:p-5 rounded-xl border border-slate-200">
-              {item.bulletPoints.map((bp, bIdx) => (
-                <div key={bIdx} className="flex items-start gap-3">
-                  <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mt-0.5">
-                    {bIdx + 1}
-                  </span>
-                  <p className="text-sm md:text-base text-slate-800 leading-relaxed">
-                    {bp}
-                  </p>
-                </div>
-              ))}
+            <div className="mt-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-700 mb-2">
+                <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                <span>电讯事实细节纪要</span>
+              </div>
+              <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                {item.bulletPoints.map((bp, bIdx) => (
+                  <div key={bIdx} className="flex items-start gap-2.5">
+                    <span className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 text-blue-800 text-[11px] font-bold mt-0.5">
+                      {bIdx + 1}
+                    </span>
+                    <p className="text-xs md:text-sm text-slate-800 leading-relaxed">
+                      {bp}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* 原文权威出处直达 */}
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-xs text-slate-600">
-                出处来源：{item.source}
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-xs text-slate-500">
+                信源渠道：{item.source} 官方快讯
               </span>
               <a
                 href={item.sourceUrl}
