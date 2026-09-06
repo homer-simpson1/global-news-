@@ -78,12 +78,10 @@ export default function FlashBriefing({ briefs }: FlashBriefingProps) {
           return (
             <div
               key={brief.id}
-              className={`rounded-2xl bg-white border border-l-4 transition-all duration-200 overflow-hidden ${
-                theme.borderLeft
-              } ${
+              className={`rounded-2xl transition-all duration-200 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} border ${theme.cardBorder} ${
                 isExpanded
-                  ? `${theme.cardActiveBorder} shadow-lg ring-4 ${theme.cardActiveRing}`
-                  : 'border-slate-200 hover:border-slate-300 hover:shadow-md shadow-sm'
+                  ? `${theme.cardActiveBorder} shadow-xl ring-4 ${theme.cardActiveRing}`
+                  : 'hover:shadow-md shadow-sm'
               }`}
             >
               <div className="p-5 md:p-6">

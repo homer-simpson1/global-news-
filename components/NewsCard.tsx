@@ -35,13 +35,11 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
 
   return (
     <div
-      className={`rounded-2xl transition-all duration-200 overflow-hidden ${
-        isLead ? 'border-2 shadow-md bg-white' : 'bg-white border border-slate-200 hover:border-slate-300 hover:shadow-md shadow-sm'
+      className={`rounded-2xl transition-all duration-200 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} border ${theme.cardBorder} ${
+        isLead ? 'shadow-md ring-1 ring-black/5' : 'hover:shadow-md shadow-sm'
       } ${
         expanded
           ? `${theme.cardActiveBorder} shadow-xl ring-4 ${theme.cardActiveRing}`
-          : isLead
-          ? `${theme.headerBorder}`
           : ''
       }`}
     >

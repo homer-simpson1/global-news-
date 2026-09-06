@@ -1,4 +1,5 @@
 import { FlashBrief, MarketQuote, NewsItem, TrackId, Summary5W1H } from './types';
+import { SEED_FLASH_BRIEFS } from '@/data/seedData';
 
 let cachedNews: NewsItem[] | null = null;
 let cachedFlash: FlashBrief[] | null = null;
@@ -90,10 +91,15 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
     }
   }
 
-  // 根据标题相似度去重
+  // 严格过滤娱乐/体育/公关展览等低信噪比杂音，并按标题相似度去重
   const seen = new Set<string>();
   const deduped: RawLiveItem[] = [];
+  const noiseRegex = /摩托车|锦标赛|排球|足球|篮球|马拉松|选美|车展|博览会闭幕|闭幕式|开幕式|演唱会|明星|彩票|中奖|电视剧|电影节/;
+
   for (const item of items) {
+    if (noiseRegex.test(item.title + ' ' + item.content)) {
+      continue;
+    }
     const key = item.title.slice(0, 16);
     if (!seen.has(key) && item.title.length > 5) {
       seen.add(key);
@@ -125,13 +131,13 @@ function classifyTrack(item: RawLiveItem): TrackId {
     return 'apac_tech';
   }
 
-  // 3. 美股与美元宏观
+  // 3. 中国国内要闻与社会治理 (财政部、特别国债、地方化债、金融央企注资等优先匹配国内)
   if (
-    /美联储|鲍威尔|标普|纳斯达克|道琼斯|美债|国债|收益率|非农|cpi|pce|通胀|降息|加息|基准利率|初请|失业金|美股|华尔街|摩根|高盛|期权|波动率/.test(
+    /特别国债|中国再保|进出口银行|中国信保|财政部|发改委|住建部|民政部|国资委|化债|地方债|城投|央行.*降准|央行.*逆回购|a股|上证|深证|创业板|北交所|房企|楼市|万科|保利|碧桂园|融创|恒大|中植|中融|信托|理财|违约|物流|西藏|吉隆|泥石流|公安|警方|案件|刑拘/.test(
       t
     )
   ) {
-    return 'us_macro';
+    return 'china_domestic';
   }
 
   // 4. 发达国家对华举措与博弈
@@ -139,13 +145,13 @@ function classifyTrack(item: RawLiveItem): TrackId {
     return 'china_policy';
   }
 
-  // 5. 中国国内要闻与社会治理
+  // 5. 美股与美元宏观 (精确匹配美债、美联储及美股市场，避免将国内特别国债误判)
   if (
-    /中国|国内|a股|上证|深证|创业板|北交所|央行|发改委|财政部|商务部|住建部|民政部|公安|警方|案件|撞人|持刀|伤人|刑拘|暴雷|房企|楼市|万科|保利|碧桂园|融创|恒大|中植|中融|信托|理财|违约|化债|地方债|物价|物流|大宗商品|西藏|吉隆|泥石流/.test(
+    /美联储|鲍威尔|标普|纳斯达克|道琼斯|美债|美国国债|10年期美债|2年期美债|美债收益率|非农|cpi|pce|通胀|初请|失业金|美股|华尔街|摩根|高盛|期权|波动率|美元指数/.test(
       t
     )
   ) {
-    return 'china_domestic';
+    return 'us_macro';
   }
 
   // 6. 全球宏观认知与深度要闻
@@ -446,8 +452,6 @@ export async function fetchAggregatedNews(): Promise<NewsItem[]> {
       global_cognition: [],
     };
 
-    const flashList: FlashBrief[] = [];
-
     for (const raw of rawItems) {
       const track = classifyTrack(raw);
       const enrichedTitle = enrichHeadline(raw.title, raw.content, track);
@@ -488,28 +492,41 @@ export async function fetchAggregatedNews(): Promise<NewsItem[]> {
       if (categorized[track].length < 8) {
         categorized[track].push(newsItem);
       }
+    }
 
-      if (flashList.length < 5) {
-        let tag = '宏观要闻';
-        if (track === 'us_macro') tag = '美股宏观';
-        else if (track === 'war_conflict') tag = '俄乌/美伊';
-        else if (track === 'apac_tech') tag = '算力/芯片';
-        else if (track === 'china_domestic') tag = '国内要闻';
-        else if (track === 'china_policy') tag = '涉外博弈';
+    // 聚合 5 大不同领域的顶级快讯，确保 5 张卡片严格分属 5 个不同赛道，告别单调重合
+    const targetTracks: TrackId[] = ['us_macro', 'apac_tech', 'war_conflict', 'china_domestic', 'global_cognition'];
+    const trackTagMap: Record<TrackId, string> = {
+      us_macro: '美股宏观',
+      apac_tech: '芯片算力',
+      war_conflict: '战局防务',
+      china_domestic: '国内要闻',
+      china_policy: '涉华博弈',
+      global_cognition: '全球战略',
+    };
 
+    const flashList: FlashBrief[] = [];
+    for (const trk of targetTracks) {
+      const candidate = categorized[trk][0];
+      if (candidate) {
         flashList.push({
-          id: `flash-${raw.id}`,
-          tag,
-          track,
-          content: enrichedTitle,
-          transmission: transmissionImpact,
-          impactLevel: isImportant ? 1 : 2,
-          time: raw.time,
-          source: raw.source,
-          sourceUrl: raw.url,
-          summaryParagraph,
-          summary5W1H,
+          id: `flash-${candidate.id}`,
+          tag: trackTagMap[trk] || '宏观要闻',
+          track: trk,
+          content: candidate.title,
+          transmission: candidate.transmissionImpact,
+          impactLevel: candidate.impactLevel,
+          time: candidate.publishedAt,
+          source: candidate.source,
+          sourceUrl: candidate.sourceUrl,
+          summaryParagraph: candidate.summaryParagraph,
+          summary5W1H: candidate.summary5W1H,
         });
+      } else {
+        const seedItem = SEED_FLASH_BRIEFS.find((s) => s.track === trk);
+        if (seedItem) {
+          flashList.push({ ...seedItem, tag: trackTagMap[trk] || seedItem.tag });
+        }
       }
     }
 
