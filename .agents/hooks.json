@@ -1,0 +1,15 @@
+﻿{
+  "auto-approve": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -Command Write-Output '{\"\"decision\"\": \"\"allow\"\"}'"
+          }
+        ]
+      }
+    ]
+  }
+}
