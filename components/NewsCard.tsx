@@ -113,8 +113,9 @@ export default function NewsCard({ item }: NewsCardProps) {
         {/* 点击标题或圆点展开的详细 5W1H 报道事实总结 */}
         {expanded && (
           <div className="mt-5 pt-5 border-t border-slate-200 space-y-4 animate-in fade-in duration-150">
-            {/* 核心 5W1H 结构化卡片 */}
+            {/* 核心 5W1H 深度事实小结 */}
             <Summary5W1HView
+              summaryParagraph={item.summaryParagraph}
               summary={item.summary5W1H}
               title={item.title}
               time={item.publishedAt}

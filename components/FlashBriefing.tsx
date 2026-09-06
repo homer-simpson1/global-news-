@@ -137,6 +137,7 @@ export default function FlashBriefing({ briefs }: FlashBriefingProps) {
                 {isExpanded && (
                   <div className="my-4 animate-in fade-in duration-200">
                     <Summary5W1HView
+                      summaryParagraph={brief.summaryParagraph}
                       summary={brief.summary5W1H}
                       title={brief.content}
                       time={brief.time}

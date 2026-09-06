@@ -29,6 +29,7 @@ export interface NewsItem {
   transmissionImpact: string;
   chinaPolicyAngle?: string;
   bulletPoints: string[];
+  summaryParagraph?: string; // 遵守 5W1H 原则的一段连贯深度小结
   summary5W1H?: Summary5W1H;
 }
 
@@ -42,6 +43,7 @@ export interface FlashBrief {
   time: string;
   source: string;
   sourceUrl?: string;
+  summaryParagraph?: string; // 遵守 5W1H 原则的一段连贯深度小结
   summary5W1H?: Summary5W1H;
 }
 

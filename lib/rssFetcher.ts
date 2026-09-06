@@ -414,6 +414,14 @@ function build5W1HSummary(
   };
 }
 
+function build5W1HParagraph(
+  summary: Summary5W1H,
+  title: string,
+  content: string
+): string {
+  return `${summary.when}，在${summary.where}，${summary.who}证实最新核心进展：${summary.what}。究其起因，主要是${summary.why}。该事件带来的直接后果是，${summary.consequence}`;
+}
+
 export async function fetchAggregatedNews(): Promise<NewsItem[]> {
   const now = Date.now();
   if (cachedNews && now - lastFetchTime < CACHE_TTL_MS) {
@@ -441,6 +449,7 @@ export async function fetchAggregatedNews(): Promise<NewsItem[]> {
       const track = classifyTrack(raw);
       const enrichedTitle = enrichHeadline(raw.title, raw.content, track);
       const summary5W1H = build5W1HSummary(enrichedTitle, raw.content, raw.time, raw.source, track);
+      const summaryParagraph = build5W1HParagraph(summary5W1H, enrichedTitle, raw.content);
       const oneLineTakeaway = raw.content.split(/[。！\n]/)[0].trim() || raw.title;
       const transmissionImpact = inferTransmission(track, enrichedTitle, raw.content);
       const bulletPoints = extractBulletPoints(raw.content, raw.source, raw.time);
@@ -469,6 +478,7 @@ export async function fetchAggregatedNews(): Promise<NewsItem[]> {
         oneLineTakeaway: oneLineTakeaway.length > 8 ? oneLineTakeaway + '。' : raw.title + '。',
         transmissionImpact,
         bulletPoints,
+        summaryParagraph,
         summary5W1H,
       };
 
@@ -494,6 +504,7 @@ export async function fetchAggregatedNews(): Promise<NewsItem[]> {
           time: raw.time,
           source: raw.source,
           sourceUrl: raw.url,
+          summaryParagraph,
           summary5W1H,
         });
       }
