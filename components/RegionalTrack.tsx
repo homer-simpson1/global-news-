@@ -1,11 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { NewsItem, TrackId } from '@/lib/types';
 import { TRACK_METADATA } from '@/data/seedData';
 import { TRACK_THEMES } from '@/lib/trackThemes';
 import NewsCard from './NewsCard';
-import { TrendingUp, Cpu, ShieldAlert, Globe, Flame, BookOpen } from 'lucide-react';
+import { TrendingUp, Cpu, ShieldAlert, Globe, Flame, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface RegionalTrackProps {
   trackId: TrackId;
@@ -13,6 +13,7 @@ interface RegionalTrackProps {
 }
 
 export default function RegionalTrack({ trackId, items }: RegionalTrackProps) {
+  const [showAll, setShowAll] = useState(false);
   const meta = TRACK_METADATA[trackId];
   const theme = TRACK_THEMES[trackId] || TRACK_THEMES.us_macro;
 
@@ -35,6 +36,9 @@ export default function RegionalTrack({ trackId, items }: RegionalTrackProps) {
         return <TrendingUp className={iconClass} />;
     }
   };
+
+  // 默认展示前3条核心报道，其余按需展开，消除冗长滚动疲劳
+  const visibleItems = showAll ? items : items.slice(0, 3);
 
   return (
     <section className="flex flex-col gap-5 mb-14">
@@ -67,15 +71,15 @@ export default function RegionalTrack({ trackId, items }: RegionalTrackProps) {
           <span
             className={`text-xs font-bold px-3.5 py-1.5 rounded-xl border ${theme.tagBadge} shadow-2xs`}
           >
-            {items.length} 篇实时深度追踪
+            共 {items.length} 篇深度追踪
           </span>
         </div>
       </div>
 
       {/* 新闻列表：头条与后续报道轻重有致，打破视觉疲劳 */}
       <div className="space-y-5">
-        {items.length > 0 ? (
-          items.map((item, index) => (
+        {visibleItems.length > 0 ? (
+          visibleItems.map((item, index) => (
             <NewsCard
               key={item.id}
               item={item}
@@ -86,6 +90,31 @@ export default function RegionalTrack({ trackId, items }: RegionalTrackProps) {
         ) : (
           <div className="p-10 text-center text-sm text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl bg-white">
             今日该板块暂无重大异常事件（智能过滤已生效）
+          </div>
+        )}
+
+        {/* 专区内容展开/收起按钮：让读者自由把控信息量，不再被迫看无穷长列表 */}
+        {items.length > 3 && (
+          <div className="flex justify-center pt-2">
+            <button
+              onClick={() => setShowAll(!showAll)}
+              className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                showAll
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+                  : `${theme.buttonIdle} shadow-xs`
+              }`}
+            >
+              <span>
+                {showAll
+                  ? `收起精选视角（已展开全部 ${items.length} 篇）`
+                  : `展开查看本专区全部 ${items.length} 篇深度追踪（还有 ${items.length - 3} 篇）`}
+              </span>
+              {showAll ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </button>
           </div>
         )}
       </div>
