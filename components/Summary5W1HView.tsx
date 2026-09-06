@@ -58,9 +58,9 @@ export default function Summary5W1HView({
         </span>
       </div>
 
-      {/* 核心需求：用户要求的一整段连贯总结，字号适中，行距舒适，黑字大排版 */}
-      <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
-        <p className="text-sm md:text-base text-slate-800 leading-relaxed tracking-normal text-justify font-normal indent-6">
+      {/* 核心需求：用户要求的一整段连贯总结，字号适中开阔，舒适松弛行距，黑字大排版 */}
+      <div className="p-5 md:p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <p className="text-base md:text-lg text-slate-800 leading-relaxed md:leading-loose tracking-wide text-justify font-normal indent-8">
           {paragraph}
         </p>
       </div>

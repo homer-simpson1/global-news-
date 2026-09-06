@@ -129,8 +129,8 @@ export default function Home() {
         countdownSeconds={countdownSeconds}
       />
 
-      {/* 主体大版面：最大宽度 5xl 居中，阅读通透大气 */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* 主体大版面：最大宽度 6xl 居中，阅读通透开阔，彻底消除拥挤挤压感 */}
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* 顶部：今日决策速递 5 大核心事件 */}
         <FlashBriefing briefs={flashBriefs} />
 
