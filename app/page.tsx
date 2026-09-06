@@ -106,13 +106,13 @@ export default function Home() {
   ];
 
   const trackTabs = [
-    { id: 'all', label: '全部核心专区' },
-    { id: 'us_macro', label: '美股与宏观' },
-    { id: 'apac_tech', label: '日韩台芯片' },
-    { id: 'war_conflict', label: '俄乌与美伊战局' },
-    { id: 'china_domestic', label: '国内要闻与暴雷' },
-    { id: 'china_policy', label: '发达国家对华' },
-    { id: 'global_cognition', label: '全球认知与顶刊' },
+    { id: 'all', label: '全部核心专区', activeClass: 'bg-slate-900 text-white ring-2 ring-slate-900/20', dotClass: 'bg-slate-400' },
+    { id: 'us_macro', label: '美股与宏观', activeClass: 'bg-blue-600 text-white shadow-blue-500/20 ring-2 ring-blue-400', dotClass: 'bg-blue-500' },
+    { id: 'apac_tech', label: '日韩台芯片', activeClass: 'bg-emerald-600 text-white shadow-emerald-500/20 ring-2 ring-emerald-400', dotClass: 'bg-emerald-500' },
+    { id: 'war_conflict', label: '俄乌与美伊战局', activeClass: 'bg-rose-600 text-white shadow-rose-500/20 ring-2 ring-rose-400', dotClass: 'bg-rose-500' },
+    { id: 'china_domestic', label: '国内要闻与治理', activeClass: 'bg-amber-600 text-white shadow-amber-500/20 ring-2 ring-amber-400', dotClass: 'bg-amber-500' },
+    { id: 'china_policy', label: '发达国家对华', activeClass: 'bg-indigo-600 text-white shadow-indigo-500/20 ring-2 ring-indigo-400', dotClass: 'bg-indigo-500' },
+    { id: 'global_cognition', label: '全球认知与顶刊', activeClass: 'bg-purple-600 text-white shadow-purple-500/20 ring-2 ring-purple-400', dotClass: 'bg-purple-500' },
   ];
 
   return (
@@ -137,19 +137,20 @@ export default function Home() {
         {/* 筛选与搜索控制栏 */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 mb-8 shadow-sm">
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-            {/* 赛道切换药丸按钮 */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 lg:pb-0 scrollbar-none">
+            {/* 赛道切换药丸按钮：各赛道专属色彩，告别单一黑灰色 */}
+            <div className="flex items-center gap-2.5 overflow-x-auto pb-2 lg:pb-0 scrollbar-none">
               {trackTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setSelectedTrack(tab.id)}
-                  className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
                     selectedTrack === tab.id
-                      ? 'bg-slate-900 text-white shadow-sm ring-2 ring-slate-900/20'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                      ? `${tab.activeClass} shadow-md`
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
                   }`}
                 >
-                  {tab.label}
+                  <span className={`w-2 h-2 rounded-full ${tab.dotClass}`} />
+                  <span>{tab.label}</span>
                 </button>
               ))}
             </div>
