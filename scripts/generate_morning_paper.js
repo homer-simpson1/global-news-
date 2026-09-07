@@ -49,17 +49,36 @@ async function buildNewspaper() {
     { tag: '资本治理', text: '燧原科技科创板IPO获机构高倍有效认购，全部为新股发行并获国家级战略基金配售。' }
   ];
 
-  // 跨市场实时行情整理
-  const tickerItems = [
+  // 跨市场实时行情整理（动态优先对接实时API行情）
+  let tickerItems = [
     { label: '日经225', val: '66,399.84', chg: '+2.12%', up: true },
     { label: '美股标普', val: '7,718.60', chg: '-0.38%', up: false },
     { label: '纳斯达克', val: '26,506.99', chg: '-0.29%', up: false },
     { label: '费城半导体', val: '11,735.26', chg: '+3.37%', up: true },
     { label: '美债10Y', val: '4.790%', chg: '+0.08%', up: true },
-    { label: 'WTI原油', val: '$91.45/桶', chg: '+1.4%', up: true },
-    { label: 'COMEX黄金', val: '$4,457.0/盎司', chg: '+0.6%', up: true },
-    { label: 'USD/CNH', val: '6.7089', chg: '-0.05%', up: false }
+    { label: 'WTI原油', val: '$92.49/桶', chg: '+1.10%', up: true },
+    { label: 'COMEX黄金', val: '$4,439.3/盎司', chg: '-0.83%', up: false },
+    { label: 'USD/CNH', val: '6.7092', chg: '+0.02%', up: true }
   ];
+
+  if (quotes && quotes.length > 0) {
+    const qMap = {};
+    quotes.forEach(q => { if (q && q.symbol) qMap[q.symbol] = q; });
+    const getQ = (sym, fallback) => {
+      const it = qMap[sym];
+      return it ? { val: it.price, chg: it.change, up: !!it.isUp } : fallback;
+    };
+    tickerItems = [
+      { label: '日经225', ...getQ('日经225', { val: '66,399.84', chg: '+2.12%', up: true }) },
+      { label: '美股标普', ...getQ('标普500', { val: '7,718.60', chg: '-0.38%', up: false }) },
+      { label: '纳斯达克', ...getQ('纳斯达克100', { val: '26,506.99', chg: '-0.29%', up: false }) },
+      { label: '费城半导体', ...getQ('费城半导体', { val: '11,735.26', chg: '+3.37%', up: true }) },
+      { label: '美债10Y', ...getQ('美债10年期', { val: '4.790%', chg: '+0.08%', up: true }) },
+      { label: 'WTI原油', ...getQ('国际原油', { val: '$92.49/桶', chg: '+1.10%', up: true }) },
+      { label: 'COMEX黄金', ...getQ('国际黄金', { val: '$4,439.3/盎司', chg: '-0.83%', up: false }) },
+      { label: 'USD/CNH', ...getQ('离岸人民币', { val: '6.7092', chg: '+0.02%', up: true }) }
+    ];
+  }
 
   const today = new Date();
   const dateStr = today.getFullYear() + '年' + (today.getMonth() + 1) + '月' + today.getDate() + '日 · 晨间 08:00 焦点头条特刊';
