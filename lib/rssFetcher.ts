@@ -9,7 +9,7 @@ let lastQuotesFetchTime = 0;
 
 // 严格按要求：半小时（30分钟）缓存与刷新周期
 const CACHE_TTL_MS = 30 * 60 * 1000;
-const QUOTES_TTL_MS = 60 * 1000; // 行情 1 分钟动态刷新
+const QUOTES_TTL_MS = 20 * 1000; // 行情 20 秒动态刷新 (实时行情，0 Token)
 
 interface RawLiveItem {
   id: string;

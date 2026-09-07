@@ -77,6 +77,26 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
+  // 专属「实时全球行情」高频静默刷新（每 30 秒自动拉取最新实时金融行情，0 Token 纯数据接口）
+  useEffect(() => {
+    const updateTicker = async () => {
+      try {
+        const res = await fetch('/api/ticker');
+        if (res.ok) {
+          const d = await res.json();
+          if (d?.success && d.data?.quotes) {
+            setQuotes(d.data.quotes);
+          }
+        }
+      } catch (err) {
+        // 静默捕获，不打扰主视图
+      }
+    };
+
+    const tickerInterval = setInterval(updateTicker, 30 * 1000);
+    return () => clearInterval(tickerInterval);
+  }, []);
+
   // 筛选与搜索过滤
   const filteredNews = news.filter((item) => {
     if (selectedTrack !== 'all' && item.track !== selectedTrack) {
