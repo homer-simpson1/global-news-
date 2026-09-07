@@ -69,6 +69,25 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
               {item.source}
             </span>
 
+            {/* 多源交叉印证 / 官方通报 / 辟谣警示 徽章 */}
+            {item.hasClarification ? (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                ⚠️ 官方澄清
+              </span>
+            ) : item.verificationLevel === 'OFFICIAL_DECREE' ? (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 border border-blue-200 flex items-center gap-1" title="主权官方部委/央行权威公报">
+                🏛️ 官方通报
+              </span>
+            ) : item.verificationLevel === 'CROSS_VERIFIED' ? (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1" title={`已在 ${item.crossSourceCount || 2} 个独立电讯渠道交叉印证`}>
+                ✓ 多源印证 ({item.crossSourceCount || 2}源)
+              </span>
+            ) : (
+              <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 border border-slate-200" title="实时一手电讯直发">
+                ⚡ 一手速递
+              </span>
+            )}
+
             <span className="text-xs text-slate-500 font-mono">
               {item.publishedAt}
             </span>
@@ -152,6 +171,9 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
               title={cleanTitle}
               time={item.publishedAt}
               source={item.source}
+              verificationBadge={item.verificationBadge}
+              hasClarification={item.hasClarification}
+              clarificationNote={item.clarificationNote}
             />
 
             {/* 事实细节备查 */}

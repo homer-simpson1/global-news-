@@ -31,6 +31,11 @@ export interface NewsItem {
   bulletPoints: string[];
   summaryParagraph?: string; // 遵守 5W1H 原则的一段连贯深度小结
   summary5W1H?: Summary5W1H;
+  verificationLevel?: 'CROSS_VERIFIED' | 'OFFICIAL_DECREE' | 'SINGLE_SOURCE_FAST';
+  verificationBadge?: string;
+  crossSourceCount?: number;
+  hasClarification?: boolean;
+  clarificationNote?: string;
 }
 
 export interface FlashBrief {
@@ -45,6 +50,11 @@ export interface FlashBrief {
   sourceUrl?: string;
   summaryParagraph?: string; // 遵守 5W1H 原则的一段连贯深度小结
   summary5W1H?: Summary5W1H;
+  verificationLevel?: 'CROSS_VERIFIED' | 'OFFICIAL_DECREE' | 'SINGLE_SOURCE_FAST';
+  verificationBadge?: string;
+  crossSourceCount?: number;
+  hasClarification?: boolean;
+  clarificationNote?: string;
 }
 
 export interface MarketQuote {

@@ -642,6 +642,89 @@ function build5W1HParagraph(
   return `${summary.when}，在${summary.where}，${summary.who}证实最新核心进展：${cleanWhat}。究其起因，主要是${cleanWhy}。该事件带来的直接后果是，${cleanConsequence}。`;
 }
 
+
+export interface CrossVerificationResult {
+  verificationLevel: 'CROSS_VERIFIED' | 'OFFICIAL_DECREE' | 'SINGLE_SOURCE_FAST';
+  verificationBadge: string;
+  crossSourceCount: number;
+  hasClarification: boolean;
+  clarificationNote?: string;
+}
+
+// 多源交叉印证与辟谣嗅探引擎：
+// 1. 扫描电讯是否包含“辟谣/澄清/否认/不实”
+// 2. 判断是否为国家部委/央行/主权机构官方公报
+// 3. 在多通道（WSCN、新浪、东方财富）全量原始电讯中比对实体关键词，识别是否为 2+ 通道交叉印证
+export function evaluateCrossVerification(
+  item: RawLiveItem,
+  allRawItems: RawLiveItem[],
+  primarySource: PrimarySourceInfo
+): CrossVerificationResult {
+  const combined = (item.title + ' ' + item.content).toLowerCase();
+
+  // 1. 辟谣与澄清嗅探
+  const isClarification = /辟谣|澄清|不实|假消息|纯属谣言|答记者问否认|并未表示|并非如此|与事实不符|绝无此事/.test(combined);
+  if (isClarification) {
+    return {
+      verificationLevel: 'SINGLE_SOURCE_FAST',
+      verificationBadge: '⚠️ 官方澄清/辟谣',
+      crossSourceCount: 1,
+      hasClarification: true,
+      clarificationNote: '该条电讯包含对市场前期传闻或不实消息的官方正式澄清与否认。',
+    };
+  }
+
+  // 2. 主权部委/央行/官方公报直发（最高可信度）
+  const isOfficial = /财政部|交通运输部|发改委|商务部|住建部|民政部|应急管理部|人民银行|央行|美联储|国防部|国资委|外汇局|证监会|公报/.test(primarySource.source);
+  if (isOfficial) {
+    return {
+      verificationLevel: 'OFFICIAL_DECREE',
+      verificationBadge: '🏛️ 官方通报',
+      crossSourceCount: 1,
+      hasClarification: false,
+    };
+  }
+
+  // 3. 多通道交叉互证比对（WSCN、SINA、EASTMONEY）
+  const cleanTitle = item.title.replace(/^【.*?】\s*/, '');
+  const keywords = cleanTitle
+    .split(/[\s，,：:、。]/)
+    .map(w => w.trim())
+    .filter(w => w.length >= 3 && !/公司|表示|宣布|今日|进行|目前|已经|将于|相关|亿元|同比|环比|举行|召开|根据|表示/.test(w));
+
+  const platforms = new Set<string>();
+  if (item.id.startsWith('wscn')) platforms.add('WSCN');
+  else if (item.id.startsWith('sina')) platforms.add('SINA');
+  else if (item.id.startsWith('em')) platforms.add('EASTMONEY');
+
+  for (const other of allRawItems) {
+    if (other.id === item.id) continue;
+    const otherText = (other.title + ' ' + other.content).toLowerCase();
+    const hit = keywords.some(k => otherText.includes(k.toLowerCase()));
+    if (hit) {
+      if (other.id.startsWith('wscn')) platforms.add('WSCN');
+      else if (other.id.startsWith('sina')) platforms.add('SINA');
+      else if (other.id.startsWith('em')) platforms.add('EASTMONEY');
+    }
+  }
+
+  if (platforms.size >= 2) {
+    return {
+      verificationLevel: 'CROSS_VERIFIED',
+      verificationBadge: `✓ 多源印证 (${platforms.size}源)`,
+      crossSourceCount: platforms.size,
+      hasClarification: false,
+    };
+  }
+
+  return {
+    verificationLevel: 'SINGLE_SOURCE_FAST',
+    verificationBadge: '⚡ 一手速递',
+    crossSourceCount: 1,
+    hasClarification: false,
+  };
+}
+
 export async function fetchAggregatedNews(): Promise<NewsItem[]> {
   const now = Date.now();
   if (cachedNews && now - lastFetchTime < CACHE_TTL_MS) {
@@ -686,6 +769,8 @@ export async function fetchAggregatedNews(): Promise<NewsItem[]> {
         raw.title.includes('暴雷') ||
         raw.title.includes('突发');
 
+      const cross = evaluateCrossVerification(raw, rawItems, primary);
+
       const newsItem: NewsItem = {
         id: raw.id,
         track,
@@ -699,6 +784,11 @@ export async function fetchAggregatedNews(): Promise<NewsItem[]> {
         bulletPoints,
         summaryParagraph,
         summary5W1H,
+        verificationLevel: cross.verificationLevel,
+        verificationBadge: cross.verificationBadge,
+        crossSourceCount: cross.crossSourceCount,
+        hasClarification: cross.hasClarification,
+        clarificationNote: cross.clarificationNote,
       };
 
       if (categorized[track].length < 8) {
@@ -733,6 +823,11 @@ export async function fetchAggregatedNews(): Promise<NewsItem[]> {
           sourceUrl: candidate.sourceUrl,
           summaryParagraph: candidate.summaryParagraph,
           summary5W1H: candidate.summary5W1H,
+          verificationLevel: candidate.verificationLevel,
+          verificationBadge: candidate.verificationBadge,
+          crossSourceCount: candidate.crossSourceCount,
+          hasClarification: candidate.hasClarification,
+          clarificationNote: candidate.clarificationNote,
         });
       } else {
         const seedItem = SEED_FLASH_BRIEFS.find((s) => s.track === trk);

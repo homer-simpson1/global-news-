@@ -10,6 +10,9 @@ interface Summary5W1HViewProps {
   title?: string;
   time?: string;
   source?: string;
+  verificationBadge?: string;
+  hasClarification?: boolean;
+  clarificationNote?: string;
 }
 
 export default function Summary5W1HView({
@@ -18,6 +21,9 @@ export default function Summary5W1HView({
   title,
   time,
   source,
+  verificationBadge,
+  hasClarification,
+  clarificationNote,
 }: Summary5W1HViewProps) {
   // 1. 如果已有预生成的 5W1H 一段总结，直接使用
   let paragraph = summaryParagraph;
@@ -58,6 +64,17 @@ export default function Summary5W1HView({
         </span>
       </div>
 
+      {/* 辟谣与澄清反向警示条 */}
+      {hasClarification && (
+        <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-xs md:text-sm text-amber-900 shadow-sm">
+          <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="leading-relaxed">
+            <span className="font-bold text-amber-800 mr-1.5">官方辟谣/澄清特别提示：</span>
+            <span>{clarificationNote || '该事实存在官方最新澄清或辟谣修正，请重点结合后续通报研判。'}</span>
+          </div>
+        </div>
+      )}
+
       {/* 核心需求：用户要求的一整段连贯总结，字号适中开阔，舒适松弛行距，黑字大排版 */}
       <div className="p-5 md:p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
         <p className="text-base md:text-lg text-slate-800 leading-relaxed md:leading-loose tracking-wide text-justify font-normal indent-8">
@@ -76,9 +93,16 @@ export default function Summary5W1HView({
         </div>
       )}
 
-      {/* 底部信源时间脚标 */}
+      {/* 底部信源时间脚标与多源印证状态 */}
       <div className="text-[11px] text-slate-500 font-mono flex items-center justify-between pt-1">
-        <span>信源出处：{source || '权威电讯直发'}</span>
+        <div className="flex items-center gap-2">
+          <span>信源出处：{source || '权威电讯直发'}</span>
+          {verificationBadge && (
+            <span className="px-1.5 py-0.5 rounded bg-slate-200/80 text-slate-700 font-sans font-semibold">
+              {verificationBadge}
+            </span>
+          )}
+        </div>
         {time && <span>记录时间：{time}</span>}
       </div>
     </div>

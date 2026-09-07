@@ -110,6 +110,25 @@ export default function FlashBriefing({ briefs }: FlashBriefingProps) {
                       {brief.source}
                     </span>
 
+                    {/* 多源交叉印证 / 官方通报 / 辟谣警示 徽章 */}
+                    {brief.hasClarification ? (
+                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                        ⚠️ 官方澄清
+                      </span>
+                    ) : brief.verificationLevel === 'OFFICIAL_DECREE' ? (
+                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-200" title="国家部委/官方公报直发">
+                        🏛️ 官方通报
+                      </span>
+                    ) : brief.verificationLevel === 'CROSS_VERIFIED' ? (
+                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300" title={`已在 ${brief.crossSourceCount || 2} 个独立电讯渠道交叉印证`}>
+                        ✓ 多源印证 ({brief.crossSourceCount || 2}源)
+                      </span>
+                    ) : (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                        ⚡ 一手速递
+                      </span>
+                    )}
+
                     <span className="text-xs font-mono text-slate-400">
                       {brief.time}
                     </span>
@@ -161,6 +180,9 @@ export default function FlashBriefing({ briefs }: FlashBriefingProps) {
                       title={parsed.title}
                       time={brief.time}
                       source={brief.source}
+                      verificationBadge={brief.verificationBadge}
+                      hasClarification={brief.hasClarification}
+                      clarificationNote={brief.clarificationNote}
                     />
 
                     {brief.sourceUrl && (
