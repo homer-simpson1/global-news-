@@ -2,6 +2,15 @@ const fs = require('fs');
 const path = require('path');
 const { buildNewspaper } = require('./generate_morning_paper');
 
+// 若在 Windows 本地运行且检测到 Clash/本地代理，自动挂载 Dispatcher
+if (process.platform === 'win32') {
+  try {
+    const { ProxyAgent, setGlobalDispatcher } = require('undici');
+    const proxyUrl = process.env.https_proxy || process.env.http_proxy || 'http://127.0.0.1:7897';
+    setGlobalDispatcher(new ProxyAgent(proxyUrl));
+  } catch (e) {}
+}
+
 // 读取 Webhook 配置
 function getWebhookUrl() {
   // 1. 命令行参数
