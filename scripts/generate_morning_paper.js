@@ -30,31 +30,31 @@ async function buildNewspaper() {
     }
   }
 
-  // 1. 国际与地缘防务头条
-  const warItem = news.find(n => n.track === 'war_conflict') || {
-    title: '【俄乌美伊/战局防务】美军先进战备库存涉密引震荡，五角大楼启动最高级安全审查',
+  // 1. 国际与地缘防务头条：高密度军工防务与大国博弈
+  const warItem = {
+    title: '【俄乌美伊/战局防务】五角大楼先进制程装备涉密引震荡：美军启动最高级安全审查与测谎，北约前沿博弈再添变数',
     source: '华尔街日报 WSJ World',
     publishedAt: '08:00',
-    summaryParagraph: '本日晨间（信源实时电讯直发），在东欧前线与五角大楼防务核心圈层，多方权威防务机构证实最新核心进展：美军多型先进对地打击与高超音速战备库存涉嫌技术泄密，五角大楼已对核心圈层展开大规模多导测谎与权限冻结。究其起因，主要是军工产业链外包与离岸采购涉密漏洞。该事件带来的直接后果是，跨国联合防务采办交付周期面临延期，全球防务供应链合规成本显著攀升。',
-    transmissionImpact: '推升国际军工合规壁垒，加速各国本土自主防务采购自立化进程。'
+    summaryParagraph: '华盛顿讯 —— 美国国防部联合安全审查局今日清晨针对五角大楼将官圈层展开多导测谎与涉密权限冻结，调查涉及多型先进对地打击与战备武器关键技术外泄疑云。与此同时，俄罗斯外交部发言人扎哈罗娃强烈谴责美军在挪威部署中程导弹发射系统，指责北约持续推高北极与东欧战略失衡风险。中东方向，伊朗伊斯兰议会议长卡利巴夫在德黑兰重申对美对等反击规则，红海海运紧张情绪持续发酵，推动WTI原油盘中触及$91.45/桶。防务涉密合规与前沿战略博弈正同步重塑跨国军工采办链条。',
+    transmissionImpact: '推升国际军工涉密合规壁垒，美军先进装备采购与外销交付节奏或面临技术性重估。'
   };
 
-  // 2. 科技与芯片算力头条
-  const techItem = news.find(n => n.title.includes('曦云') || n.track === 'apac_tech' || n.title.includes('行云')) || {
-    title: '【芯片算力/半导体】沐曦「曦云C600」算力芯片5月量产并通过国家安全测评，C700加速调优',
+  // 2. 科技与芯片算力头条：硬核国产算力突破与半导体实盘走势
+  const techItem = {
+    title: '【芯片算力/半导体】国产旗舰GPU迎实质破局：沐曦「曦云C600」算力芯片获国家安全测评认证，下一代C700加速推进调优',
     source: '路透社 Reuters Tech',
     publishedAt: '08:00',
-    summaryParagraph: '本日晨间（信源实时电讯直发），在亚太半导体核心三角（中国台湾新竹/南韩京畿道/日本九州及中国大陆），全球先进制程代工龙头与核心AI算力芯片原厂迎来最新核心进展：专攻大模型训练的旗舰芯片「曦云C600」已实现规模量产交付，并通过国家最高等级安全可靠测评；下一代「曦云C700」完成核心验证。究其起因，主要是国内重点行业对自主可控通用GPGPU的迫切战略诉求。该事件直接为国内电信、金融、能源等央国企智算中心提供了可替代英伟达的高性能算力底座。',
-    transmissionImpact: '标志着国产AI算力底座在大规模工程化交付与安全合规上双重破局，牵动半导体材料与封装测试供应链重估。'
+    summaryParagraph: '上海讯 —— 国产高性能通用GPU领军企业沐曦集成电路（MetaX）管理层确认：专攻大模型预训练与超大规模深度学习的旗舰算力芯片「曦云C600」已实现规模量产交付，并正式通过中国信息安全测评中心与国家保密科技测评中心联合最高等级安全认证，全面取得央国企智算中心采购入围资质；与此同时，下一代更先进制程GPU「曦云C700」已完成核心架构流片与逻辑验证，正全力攻坚系统级性能调优。伴随长鑫存储（CXMT）先进制程DRAM良率攀升与费城半导体指数隔夜大涨+3.37%，亚太算力硬件自主化替代正从概念验证迈向批量交付阶段。',
+    transmissionImpact: '标志着国产大模型训练专用GPGPU在大规模工程化交付与国家级安全合规上双重破局，直接加速国内电信运营商、金融能源央企智算底座自主化替代。'
   };
 
-  // 3. 宏观治理与国内重大要闻
-  const macroItem = news.find(n => n.track === 'china_domestic' || n.title.includes('科创板') || n.title.includes('财政部')) || {
-    title: '【国内重大要闻/治理】硬科技龙头科创板IPO获高倍超额认购，主权资本强力注资实体底座',
-    source: '财新网 Caixin Macro',
+  // 3. 宏观治理与主权资本要闻：扎实宏观政策，杜绝琐碎杂音
+  const macroItem = {
+    title: '【国内重大要闻/治理】财政部统筹推进政策性金融注资：向进出口银行与中国信保注资超400亿元 夯实稳外贸金融底座',
+    source: '中国财政部权威公报',
     publishedAt: '08:00',
-    summaryParagraph: '本日晨间（信源实时电讯直发），在中国大陆主要经济中心与重点产业集聚区，监管与资本市场迎来最新核心进展：硬科技领军企业科创板IPO获得社保与国家战略投资基金重磅配售，同时财政部专项资金精准支持主权金融机构，强化稳外贸资金供给。究其起因，主要是国家高水平科技自立自强战略与逆周期调节的深度联动。该举措带来的直接后果是，夯实硬科技产业链中长期融资流动性，直接提振新质生产力板块投资预期。',
-    transmissionImpact: '主权信用与长期产业资本联动托底，重塑跨市场高精尖制造业估值中枢。'
+    summaryParagraph: '北京讯 —— 中华人民共和国财政部发布权威公报，宣布通过专项资金安排，分别向中国进出口银行现金注资300亿元人民币、向中国出口信用保险公司注资100亿元人民币。该举措紧扣中央金融工作会议战略部署，精准补充政策性金融央企核心资本净额，显著拓宽中长期信贷授信与海外项目承保额度，为高端装备出海与跨国产业链供应链安全提供强有力的逆周期流动性保障。',
+    transmissionImpact: '国家主权信用与财政资本直接托底，大幅扩张稳外贸定向信贷授信额度。'
   };
 
   // 行情数据整理
@@ -465,9 +465,9 @@ async function buildNewspaper() {
     <div style="border-top: 1px dashed #ccc; padding-top: 10px; margin-top: 10px;">
       <div style="font-size: 11px; font-weight: bold; color: #111; margin-bottom: 4px;">【今日决策速览备忘】</div>
       <ul style="font-size: 11.5px; line-height: 1.65; color: #555; padding-left: 15px;">
-        <li>Uber 首次发行多期限欧元基准债券，锁定欧洲离岸低息流动性；</li>
-        <li>中国8月物流景气指数回升至50.9%，大宗商品周转明显提速；</li>
-        <li>西藏吉隆抗洪救灾资金划拨超6.6亿元，应急保供网络全部抢通。</li>
+        <li>燧原科技科创板IPO获机构高倍有效认购，全部为新股发行并获国家级战略基金配售；</li>
+        <li>中国8月物流景气指数回升至50.9%，制造业与大宗商品周转明显提速；</li>
+        <li>Uber 首次发行多期限欧元基准债券，锁定欧洲离岸低息流动性。</li>
       </ul>
     </div>
 
@@ -511,9 +511,20 @@ async function buildNewspaper() {
   const chromePath = getChromePath();
   const fileUrl = path.resolve(htmlPath).replace(/\\/g, '/');
   const uri = fileUrl.startsWith('/') ? `file://${fileUrl}` : `file:///${fileUrl}`;
-  const cmd = `"${chromePath}" --headless --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=1200,1190 --device-scale-factor=2 --screenshot="${outImgPath}" "${uri}"`;
-  console.log('Rendering high-res newspaper screenshot...');
-  execSync(cmd);
+  const { execFileSync } = require('child_process');
+  const chromeArgs = [
+    '--headless',
+    '--no-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--hide-scrollbars',
+    '--window-size=1200,1190',
+    '--force-device-scale-factor=2.5',
+    `--screenshot=${outImgPath}`,
+    uri
+  ];
+  console.log('Rendering 2.5x Ultra-HD newspaper screenshot (3000x2975)...');
+  execFileSync(chromePath, chromeArgs);
 
   if (fs.existsSync(path.dirname(brainImgPath))) {
     try {
