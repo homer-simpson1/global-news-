@@ -8,7 +8,7 @@ export function extractSearchKeywords(rawTitle: string, source?: string): string
 
   // 2. 去除琐碎时间前缀与电讯格式套话
   clean = clean
-    .replace(/^本日\s*\d{1,2}:\d{2}\s*（[^）]+）\s*，?\s*/, '')
+    .replace(/^(?:本日|今日|\d{1,2}月\d{1,2}日)?\s*\d{1,2}:\d{2}(?:\s*（[^）]+）)?\s*，?\s*/, '')
     .replace(/^.*?讯\s*——\s*/, '')
     .replace(/（[^）]*?(?:快讯|直发|电讯|通报|原创)[^）]*?）/g, '')
     .trim();

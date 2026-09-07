@@ -21,6 +21,58 @@ interface RawLiveItem {
   url: string;
 }
 
+export function formatIntelDateTime(val: any): string {
+  if (!val) return '最新电讯';
+
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (/^\d{1,2}月\d{1,2}日\s+\d{1,2}:\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+    const match = trimmed.match(/(?:(\d{4})[-/])?(\d{1,2})[-/](\d{1,2})(?:[T\s]+(\d{1,2}:\d{2}))?/);
+    if (match) {
+      const month = parseInt(match[2], 10);
+      const day = parseInt(match[3], 10);
+      const hm = match[4] || '00:00';
+      return `${month}月${day}日 ${hm}`;
+    }
+    if (/^\d{10,13}$/.test(trimmed)) {
+      val = parseInt(trimmed, 10);
+    }
+  }
+
+  let d: Date | null = null;
+  if (typeof val === 'number') {
+    d = new Date(val * (val < 1e11 ? 1000 : 1));
+  } else if (val instanceof Date) {
+    d = val;
+  }
+
+  if (d && !isNaN(d.getTime())) {
+    try {
+      const formatter = new Intl.DateTimeFormat('zh-CN', {
+        timeZone: 'Asia/Shanghai',
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+      const parts = formatter.formatToParts(d);
+      const partMap: Record<string, string> = {};
+      parts.forEach((p) => {
+        partMap[p.type] = p.value;
+      });
+      return `${partMap.month}月${partMap.day}日 ${partMap.hour}:${partMap.minute}`;
+    } catch {
+      const beijingTime = new Date(d.getTime() + (d.getTimezoneOffset() + 480) * 60000);
+      return `${beijingTime.getMonth() + 1}月${beijingTime.getDate()}日 ${String(beijingTime.getHours()).padStart(2, '0')}:${String(beijingTime.getMinutes()).padStart(2, '0')}`;
+    }
+  }
+
+  return String(val);
+}
+
 function generateIntelId(seed: string | number): string {
   let h = 0;
   const str = String(seed);
@@ -81,9 +133,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
         const text = (raw.content_text || '').trim();
         if (!text) continue;
         const title = (raw.title || text.split('\n')[0].replace(/【.*?】/, '')).trim().slice(0, 70);
-        const time = raw.display_time
-          ? new Date(raw.display_time * 1000).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-          : '刚刚';
+        const time = formatIntelDateTime(raw.display_time);
 
         items.push({
           id: generateIntelId(`ALPHA_${raw.id}`),
@@ -104,7 +154,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
         if (!clean) continue;
         const titleMatch = clean.match(/【(.*?)】/);
         const title = titleMatch ? titleMatch[1] : clean.slice(0, 60);
-        const time = raw.create_time ? raw.create_time.slice(11, 16) : '刚刚';
+        const time = formatIntelDateTime(raw.create_time);
 
         items.push({
           id: generateIntelId(`BETA_${raw.id}`),
@@ -125,7 +175,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
         if (!text) continue;
         const titleMatch = text.match(/【(.*?)】/);
         const title = (raw.title || (titleMatch ? titleMatch[1] : text.slice(0, 60))).trim();
-        const time = raw.showtime ? raw.showtime.slice(11, 16) : '刚刚';
+        const time = formatIntelDateTime(raw.showtime);
 
         items.push({
           id: generateIntelId(`GAMMA_${raw.id || raw.newsid || Math.random()}`),
@@ -470,9 +520,18 @@ function build5W1HSummary(
   const cleanTitle = title.replace(/^【.*?】\s*/, '').trim();
   const t = (cleanTitle + ' ' + content).toLowerCase();
 
+  // 1. 识别新闻是否具有滞后性（正文中包含特定历史日期，如“当地时间9月4日”、“周五（9月4日）”、“9月5日晚”）
+  const eventDateMatch = content.match(/(?:当地时间)?(?:周[一二三四五六日]|本周[一二三四五六日])?[（(]?([0-9]{1,2}月[0-9]{1,2}日|[0-9]{1,2}月[0-9]{1,2}号|[0-9]{1,2}日[上下]午|[0-9]{1,2}日晚)[)）]?/);
+  const eventDate = eventDateMatch ? eventDateMatch[0].replace(/[（）()]/g, '') : '';
+
   let who = '相关决策机构与受影响各方';
   let what = cleanTitle;
-  let when = time ? `本日 ${time}（实时电讯直发）` : '最新实时发布';
+  let when = time || '最新权威电讯';
+  if (eventDate && !when.includes(eventDate)) {
+    when = `${when}（事件发生于${eventDate}）`;
+  } else {
+    when = `${when}（实时电讯直发）`;
+  }
   let where = '全球重点经贸与地缘坐标区域';
   let why = '宏观经济运行规律与地缘博弈格局演变引发的即时反应';
   let consequence = '关联宏观流动性与产业供求变化，直接影响资产定价与决策传导。';
@@ -604,7 +663,7 @@ function build5W1HSummary(
   if (sents.length > 0) {
     let cleanLead = sents[0]
       .replace(/^.*?（.*?）/, '')
-      .replace(/^.*?[0-9]+月[0-9]+日[，,]/, '')
+      .replace(/^.*?(?:快讯|直发|电讯)[：:，,]/, '')
       .trim();
     if (cleanLead.length >= 15) {
       what = cleanLead;

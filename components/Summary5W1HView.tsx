@@ -30,20 +30,20 @@ export default function Summary5W1HView({
 
   // 2. 如果只有结构化的 summary，自动融合成一段连贯通顺的 5W1H 叙述段落
   if (!paragraph && summary) {
-    const when = summary.when || (time ? `本日 ${time}` : '今日');
+    const when = summary.when || (time ? `${time}` : '权威电讯通报');
     const where = summary.where || '涉事相关区域';
     const who = summary.who || '相关核心主体';
     const cleanWhat = (summary.what || (title ? title.replace(/^【.*?】\s*/, '') : '发布最新核心进展')).trim().replace(/[。！!.]+$/, '');
     const cleanWhy = (summary.why || '相关宏观环境与地缘格局变动驱动').trim().replace(/[。！!.]+$/, '');
     const cleanConsequence = (summary.consequence || '对市场资产与决策带来后续连锁传导').trim().replace(/[。！!.]+$/, '');
 
-    paragraph = `${when}，在${where}，${who}证实最新核心进展：${cleanWhat}。究其起因，主要是${cleanWhy}。该事件带来的直接后果是，${cleanConsequence}。`;
+    paragraph = `据${when}，在${where}，${who}证实最新核心进展：${cleanWhat}。究其起因，主要是${cleanWhy}。该事件带来的直接后果是，${cleanConsequence}。`;
   }
 
   // 3. 保底段落生成（确保永远有一段通顺的 5W1H 总结）
   if (!paragraph) {
     const cleanTitle = (title || '最新重大事件').replace(/^【.*?】\s*/, '');
-    paragraph = `${time ? `本日 ${time}，` : ''}官方电讯核实通报最新事实：${cleanTitle}。该事件体现了当前宏观与微观基本面的最新异动，直接影响后续市场预期与战略决策走向。`;
+    paragraph = `据${time ? `${time}` : '权威电讯'}核实通报：${cleanTitle}。该事件体现了当前宏观与微观基本面的最新异动，直接影响后续市场预期与战略决策走向。`;
   }
 
   // 提取核心后果一句话提示（用于在段落下方醒目强调）
