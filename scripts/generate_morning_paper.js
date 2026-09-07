@@ -9,7 +9,7 @@ async function buildNewspaper() {
   const endpoints = [
     process.env.API_BASE_URL,
     'http://127.0.0.1:3000',
-    'https://celebrated-custard-0fe903.netlify.app'
+    'https://global-news-8lp.pages.dev'
   ].filter(Boolean);
 
   for (const base of endpoints) {
@@ -485,7 +485,7 @@ async function buildNewspaper() {
     [ 🛡️ 15分钟全要素核验 · 100% 权威交叉印证 ]
   </div>
   <div>
-    终端直达：celebrated-custard-0fe903.netlify.app
+    终端直达：global-news-8lp.pages.dev
   </div>
 </div>
 

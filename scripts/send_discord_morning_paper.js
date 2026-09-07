@@ -64,7 +64,7 @@ async function sendMorningPaperToDiscord() {
 
   const formData = new FormData();
   formData.append('payload_json', JSON.stringify({
-    content: '☀️ **全球决策晨报 · 早间 08:00 权威核验特刊**\n> 跨市场实时行情 · 芯片算力 · 地缘博弈 · 冷眼观察\n> 15分钟全要素交叉核验 · 100% 权威交叉印证\n> 终端直达: https://celebrated-custard-0fe903.netlify.app'
+    content: '☀️ **全球决策晨报 · 早间 08:00 权威核验特刊**\n> 跨市场实时行情 · 芯片算力 · 地缘博弈 · 冷眼观察\n> 15分钟全要素交叉核验 · 100% 权威交叉印证\n> 终端直达: https://global-news-8lp.pages.dev'
   }));
   formData.append('files[0]', blob, 'morning_paper.png');
 
