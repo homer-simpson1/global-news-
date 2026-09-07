@@ -196,16 +196,26 @@ export default function Home() {
         {/* 顶部：今日决策速递 5 大核心事件 */}
         <FlashBriefing briefs={flashBriefs} />
 
-        {/* 筛选与搜索控制栏 */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 mb-8 shadow-sm">
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-            {/* 赛道切换药丸按钮：各赛道专属鲜明色彩，高度严格对齐为 h-10 (40px) */}
-            <div className="flex items-center gap-2.5 overflow-x-auto pb-2 lg:pb-0 scrollbar-none">
+        {/* 筛选与搜索控制栏：双层开阔布局，彻底消除横向遮挡与高低错位 */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 mb-8 shadow-sm space-y-4">
+          {/* 第一层：7 大核心专区赛道（自适应换行，彻底杜绝任何文字遮挡与截断） */}
+          <div>
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs font-bold text-slate-500 tracking-wider uppercase flex items-center gap-1.5">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-600" />
+                <span>情报专区切换</span>
+              </span>
+              <span className="text-[11px] text-slate-400 hidden sm:inline">
+                当前专区：{trackTabs.find((t) => t.id === selectedTrack)?.label} · 共 {filteredNews.length} 篇深度追踪
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
               {trackTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setSelectedTrack(tab.id)}
-                  className={`h-10 inline-flex items-center gap-2 px-4 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer border ${
+                  className={`h-10 inline-flex items-center gap-2 px-3.5 sm:px-4 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer border shadow-xs ${
                     selectedTrack === tab.id ? tab.activeClass : tab.idleClass
                   }`}
                 >
@@ -218,9 +228,12 @@ export default function Home() {
                 </button>
               ))}
             </div>
+          </div>
 
-            {/* 右侧：仅看重大与搜索，高度统一对齐为 h-10 */}
-            <div className="flex items-center gap-3 w-full lg:w-auto">
+          {/* 第二层：过滤工具与搜索框（底边严格对齐，高度统一为 h-10） */}
+          <div className="border-t border-slate-100 pt-3.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            {/* 仅看重大关注开关 */}
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => setOnlyLevel1(!onlyLevel1)}
                 className={`h-10 inline-flex items-center gap-2 px-4 rounded-xl text-xs sm:text-sm font-bold border transition-all cursor-pointer whitespace-nowrap shadow-xs ${
@@ -237,16 +250,21 @@ export default function Home() {
                 <span>仅看重大关注</span>
               </button>
 
-              <div className="relative flex-1 lg:w-60 h-10">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="搜索关键词 / 股票 / 战局..."
-                  className="h-10 w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-800 focus:bg-white transition-all"
-                />
-              </div>
+              <span className="text-xs text-slate-400 hidden md:inline">
+                {onlyLevel1 ? '已过滤常规动态，仅聚焦突发一级重大决策' : '点击过滤常规动态，仅看突发一级重大决策'}
+              </span>
+            </div>
+
+            {/* 搜索框 */}
+            <div className="relative w-full sm:w-72 h-10">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="搜索关键词 / 股票 / 战局..."
+                className="h-10 w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-800 focus:bg-white transition-all shadow-xs"
+              />
             </div>
           </div>
         </div>
