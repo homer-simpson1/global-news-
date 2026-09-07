@@ -47,15 +47,15 @@ export const TRACK_METADATA: Record<string, TrackMetadata> = {
 
 export const SEED_MARKET_QUOTES: MarketQuote[] = [
   { symbol: '标普500', name: '美股标普500', price: '7,718.60', change: '-0.38%', isUp: false, category: 'US' },
-  { symbol: '纳斯达克100', name: '纳斯达克100指数', price: '29,544.16', change: '+0.21%', isUp: true, category: 'US' },
+  { symbol: '纳斯达克100', name: '纳斯达克100指数', price: '26,506.99', change: '-0.29%', isUp: false, category: 'US' },
   { symbol: '费城半导体', name: '费城半导体指数', price: '11,735.26', change: '+3.37%', isUp: true, category: 'US' },
-  { symbol: '美债10年期', name: '美国10年期国债收益率', price: '4.780%', change: '+1.5 基点', isUp: true, category: 'BOND_FX' },
-  { symbol: '日经225', name: '日本日经225指数', price: '44,946.64', change: '-0.90%', isUp: false, category: 'ASIA' },
-  { symbol: '恒生指数', name: '香港恒生指数', price: '25,650.87', change: '+1.74%', isUp: true, category: 'ASIA' },
-  { symbol: '国际原油', name: 'WTI原油连续', price: '$91.32/桶', change: '-0.39%', isUp: false, category: 'BOND_FX' },
-  { symbol: '国际黄金', name: 'COMEX期金', price: '$4,482.0/盎司', change: '-0.85%', isUp: false, category: 'BOND_FX' },
-  { symbol: '美元兑日元', name: '美元 / 日元', price: '156.24', change: '+0.29%', isUp: true, category: 'BOND_FX' },
-  { symbol: '离岸人民币', name: '美元 / 离岸人民币', price: '6.7079', change: '-0.14%', isUp: false, category: 'BOND_FX' },
+  { symbol: '美债10年期', name: '美国10年期国债收益率', price: '4.790%', change: '+0.08%', isUp: true, category: 'BOND_FX' },
+  { symbol: '日经225', name: '日本日经225指数', price: '66,530.18', change: '+2.32%', isUp: true, category: 'ASIA' },
+  { symbol: '恒生指数', name: '香港恒生指数', price: '25,428.36', change: '-0.87%', isUp: false, category: 'ASIA' },
+  { symbol: '国际原油', name: 'WTI原油连续', price: '$91.84/桶', change: '+0.39%', isUp: true, category: 'BOND_FX' },
+  { symbol: '国际黄金', name: 'COMEX期金', price: '$4,462.9/盎司', change: '-0.31%', isUp: false, category: 'BOND_FX' },
+  { symbol: '美元兑日元', name: '美元 / 日元', price: '156.03', change: '-0.14%', isUp: false, category: 'BOND_FX' },
+  { symbol: '离岸人民币', name: '美元 / 离岸人民币', price: '6.7112', change: '+0.05%', isUp: true, category: 'BOND_FX' },
 ];
 
 export const SEED_FLASH_BRIEFS: FlashBrief[] = [

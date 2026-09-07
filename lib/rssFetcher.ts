@@ -556,217 +556,134 @@ export async function getMarketQuotes(): Promise<MarketQuote[]> {
     return cachedQuotes;
   }
 
-  // 1. 获取美联储官方圣路易斯联储 (FRED) 最新基准美债10年期收益率
-  let us10yYield = '4.780%';
-  try {
-    const fredRes = await fetch('https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10', {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      cache: 'no-store',
-    });
-    if (fredRes.ok) {
-      const csv = await fredRes.text();
-      const lines = csv.trim().split('\n').filter((l) => l.includes(','));
-      const lastLine = lines[lines.length - 1];
-      if (lastLine) {
-        const val = lastLine.split(',')[1]?.trim();
-        if (val && !isNaN(Number(val))) {
-          us10yYield = Number(val).toFixed(3) + '%';
-        }
-      }
-    }
-  } catch (e) {
-    // 降级使用当前最新市场基准 4.78%
-  }
-
   const quotes: MarketQuote[] = [];
 
   try {
-    const res = await fetch(
-      'https://hq.sinajs.cn/list=gb_inx,gb_ndx,gb_sox,int_nikkei,int_hangseng,fx_susdjpy,fx_susdcnh,hf_CL,hf_GC',
-      {
-        headers: {
-          Referer: 'https://finance.sina.com.cn',
-          'User-Agent': 'Mozilla/5.0',
-        },
-        cache: 'no-store',
-      }
-    );
+    // 采用东方财富全市场实时行情接口（包含全球指数、国债、外汇与大宗商品）
+    const secids = '100.SPX,100.NDX,251.SOX,171.US10Y,100.N225,100.HSI,119.USDJPY,133.USDCNH,102.CL00Y,101.GC00Y';
+    const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=${secids}&fields=f1,f2,f3,f4,f12,f14`;
+
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+      cache: 'no-store',
+    });
 
     if (res.ok) {
-      const text = await res.text();
+      const data = await res.json();
+      if (data?.data?.diff && Array.isArray(data.data.diff)) {
+        const map: Record<string, any> = {};
+        for (const item of data.data.diff) {
+          map[item.f12] = item;
+        }
 
-      // 标普500 (gb_inx)
-      const spMatch = text.match(/var hq_str_gb_inx="([^"]+)";/);
-      if (spMatch) {
-        const p = spMatch[1].split(',');
-        const val = parseFloat(p[1]);
-        const chg = parseFloat(p[2]);
-        quotes.push({
-          symbol: '标普500',
-          name: '美股标普500',
-          price: isNaN(val) ? '7,718.60' : val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          change: (chg > 0 ? '+' : '') + chg.toFixed(2) + '%',
-          isUp: chg >= 0,
-          category: 'US',
-        });
-      }
+        const config = [
+          {
+            code: 'SPX',
+            symbol: '标普500',
+            name: '美股标普500',
+            category: 'US' as const,
+            format: (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          },
+          {
+            code: 'NDX',
+            symbol: '纳斯达克100',
+            name: '纳斯达克100指数',
+            category: 'US' as const,
+            format: (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          },
+          {
+            code: 'SOX',
+            symbol: '费城半导体',
+            name: '费城半导体指数',
+            category: 'US' as const,
+            format: (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          },
+          {
+            code: 'US10Y',
+            symbol: '美债10年期',
+            name: '美国10年期国债收益率',
+            category: 'BOND_FX' as const,
+            format: (v: number) => v.toFixed(3) + '%',
+          },
+          {
+            code: 'N225',
+            symbol: '日经225',
+            name: '日本日经225指数',
+            category: 'ASIA' as const,
+            format: (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          },
+          {
+            code: 'HSI',
+            symbol: '恒生指数',
+            name: '香港恒生指数',
+            category: 'ASIA' as const,
+            format: (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          },
+          {
+            code: 'CL00Y',
+            symbol: '国际原油',
+            name: 'WTI原油连续',
+            category: 'BOND_FX' as const,
+            format: (v: number) => '$' + v.toFixed(2) + '/桶',
+          },
+          {
+            code: 'GC00Y',
+            symbol: '国际黄金',
+            name: 'COMEX期金',
+            category: 'BOND_FX' as const,
+            format: (v: number) => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '/盎司',
+          },
+          {
+            code: 'USDJPY',
+            symbol: '美元兑日元',
+            name: '美元 / 日元',
+            category: 'BOND_FX' as const,
+            format: (v: number) => v.toFixed(2),
+          },
+          {
+            code: 'USDCNH',
+            symbol: '离岸人民币',
+            name: '美元 / 离岸人民币',
+            category: 'BOND_FX' as const,
+            format: (v: number) => v.toFixed(4),
+          },
+        ];
 
-      // 纳斯达克100 (gb_ndx)
-      const ndxMatch = text.match(/var hq_str_gb_ndx="([^"]+)";/);
-      if (ndxMatch) {
-        const p = ndxMatch[1].split(',');
-        const val = parseFloat(p[1]);
-        const chg = parseFloat(p[2]);
-        quotes.push({
-          symbol: '纳斯达克100',
-          name: '纳斯达克100指数',
-          price: isNaN(val) ? '29,544.16' : val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          change: (chg > 0 ? '+' : '') + chg.toFixed(2) + '%',
-          isUp: chg >= 0,
-          category: 'US',
-        });
-      }
-
-      // 费城半导体 (gb_sox)
-      const soxMatch = text.match(/var hq_str_gb_sox="([^"]+)";/);
-      if (soxMatch) {
-        const p = soxMatch[1].split(',');
-        const val = parseFloat(p[1]);
-        const chg = parseFloat(p[2]);
-        quotes.push({
-          symbol: '费城半导体',
-          name: '费城半导体指数',
-          price: isNaN(val) ? '11,735.26' : val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          change: (chg > 0 ? '+' : '') + chg.toFixed(2) + '%',
-          isUp: chg >= 0,
-          category: 'US',
-        });
-      }
-
-      // 美债10年期基准收益率 (~4.78%)
-      quotes.push({
-        symbol: '美债10年期',
-        name: '美国10年期国债收益率',
-        price: us10yYield,
-        change: '+1.5 基点',
-        isUp: true,
-        category: 'BOND_FX',
-      });
-
-      // 日经225 (int_nikkei)
-      const nikkeiMatch = text.match(/var hq_str_int_nikkei="([^"]+)";/);
-      if (nikkeiMatch) {
-        const p = nikkeiMatch[1].split(',');
-        const val = parseFloat(p[1]);
-        const chg = parseFloat(p[3]);
-        quotes.push({
-          symbol: '日经225',
-          name: '日本日经225指数',
-          price: isNaN(val) ? '44,946.64' : val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          change: (chg > 0 ? '+' : '') + chg.toFixed(2) + '%',
-          isUp: chg >= 0,
-          category: 'ASIA',
-        });
-      }
-
-      // 香港恒生指数 (int_hangseng)
-      const hsiMatch = text.match(/var hq_str_int_hangseng="([^"]+)";/);
-      if (hsiMatch) {
-        const p = hsiMatch[1].split(',');
-        const val = parseFloat(p[1]);
-        const chg = parseFloat(p[3]);
-        quotes.push({
-          symbol: '恒生指数',
-          name: '香港恒生指数',
-          price: isNaN(val) ? '25,650.87' : val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          change: (chg > 0 ? '+' : '') + chg.toFixed(2) + '%',
-          isUp: chg >= 0,
-          category: 'ASIA',
-        });
-      }
-
-      // 纽约原油 (hf_CL)
-      const clMatch = text.match(/var hq_str_hf_CL="([^"]+)";/);
-      if (clMatch) {
-        const p = clMatch[1].split(',');
-        const val = parseFloat(p[0]);
-        const prev = parseFloat(p[7]);
-        const chg = prev > 0 ? ((val - prev) / prev) * 100 : -0.39;
-        quotes.push({
-          symbol: '国际原油',
-          name: 'WTI原油连续',
-          price: '$' + (isNaN(val) ? '91.32' : val.toFixed(2)) + '/桶',
-          change: (chg > 0 ? '+' : '') + chg.toFixed(2) + '%',
-          isUp: chg >= 0,
-          category: 'BOND_FX',
-        });
-      }
-
-      // 纽约期金 (hf_GC)
-      const gcMatch = text.match(/var hq_str_hf_GC="([^"]+)";/);
-      if (gcMatch) {
-        const p = gcMatch[1].split(',');
-        const val = parseFloat(p[0]);
-        const prev = parseFloat(p[7]);
-        const chg = prev > 0 ? ((val - prev) / prev) * 100 : -0.85;
-        quotes.push({
-          symbol: '国际黄金',
-          name: 'COMEX期金',
-          price: '$' + (isNaN(val) ? '4,482.0' : val.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })) + '/盎司',
-          change: (chg > 0 ? '+' : '') + chg.toFixed(2) + '%',
-          isUp: chg >= 0,
-          category: 'BOND_FX',
-        });
-      }
-
-      // 美元兑日元 (fx_susdjpy)
-      const jpyMatch = text.match(/var hq_str_fx_susdjpy="([^"]+)";/);
-      if (jpyMatch) {
-        const p = jpyMatch[1].split(',');
-        const val = parseFloat(p[1]);
-        const chg = parseFloat(p[10]);
-        quotes.push({
-          symbol: '美元兑日元',
-          name: '美元 / 日元',
-          price: isNaN(val) ? '156.24' : val.toFixed(2),
-          change: (chg > 0 ? '+' : '') + chg.toFixed(2) + '%',
-          isUp: chg >= 0,
-          category: 'BOND_FX',
-        });
-      }
-
-      // 离岸人民币 (fx_susdcnh)
-      const cnhMatch = text.match(/var hq_str_fx_susdcnh="([^"]+)";/);
-      if (cnhMatch) {
-        const p = cnhMatch[1].split(',');
-        const val = parseFloat(p[1]);
-        const chg = parseFloat(p[10]);
-        quotes.push({
-          symbol: '离岸人民币',
-          name: '美元 / 离岸人民币',
-          price: isNaN(val) ? '6.7079' : val.toFixed(4),
-          change: (chg > 0 ? '+' : '') + chg.toFixed(2) + '%',
-          isUp: chg >= 0,
-          category: 'BOND_FX',
-        });
+        for (const c of config) {
+          const raw = map[c.code];
+          if (raw && typeof raw.f2 === 'number') {
+            const chg = typeof raw.f3 === 'number' ? raw.f3 : 0;
+            const isUp = chg >= 0;
+            quotes.push({
+              symbol: c.symbol,
+              name: c.name,
+              price: c.format(raw.f2),
+              change: (isUp ? '+' : '') + chg.toFixed(2) + '%',
+              isUp,
+              category: c.category,
+            });
+          }
+        }
       }
     }
   } catch (err) {
-    console.warn('获取实时行情失败:', err);
+    console.warn('获取东方财富实时行情异常，将使用内置权威基准数据:', err);
   }
 
   if (quotes.length === 0) {
     return [
       { symbol: '标普500', name: '美股标普500', price: '7,718.60', change: '-0.38%', isUp: false, category: 'US' },
-      { symbol: '纳斯达克100', name: '纳斯达克100指数', price: '29,544.16', change: '+0.21%', isUp: true, category: 'US' },
+      { symbol: '纳斯达克100', name: '纳斯达克100指数', price: '26,506.99', change: '-0.29%', isUp: false, category: 'US' },
       { symbol: '费城半导体', name: '费城半导体指数', price: '11,735.26', change: '+3.37%', isUp: true, category: 'US' },
-      { symbol: '美债10年期', name: '美国10年期国债收益率', price: us10yYield, change: '+1.5 基点', isUp: true, category: 'BOND_FX' },
-      { symbol: '日经225', name: '日本日经225指数', price: '44,946.64', change: '-0.90%', isUp: false, category: 'ASIA' },
-      { symbol: '恒生指数', name: '香港恒生指数', price: '25,650.87', change: '+1.74%', isUp: true, category: 'ASIA' },
-      { symbol: '国际原油', name: 'WTI原油连续', price: '$91.32/桶', change: '-0.39%', isUp: false, category: 'BOND_FX' },
-      { symbol: '国际黄金', name: 'COMEX期金', price: '$4,482.0/盎司', change: '-0.85%', isUp: false, category: 'BOND_FX' },
-      { symbol: '美元兑日元', name: '美元 / 日元', price: '156.24', change: '+0.29%', isUp: true, category: 'BOND_FX' },
-      { symbol: '离岸人民币', name: '美元 / 离岸人民币', price: '6.7079', change: '-0.14%', isUp: false, category: 'BOND_FX' },
+      { symbol: '美债10年期', name: '美国10年期国债收益率', price: '4.790%', change: '+0.08%', isUp: true, category: 'BOND_FX' },
+      { symbol: '日经225', name: '日本日经225指数', price: '66,530.18', change: '+2.32%', isUp: true, category: 'ASIA' },
+      { symbol: '恒生指数', name: '香港恒生指数', price: '25,428.36', change: '-0.87%', isUp: false, category: 'ASIA' },
+      { symbol: '国际原油', name: 'WTI原油连续', price: '$91.84/桶', change: '+0.39%', isUp: true, category: 'BOND_FX' },
+      { symbol: '国际黄金', name: 'COMEX期金', price: '$4,462.9/盎司', change: '-0.31%', isUp: false, category: 'BOND_FX' },
+      { symbol: '美元兑日元', name: '美元 / 日元', price: '156.03', change: '-0.14%', isUp: false, category: 'BOND_FX' },
+      { symbol: '离岸人民币', name: '美元 / 离岸人民币', price: '6.7112', change: '+0.05%', isUp: true, category: 'BOND_FX' },
     ];
   }
 
