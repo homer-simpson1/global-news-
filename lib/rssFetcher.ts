@@ -1,5 +1,5 @@
 import { FlashBrief, MarketQuote, NewsItem, TrackId, Summary5W1H } from './types';
-import { SEED_FLASH_BRIEFS } from '@/data/seedData';
+import { SEED_FLASH_BRIEFS, SEED_NEWS_ITEMS } from '@/data/seedData';
 
 let cachedNews: NewsItem[] | null = null;
 let cachedFlash: FlashBrief[] | null = null;
@@ -41,21 +41,24 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
     { source: '实时电讯', url: 'https://api-one-wscn.awtmt.com/apiv1/content/lives?channel=commodity-channel&limit=30' },
   ];
 
+  const defaultHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+  };
+
   const results = await Promise.allSettled([
     ...endpoints.map((ep) =>
-      fetch(ep.url, { headers: { 'User-Agent': 'Mozilla/5.0' }, cache: 'no-store' })
+      fetch(ep.url, { headers: defaultHeaders })
         .then((r) => r.json())
         .then((d) => ({ source: ep.source, data: d }))
     ),
     fetch('https://zhibo.sina.com.cn/api/zhibo/feed?page=1&page_size=60&zhibo_id=152', {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      cache: 'no-store',
+      headers: defaultHeaders,
     })
       .then((r) => r.json())
       .then((d) => ({ source: '新浪财经', data: d })),
     fetch('https://newsapi.eastmoney.com/kuaixun/v1/getlist_102_ajaxResult_50_1_.html', {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      cache: 'no-store',
+      headers: defaultHeaders,
     })
       .then((r) => r.text())
       .then((t) => {
@@ -318,9 +321,11 @@ function classifyTrack(item: RawLiveItem): TrackId {
     return 'apac_tech';
   }
 
-  // 3. 中国国内要闻与社会治理 (财政部、特别国债、地方化债、金融央企注资等优先匹配国内)
+  // 3. 中国国内要闻与社会治理 (财政部、特别国债、地方化债、金融央企注资等优先匹配国内，排除他国同名部委)
+  const isForeignEntity = /(?:土耳其|阿根廷|巴西|印度|越南|泰国|德国|法国|英国|印尼|南非|墨西哥|加拿大|埃及|沙特|阿联酋|欧洲央行|日本央行|韩国央行|美联储|美国财政部)/.test(item.title);
   if (
-    /特别国债|中国再保|进出口银行|中国信保|财政部|发改委|住建部|民政部|国资委|化债|地方债|城投|央行.*降准|央行.*逆回购|a股|上证|深证|创业板|北交所|房企|楼市|万科|保利|碧桂园|融创|恒大|中植|中融|信托|理财|违约|物流|西藏|吉隆|泥石流|公安|警方|案件|刑拘/.test(
+    !isForeignEntity &&
+    /特别国债|中国再保|进出口银行|中国信保|财政部|发改委|住建部|民政部|国资委|化债|地方债|城投|央行.*降准|央行.*逆回购|a股|上证|深证|创业板|北交所|房企|楼市|万科|保利|碧桂园|融创|恒大|中植|中融|信托|理财|违约|中金公司|国投|中石油|中石化|中海油|国家电网|物流|公安|警方|案件|刑拘/.test(
       t
     )
   ) {
@@ -423,7 +428,6 @@ function extractBulletPoints(content: string, source: string, time: string): str
 function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): string {
   let title = (rawTitle || '').trim().replace(/^[【\[][^】\]]+[】\]]/, '').trim();
   const content = (rawContent || '').replace(/<[^>]+>/g, '').trim();
-  const t = (title + ' ' + content).toLowerCase();
 
   const prefixMap: Record<TrackId, string> = {
     war_conflict: '【俄乌美伊/战局防务】',
@@ -435,57 +439,19 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
   };
   const prefix = prefixMap[track] || '【决策要闻】';
 
-  // 针对典型热点事件做自洽完整的主谓宾丰富
-  if (/沐曦.*曦云|曦云.*c600|沐曦.*c600|曦云c600/.test(t)) {
-    return `${prefix} 国产旗舰GPU重大突破：沐曦「曦云C600」大模型训练算力芯片5月已规模量产并通过国家安全测评，下一代C700加速调优`;
-  }
-  if (/长鑫.*业绩|长鑫科技/.test(t)) {
-    return `${prefix} 国产存储核心基石稳固：长鑫科技业绩说明会确认DRAM先进制程良率攀升，加速高端存储颗粒国产替代`;
-  }
-  if (/游戏规则已改变/.test(t) || (/伊朗/.test(t) && /美方|打击|基地/.test(t))) {
-    return `${prefix} 伊朗议长卡利巴夫强硬警告：打击美军基地仅是开始，美方规则已变并将遭对等反击`;
-  }
-  if (/中国再保.*30亿/.test(t) || (/中国再保/.test(t) && /核心一级资本/.test(t))) {
-    return `${prefix} 财政部拟现金认购30亿元：中国再保推进定增补充核心一级资本，夯实主权再保底盘`;
-  }
-  if (/进出口银行.*300亿/.test(t) || (/进出口银行/.test(t) && /注资/.test(t))) {
-    return `${prefix} 财政部向中国进出口银行重磅注资300亿元：巩固政策性金融底座，强化稳外贸资金供给`;
-  }
-  if (/出口信用保险.*100亿/.test(t) || (/中国信保|出口信用保险/.test(t) && /注资/.test(t))) {
-    return `${prefix} 财政部向中国信保注资100亿元：充实核心资本储备，筑牢跨境贸易风险防护网`;
-  }
-  if (/上海市国资委.*ai|上海市国资委.*人工智能/.test(t)) {
-    return `${prefix} 上海市国资委部署“AI+”专项行动：推动监管企业人工智能应用全面深化转型`;
-  }
-  if (/西藏.*吉隆|吉隆.*泥石流/.test(t)) {
-    return `${prefix} 西藏吉隆泥石流抢险进展：民政部紧急调配救灾资金超6.6亿元 全力保障灾区抢通与安置`;
-  }
-  if (/尼泊尔.*泥石流/.test(t)) {
-    return `${prefix} 尼泊尔强降雨引发特大山洪泥石流：遇难人数升至1342人，多方力量协同搜救`;
-  }
-  if (/8月.*物流|物流需求保持扩张/.test(t)) {
-    return `${prefix} 中国8月物流景气指数回升至50.9%：大宗与电商货流保持扩张，实体经济循环稳步提速`;
-  }
-  if (/乌拉圭.*禽流感/.test(t)) {
-    return `${prefix} 乌拉圭暴发高致病性禽流感：宣布全国进入卫生紧急状态，严密管控跨境农牧检疫`;
-  }
-  if (/美军.*武器.*泄密|多名高级军官接受测谎/.test(t)) {
-    return `${prefix} 美军先进战备武器库存涉嫌泄密：五角大楼启动内部肃查并对多名高级军官展开测谎`;
-  }
-
-  // 通用智能补齐：若 rawTitle 较短 (<25字) 或信息不完整，从 content 提取首句关键主谓宾
+  // 通用智能补齐：若 rawTitle 较短 (<20字) 且 content 有更完整首句，提取首句关键信息
   const sentences = content
     .split(/[。！？\n]/)
     .map((s) => s.trim())
     .filter((s) => s.length > 10);
   const firstSent = sentences[0] || '';
 
-  if (title.length < 24 && firstSent.length > title.length) {
+  if (title.length < 18 && firstSent.length > title.length) {
     let candidate = firstSent
       .replace(/^.*?（.*?）/, '')
       .replace(/^.*?[0-9]+月[0-9]+日[，,]/, '')
       .trim();
-    if (candidate.length > 50) candidate = candidate.slice(0, 48) + '...';
+    if (candidate.length > 60) candidate = candidate.slice(0, 58) + '...';
     if (candidate.length >= 18) {
       return `${prefix} ${candidate}`;
     }
@@ -501,152 +467,179 @@ function build5W1HSummary(
   source: string,
   track: TrackId
 ): Summary5W1H {
-  const t = (title + ' ' + content).toLowerCase();
+  const cleanTitle = title.replace(/^【.*?】\s*/, '').trim();
+  const t = (cleanTitle + ' ' + content).toLowerCase();
 
-  let who = '相关核心决策机构、企业主体与受影响各方';
-  let what = title.replace(/^【.*?】\s*/, '');
-  let when = time ? `本日 ${time}（信源实时电讯直发）` : '最新实时发布';
-  let where = '全球主要经贸与地缘坐标区域';
-  let why = '多重宏观因素与地缘政治博弈交织触发的战略调整';
-  let consequence = '关联全球宏观资金与产业供求变化，直接影响后续市场走势与决策传导。';
+  let who = '相关决策机构与受影响各方';
+  let what = cleanTitle;
+  let when = time ? `本日 ${time}（实时电讯直发）` : '最新实时发布';
+  let where = '全球重点经贸与地缘坐标区域';
+  let why = '宏观经济运行规律与地缘博弈格局演变引发的即时反应';
+  let consequence = '关联宏观流动性与产业供求变化，直接影响资产定价与决策传导。';
 
-  // 1. Who (核心主体)
-  if (/沐曦|曦云|c600|c700/.test(t)) {
-    who = '国产高性能通用GPU龙头「沐曦集成电路（MetaX）」高管及国家安全测评认证机构';
-  } else if (/长鑫科技|长鑫/.test(t)) {
-    who = '国产DRAM存储芯片龙头「长鑫科技」核心管理层与产业分析师';
+  // 1. Who (核心主体提取：优先解析标题中的主语/机构冒号结构)
+  const colonMatch = cleanTitle.match(/^([^：:，,——]{2,20})[：:——]/);
+  if (colonMatch && !/提醒|提示|快讯|电讯|最新|据悉|权威|突发/.test(colonMatch[1])) {
+    who = colonMatch[1].trim();
+  } else if (/中国人民银行|央行/.test(t)) {
+    who = '中国人民银行（PBOC）及宏观货币政策司';
+  } else if (/土耳其.*财政部/.test(t)) {
+    who = '土耳其财政与国库部';
+    where = '土耳其安卡拉及主要金融市场';
+  } else if (/美国财政部/.test(t)) {
+    who = '美国财政部（U.S. Department of the Treasury）';
+    where = '美国华盛顿特区（联邦决策中枢）';
+  } else if (/财政部/.test(t)) {
+    who = '中华人民共和国财政部及直属预算司局';
   } else if (/商务部/.test(t)) {
-    who = '中华人民共和国商务部新闻发言人及贸易救济调查局';
-  } else if (/港交所/.test(t)) {
-    who = '香港交易所（HKEX）信息披露监管处及相关机构股东';
-  } else if (/两部门|多部门/.test(t)) {
-    who = '国家发改委、工信部及相关宏观产业主管部委';
+    who = '中华人民共和国商务部新闻发言人与贸易救济局';
+  } else if (/发改委/.test(t)) {
+    who = '国家发展和改革委员会及宏观经济监测司';
+  } else if (/国资委/.test(t)) {
+    who = '国务院国资委及相关监管中央企业';
+  } else if (/证监会|中金公司/.test(t)) {
+    who = '证券监督管理机构与相关上市公司核心管理层';
+  } else if (/沐曦|曦云/.test(t)) {
+    who = '国产高性能通用GPU研发厂商「沐曦集成电路」及权威测评机构';
+  } else if (/长鑫/.test(t)) {
+    who = '国产DRAM存储芯片龙头「长鑫存储」管理层与行业分析机构';
+  } else if (/美联储|鲍威尔|沃勒|威廉姆斯|fomc/.test(t)) {
+    who = '美联储（Federal Reserve）货币政策委员会（FOMC）及华尔街一级交易商';
+  } else if (/五角大楼|美军|美国国防部/.test(t)) {
+    who = '美国国防部（五角大楼）及联合战区指挥部';
+  } else if (/俄罗斯|俄军|普京|克里姆林宫/.test(t)) {
+    who = '俄罗斯联邦政府决策层及俄武装力量指挥部';
+  } else if (/乌克兰|乌军|泽连斯基/.test(t)) {
+    who = '乌克兰武装部队总参谋部及前线战区指挥中心';
   } else if (/伊朗|卡利巴夫|哈梅内伊/.test(t)) {
-    who = '伊朗伊斯兰议会、最高国家安全委员会及驻中东美军指挥部';
-  } else if (/乌克兰|俄罗斯|普京|泽连斯基|俄军|乌军/.test(t)) {
-    who = '俄罗斯国防部、乌克兰武装部队总参谋部及北约前线盟军';
-  } else if (/美联储|鲍威尔|沃勒|威廉姆斯/.test(t)) {
-    who = '美联储（Federal Reserve）货币政策委员会（FOMC）及鲍威尔主席';
-  } else if (/进出口银行|中国再保|中国信保|中国出口信用保险|财政部.*注资/.test(t)) {
-    who = '中华人民共和国财政部、国家金融监督管理总局及进出口银行/再保/信保等金融主体';
-  } else if (/上海市国资委|国资委/.test(t)) {
-    who = '上海市国资委、市属监管重点国有企业及战略科技创新联合体';
-  } else if (/(?:泥石流|山洪|地质灾害).*?(?:救援|抗灾|受灾|安置)|(?:应急管理部|民政部).*?(?:救灾|减灾)/.test(t)) {
-    who = '国家民政部、应急管理部、受灾省区应急抗灾指挥部与一线救援队';
-  } else if (/台积电|英伟达|高通|芯片|半导体|三星|海力士/.test(t)) {
-    who = '全球先进制程代工龙头（台积电等）、核心AI算力芯片原厂及上下游供应链';
-  } else if (/参投|合伙企业|有限合伙|股权投资|创投|出资|认缴/.test(t)) {
-    who = '相关上市公司董事会、出资平台与专业创投合伙各方';
-  } else if (/物流|发改委|统计局/.test(t)) {
-    who = '中国物流与采购联合会、国家发改委宏观物流运行监测部门';
+    who = '伊朗最高国家安全委员会及伊斯兰议会指挥机构';
+  } else if (/以色列|以军|内塔尼亚胡/.test(t)) {
+    who = '以色列战时内阁及国防军战区指挥部';
+  } else if (/尼泊尔/.test(t)) {
+    who = '尼泊尔国家减灾管理局与一线搜救军警';
+  } else if (/慈善|公益/.test(t)) {
+    who = '民政部慈善公益促进部门与社会公益组织网络';
+  } else if (/物流|大宗商品/.test(t)) {
+    who = '中国物流与采购联合会及行业运行监测部门';
   } else {
-    const matchWho = title.match(/^【.*?】\s*([^：:，,宣称表]+)[：:，,宣称表]/);
-    if (matchWho && matchWho[1].length >= 2 && matchWho[1].length <= 15) {
-      who = matchWho[1].trim();
-    }
+    const trackWhoMap: Record<TrackId, string> = {
+      china_domestic: '国内宏观管理部门与相关企事业单位',
+      us_macro: '美联储利率政策追踪委员会与金融市场机构',
+      apac_tech: '亚太半导体先进制程与硬件供应链核心厂商',
+      war_conflict: '冲突战区前方军事指挥部与防务情报部门',
+      china_policy: '跨境贸易监管机构与涉外经贸合规部门',
+      global_cognition: '国际权威机构、产业智库与多边经济组织',
+    };
+    who = trackWhoMap[track] || '相关主管部委与行业决策主体';
   }
 
   // 2. Where (事件地点)
-  if (/沐曦|曦云/.test(t)) {
-    where = '中国上海（沐曦芯片研发总部）、国家信息安全测评中心及国内各大智算中心集群';
-  } else if (/长鑫/.test(t)) {
-    where = '中国合肥（长鑫存储超级工厂）及国内半导体供应链终端网络';
-  } else if (/伊朗|中东|以军|以色列|加沙|黎巴嫩|红海|也门/.test(t)) {
-    where = '中东战区（德黑兰、波斯湾、霍尔木兹海峡及驻伊拉克/叙利亚美军驻地）';
-  } else if (/乌克兰|俄罗斯|莫斯科|基辅|库尔斯克|顿涅茨克/.test(t)) {
-    where = '东欧战区（顿巴斯前线、库尔斯克边境及乌克兰关键基础设施区域）';
-  } else if (/(?:泥石流|山洪|地质灾害|受灾).*?(?:西藏|吉隆|日喀则)|(?:西藏|吉隆|日喀则).*?(?:泥石流|山洪|灾害)/.test(t)) {
-    where = '中国西藏自治区日喀则市吉隆县及中尼边境地质灾害沿线';
-  } else if (/参投|合伙企业|有限合伙|股权投资|创投|出资|认缴/.test(t)) {
-    where = '中国核心高新技术园区与主要资本市场产业集聚区';
+  if (/北京/.test(t)) {
+    where = '中国北京（国家宏观决策与监管中枢）';
   } else if (/上海/.test(t)) {
-    where = '中国上海市（长三角高新技术产业集聚区与地方国资总部）';
-  } else if (/美联储|美股|华尔街|白宫|五角大楼|非农/.test(t)) {
-    where = '美国华盛顿特区（联邦决策层）及纽约华尔街全球金融交易中心';
+    where = '中国上海（国际金融中心与产业创新前沿）';
+  } else if (/华盛顿|白宫|五角大楼/.test(t)) {
+    where = '美国华盛顿特区（联邦决策层与战略中枢）';
+  } else if (/纽约|华尔街|美股/.test(t)) {
+    where = '美国纽约华尔街（全球金融市场核心枢纽）';
+  } else if (/乌克兰|俄罗斯|莫斯科|基辅|库尔斯克|顿涅茨克/.test(t)) {
+    where = '东欧战区（乌俄前线及关键基础设施枢纽）';
+  } else if (/伊朗|中东|以军|以色列|加沙|黎巴嫩|红海|也门/.test(t)) {
+    where = '中东战区（波斯湾、霍尔木兹海峡及前线热点地带）';
+  } else if (/台湾|新竹|日本|熊本|九州|韩国|首尔/.test(t)) {
+    where = '亚太半导体产业三角（新竹科学园/南韩京畿道/日本九州产线）';
   } else if (/尼泊尔/.test(t)) {
-    where = '南亚尼泊尔加德满都及周边强降雨滑坡受灾山区';
+    where = '南亚尼泊尔加德满都及周边山区受灾带';
   } else if (/乌拉圭/.test(t)) {
-    where = '南美洲乌拉圭全境农牧主产区及沿海主要检疫口岸';
-  } else if (track === 'china_domestic') {
-    where = '中国大陆主要经济中心、金融中心及重点产业集聚区';
-  } else if (track === 'apac_tech') {
-    where = '亚太半导体核心三角（中国台湾新竹/南韩京畿道/日本九州及东京）';
-  }
-
-  // 3. Why (起因背景)
-  if (/沐曦|曦云|c600/.test(t)) {
-    why = '受美国收紧先进制程与高端AI算力芯片（英伟达GPU）对华出口管制倒逼，国内大模型训练与智算中心迫切需要自主研发、通过国家最高安全测评且具备量产保障的旗舰级国产GPGPU算力底座。';
-  } else if (/长鑫/.test(t)) {
-    why = '全球存储器行情回暖叠加国内AI服务器与终端设备对国产自主DRAM芯片的旺盛需求，驱动本土存储先锋加快产能放量与技术演进。';
-  } else if (/游戏规则|美军|伊朗|空袭|反击/.test(t)) {
-    why = '美伊长期中东地缘对抗加剧，美军近期军事部署与打击行动触发伊朗最高警戒与对等威慑反制。';
-  } else if (/注资|核心一级资本|发债|补充资本/.test(t)) {
-    why = '贯彻中央金融工作会议战略部署，财政专项注资精准提升大型央企资本充足度，强化逆周期信贷供给与风险防范底盘。';
-  } else if (/泥石流|山洪|强降雨|受灾/.test(t)) {
-    why = '受极端强降雨及高海拔复杂脆弱地质构造叠加影响，突发大面积山体滑坡导致道路损毁与人员伤亡。';
-  } else if (/参投|合伙企业|有限合伙|股权投资|创投|增资|对外投资|认缴|出资/.test(t)) {
-    why = '企业优化资本结构与深化产业链协同布局，借助专业创投基金整合前沿优质资源与科技生态。';
-  } else if (/ai|人工智能|数智化|转型/.test(t)) {
-    why = '全球AI新质生产力与大模型技术加速演进，国资国企需抢抓产业变革风口，以应用场景拉动实体赋能。';
-  } else if (/物流|景气|扩张|pmi/.test(t)) {
-    why = '宏观扩内需促消费政策协同显效，企业开工率回升，电商大促与内外贸易货物循环周转提速。';
-  } else if (/禽流感|疫情|卫生紧急/.test(t)) {
-    why = '候鸟迁徙路径扩散引发高致病性禽类病毒交叉感染，为阻断跨境养殖产业链传播而启动最高响应。';
-  } else if (/泄密|测谎|武器库存/.test(t)) {
-    why = '重大前沿防务战备技术存在非授权外泄风险，五角大楼为排查情报漏洞、防止技术流失而收紧安全审查。';
-  } else if (track === 'war_conflict') {
-    why = '交战双方在前线争夺关键战略节点，通过高强度无人机、导弹及防空打击力图改变战场均势与博弈筹码。';
-  } else if (track === 'us_macro') {
-    why = '通胀黏性与紧缩货币政策滞后效应交汇，市场多空博弈美联储降息时点与流动性预期。';
-  }
-
-  // 4. What (具体事实)
-  if (/沐曦|曦云|c600/.test(t)) {
-    what = '【曦云C600核心释义：沐曦自主研发的旗舰级通用GPU芯片，专为大模型预训练与深度学习设计】沐曦高管在业绩会上确认，曦云C600已于2026年5月实现规模量产，并通过中国信息安全测评中心与国家保密科技测评中心联合测评，获得国家信创及关键智算采购准入资质；同时基于国产先进制程的下一代更强GPU「曦云C700」大部分核心设计与功能验证已完成，正加速性能调优。';
-  } else if (/长鑫/.test(t)) {
-    what = '长鑫科技召开业绩说明会披露先进制程DRAM内存颗粒良率爬坡与扩产进展顺利，有力增强国内存储产业链自主可控底气。';
+    where = '南美洲乌拉圭全境及沿海农牧出口口岸';
   } else {
-    const sents = content
-      .replace(/\r\n/g, '\n')
-      .split(/[。！？\n]/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 8);
-    if (sents.length > 0) {
-      let cleanLead = sents[0]
-        .replace(/^.*?（.*?）/, '')
-        .replace(/^.*?[0-9]+月[0-9]+日[，,]/, '')
-        .trim();
-      if (cleanLead.length >= 15) {
-        what = cleanLead + '。';
-      }
+    const trackWhereMap: Record<TrackId, string> = {
+      china_domestic: '中国大陆主要经济中心与重点产业集聚区',
+      us_macro: '美国华盛顿联邦决策中枢与纽约金融市场',
+      apac_tech: '亚太高科技与先进制造核心产业链集群',
+      war_conflict: '全球地缘对抗一线与关键战略安全走廊',
+      china_policy: '主要经济体跨国经贸与供应链合作支点',
+      global_cognition: '全球主要宏观经贸与多边治理治理区域',
+    };
+    where = trackWhereMap[track] || '全球核心经济金融走廊';
+  }
+
+  // 3. Why (起因背景：根据核心事实精准归因)
+  if (/合并|重组|停牌|并购/.test(t)) {
+    why = '贯彻落实资本市场深化改革部署，通过同业重组整合优质资产、做优做强核心主业。';
+  } else if (/税收|税费|减税|加计扣除/.test(t)) {
+    why = '全面落实创新驱动发展战略，以普惠与结构性财税优惠红利持续赋能高新企业自主研发。';
+  } else if (/物流|景气|大宗商品/.test(t)) {
+    why = '宏观扩内需促稳增长政策协同显效，企业开工率与供应链大宗货物周转全面提速。';
+  } else if (/慈善|公益|捐赠/.test(t)) {
+    why = '弘扬社会守望互助文化，广泛动员社会资源与公众力量规范对接民生兜底与应急救助。';
+  } else if (/泥石流|山洪|地质灾害|极端暴雨/.test(t)) {
+    why = '喜马拉雅及受灾山区遭遇季风极端强降雨袭击，诱发突发性地质山洪滑坡冲毁公路与民舍。';
+  } else if (/芯片|半导体|先进制程|算力|dram|gpu/.test(t)) {
+    why = '全球AI大模型爆发推升高端算力与存储芯片需求，倒逼供应链加速自主研发攻关与产能释放。';
+  } else if (/降息|加息|非农|通胀|美联储|收益率|美债/.test(t)) {
+    why = '宏观就业与通胀数据显现韧性，促使市场交易员动态修正对央行流动性宽松窗口的押注。';
+  } else if (/空袭|导弹|袭击|交火|军事行动/.test(t)) {
+    why = '地缘冲突双方在前线战线互试底线，通过高强度对等威慑打击争夺军事均势与博弈筹码。';
+  } else if (/关税|出口管制|实体清单|贸易壁垒/.test(t)) {
+    why = '大国博弈向经贸与前沿技术产业链延伸，各方以国家安全为由强化战略自主与合规审查。';
+  } else {
+    const trackWhyMap: Record<TrackId, string> = {
+      china_domestic: '宏观逆周期调节与深化改革政策协同发力，激发微观市场主体内生增长动能。',
+      us_macro: '宏观基本面数据表现与利率政策预期多空博弈，引导全球资本贴现中枢动态调整。',
+      apac_tech: '先进制程代工稼动率与AI硬件终端需求共振，驱动产业链加紧资本开支布局。',
+      war_conflict: '大国地缘利益交织对立，前线局势反复演变牵动多边外交与能源航运戒备。',
+      china_policy: '全球供应链重组与跨境贸易合规壁垒演进，推动经贸合作模式深层次重塑。',
+      global_cognition: '国际大宗商品周期与宏观政经格局出现结构性分化，引发各方风险预期重构。',
+    };
+    why = trackWhyMap[track] || '宏观宏图与微观基本面变量共同驱动的市场化与战略性抉择。';
+  }
+
+  // 4. What (事实要点)
+  const sents = content
+    .replace(/\r\n/g, '\n')
+    .split(/[。！？\n]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 8);
+  if (sents.length > 0) {
+    let cleanLead = sents[0]
+      .replace(/^.*?（.*?）/, '')
+      .replace(/^.*?[0-9]+月[0-9]+日[，,]/, '')
+      .trim();
+    if (cleanLead.length >= 15) {
+      what = cleanLead;
     }
   }
 
-  // 5. Consequence (后果与影响)
-  if (/沐曦|曦云|c600/.test(t)) {
-    consequence = '标志着国内智算中心与大模型算力基础设施在打破海外GPU技术封锁、实现规模化合规采购上迈出实质性步伐，为三大电信运营商、金融能源央企的智算集采提供了坚实的全国产化硬件底座，加速国内算力生态自主化。';
-  } else if (/长鑫/.test(t)) {
-    consequence = '显著增强国内IT基础设施与消费电子在关键存储颗粒上的自给率，减少对外部周期性价格垄断与断供风险的暴露。';
-  } else if (/伊朗|中东|以军|红海|原油/.test(t)) {
-    consequence = '加剧霍尔木兹海峡及红海航道安全戒备，推升国际原油（WTI现报$91.32）与黄金地缘避险溢价，美军驻中东基地防务等级全面调高。';
-  } else if (/进出口银行|中国再保|中国信保|注资/.test(t)) {
-    consequence = '国家主权信用与财政资本直接托底，显著改善金融央企核心资本净额，外贸信贷授信额度与跨境风险承保能力大幅扩张。';
+  // 5. Consequence (后续影响与传导)
+  if (/合并|重组|停牌|并购/.test(t)) {
+    consequence = '显著增强头部机构跨市场运作与综合金融服务能力，对行业兼并整合起到积极标杆示范作用。';
+  } else if (/税收|税费|减税|研发费用/.test(t)) {
+    consequence = '预计每年为实体创新企业减负数百亿元研发成本，加速战略新兴产业关键核心技术自主攻坚。';
+  } else if (/物流|景气|大宗商品/.test(t)) {
+    consequence = '印证实体货物周转与微观开工稳步向好，为下一阶段规上工业平稳增长提供坚实支撑。';
+  } else if (/慈善|公益|捐赠/.test(t)) {
+    consequence = '推动社会各界爱心资源公开透明流向灾后重建、助学扶弱与乡村振兴等关键民生领域。';
   } else if (/泥石流|受灾|救援/.test(t)) {
-    consequence = '中央与地方专项防灾救灾资金加速划拨，当地交通电力全面抢通，促使灾区有序恢复生活秩序并启动隐患大排查。';
-  } else if (/参投|合伙企业|有限合伙|股权投资|创投|增资|对外投资|认缴|出资/.test(t)) {
-    consequence = '推动核心业务延伸与战略新兴领域布局，拓宽产业协同深度并提升中长期综合竞争力。';
-  } else if (/ai|人工智能|国资委/.test(t)) {
-    consequence = '拉动本地高价值企业级AI研发、算力服务器采购与产业互联网订单，加速国资传统业务数智化降本增效。';
-  } else if (/物流|景气/.test(t)) {
-    consequence = '印证实体经济大宗货物与消费品流转底色持续向好，为下一阶段规上工业增加值与进出口贸易奠定实体支撑。';
-  } else if (/禽流感/.test(t)) {
-    consequence = '南美农牧产品出口遭遇多国临时海关检疫封锁，全球禽肉供应链出现局部短缺并可能波及农产品大宗期货价格。';
-  } else if (/泄密|测谎/.test(t)) {
-    consequence = '五角大楼收紧防务外包与涉密人员准入标准，可能导致美军先进装备采购与外销交付节奏出现技术性推迟。';
-  } else if (track === 'us_macro') {
-    consequence = '直接重塑美债收益率曲线与美股流动性贴现估值，波动将外溢至全球离岸外汇与新兴市场资本流动。';
-  } else if (track === 'apac_tech') {
-    consequence = '影响全球半导体代工稼动率与先进封测订单配额，牵动台积电、英伟达及日韩上游材料设备厂商盈利预期。';
+    consequence = '多方联合紧急搜救响应全面展开，大型机械与应急物资加紧打通受损公路生命通道。';
+  } else if (/芯片|半导体|先进制程|算力/.test(t)) {
+    consequence = '筑牢本土高端算力与关键零部件供应链护城河，为数字经济与智能产业演进奠定硬件底座。';
+  } else if (/降息|加息|美联储|收益率|美债/.test(t)) {
+    consequence = '直接重塑美债收益率曲线与权益资产贴现估值，外溢影响跨国离岸流动性配置节奏。';
+  } else if (/空袭|导弹|原油|中东/.test(t)) {
+    consequence = '推升国际原油与大宗黄金地缘避险买盘，国际航道与关键能源通道安保等级同步上调。';
+  } else if (/关税|制裁|出口管制/.test(t)) {
+    consequence = '加剧跨国企业供应链重组与合规成本，倒逼相关产业链加快全栈自主化与多源备份替代。';
+  } else {
+    const trackConsequenceMap: Record<TrackId, string> = {
+      china_domestic: '稳固实体经济与内需循环底色，增强微观市场主体中长期发展信心与确定性。',
+      us_macro: '加剧跨市场资产在债券、外汇与科技成长股之间的资金再平衡与波动率扩散。',
+      apac_tech: '直接拉动上游设备原厂订单与晶圆代工资本开支，带动整个半导体板块景气预期。',
+      war_conflict: '加剧地缘风险溢价向全球大宗商品与国际物流外溢，推高防务安全警戒等级。',
+      china_policy: '促使涉外经贸主体加快风险分散与多元化市场开拓，重塑双边投资贸易路径。',
+      global_cognition: '引导跨国投资机构根据宏观情势审视大类资产配置，提升风险防范针对性。',
+    };
+    consequence = trackConsequenceMap[track] || '直接影响相关领域中长期战略部署与市场资产定价中枢。';
   }
 
   return {
@@ -667,7 +660,7 @@ function build5W1HParagraph(
   const cleanWhat = (summary.what || '').trim().replace(/[。！!.]+$/, '');
   const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '');
   const cleanConsequence = (summary.consequence || '').trim().replace(/[。！!.]+$/, '');
-  return `${summary.when}，在${summary.where}，${summary.who}证实最新核心进展：${cleanWhat}。究其起因，主要是${cleanWhy}。该事件带来的直接后果是，${cleanConsequence}。`;
+  return `据${summary.when}通报，在${summary.where}，${summary.who}明确核心态势：${cleanWhat}。从核心动因观察，主要是${cleanWhy}。后续影响与传导表明，${cleanConsequence}。`;
 }
 
 
@@ -758,7 +751,11 @@ export async function fetchAggregatedNews(): Promise<NewsItem[]> {
   try {
     const rawItems = await fetchRealTimeRawNews();
     if (rawItems.length === 0) {
-      return cachedNews || [];
+      if (cachedNews && cachedNews.length > 0) return cachedNews;
+      cachedNews = SEED_NEWS_ITEMS;
+      cachedFlash = SEED_FLASH_BRIEFS;
+      lastFetchTime = now;
+      return cachedNews;
     }
 
     const categorized: Record<TrackId, NewsItem[]> = {
@@ -877,7 +874,11 @@ export async function fetchAggregatedNews(): Promise<NewsItem[]> {
     return cachedNews;
   } catch (err) {
     console.error('实时聚合抓取失败:', err);
-    return cachedNews || [];
+    if (!cachedNews || cachedNews.length === 0) {
+      cachedNews = SEED_NEWS_ITEMS;
+      cachedFlash = SEED_FLASH_BRIEFS;
+    }
+    return cachedNews;
   }
 }
 
@@ -898,7 +899,6 @@ export async function getMarketQuotes(): Promise<MarketQuote[]> {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
-      cache: 'no-store',
     });
 
     if (res.ok) {
@@ -1024,10 +1024,10 @@ export async function getMarketQuotes(): Promise<MarketQuote[]> {
 }
 
 export async function getFlashBriefs(): Promise<FlashBrief[]> {
-  if (!cachedFlash) {
+  if (!cachedFlash || cachedFlash.length === 0) {
     await fetchAggregatedNews();
   }
-  return cachedFlash || [];
+  return cachedFlash && cachedFlash.length > 0 ? cachedFlash : SEED_FLASH_BRIEFS;
 }
 
 export async function checkAllLiveSources() {
@@ -1074,7 +1074,6 @@ export async function checkAllLiveSources() {
             'User-Agent': 'Mozilla/5.0',
             Referer: 'https://finance.sina.com.cn',
           },
-          cache: 'no-store',
         });
         const latencyMs = Date.now() - t0;
         return {
