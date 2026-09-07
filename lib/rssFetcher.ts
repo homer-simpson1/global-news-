@@ -314,8 +314,12 @@ function classifyTrack(item: RawLiveItem): TrackId {
     return 'china_domestic';
   }
 
-  // 4. 发达国家对华举措与博弈
-  if (/关税|制裁|出口管制|商务部.*清单|实体清单|未经验证清单|去风险|脱钩|反补贴|反倾销|友岸|外资审查|cfius|涉华|对华限制/.test(t)) {
+  // 4. 发达国家对华举措与博弈 (严格约束：必须明确涉及对华/涉华/中美/中欧博弈背景，防止纯美加/美墨/欧美他国内部关税误判)
+  const isExplicitChinaPolicy = /涉华|对华|中美|中欧|中日|中美博弈|对华限制|对华出口|对华关税|涉台|台海|中国制造|中国企业|中资|中企/.test(t);
+  const hasTradeBarrierKeywords = /关税|制裁|出口管制|商务部.*清单|实体清单|未经验证清单|去风险|脱钩|反补贴|反倾销|友岸|外资审查|cfius|301调查/.test(t);
+  const mentionsChinaEntities = /中国|中方|北京|大陆|两岸|华为|中芯|中兴|大疆|字节|tiktok|宁德时代|比亚迪/.test(t);
+
+  if (isExplicitChinaPolicy || (hasTradeBarrierKeywords && mentionsChinaEntities)) {
     return 'china_policy';
   }
 
