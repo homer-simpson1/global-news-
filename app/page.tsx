@@ -126,13 +126,55 @@ export default function Home() {
   ];
 
   const trackTabs = [
-    { id: 'all', label: '全部核心专区', activeClass: 'bg-slate-900 text-white ring-2 ring-slate-900/20', dotClass: 'bg-slate-400' },
-    { id: 'us_macro', label: '美股与宏观', activeClass: 'bg-blue-600 text-white shadow-blue-500/20 ring-2 ring-blue-400', dotClass: 'bg-blue-500' },
-    { id: 'apac_tech', label: '日韩台芯片', activeClass: 'bg-emerald-600 text-white shadow-emerald-500/20 ring-2 ring-emerald-400', dotClass: 'bg-emerald-500' },
-    { id: 'war_conflict', label: '俄乌与美伊战局', activeClass: 'bg-rose-600 text-white shadow-rose-500/20 ring-2 ring-rose-400', dotClass: 'bg-rose-500' },
-    { id: 'china_domestic', label: '国内要闻与治理', activeClass: 'bg-amber-600 text-white shadow-amber-500/20 ring-2 ring-amber-400', dotClass: 'bg-amber-500' },
-    { id: 'china_policy', label: '发达国家对华', activeClass: 'bg-indigo-600 text-white shadow-indigo-500/20 ring-2 ring-indigo-400', dotClass: 'bg-indigo-500' },
-    { id: 'global_cognition', label: '全球认知与顶刊', activeClass: 'bg-purple-600 text-white shadow-purple-500/20 ring-2 ring-purple-400', dotClass: 'bg-purple-500' },
+    {
+      id: 'all',
+      label: '全部核心专区',
+      activeClass: 'bg-slate-900 text-white shadow-md shadow-slate-900/20 ring-2 ring-slate-800 border-slate-900',
+      idleClass: 'bg-slate-100 hover:bg-slate-200/80 text-slate-800 border-slate-300 font-bold',
+      dotClass: 'bg-slate-600',
+    },
+    {
+      id: 'us_macro',
+      label: '美股与宏观',
+      activeClass: 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-500 border-blue-600',
+      idleClass: 'bg-blue-50/90 hover:bg-blue-100 text-blue-800 border-blue-200/90',
+      dotClass: 'bg-blue-600',
+    },
+    {
+      id: 'apac_tech',
+      label: '日韩台芯片',
+      activeClass: 'bg-emerald-600 text-white shadow-md shadow-emerald-500/25 ring-2 ring-emerald-500 border-emerald-600',
+      idleClass: 'bg-emerald-50/90 hover:bg-emerald-100 text-emerald-800 border-emerald-200/90',
+      dotClass: 'bg-emerald-600',
+    },
+    {
+      id: 'war_conflict',
+      label: '俄乌与美伊战局',
+      activeClass: 'bg-rose-600 text-white shadow-md shadow-rose-500/25 ring-2 ring-rose-500 border-rose-600',
+      idleClass: 'bg-rose-50/90 hover:bg-rose-100 text-rose-800 border-rose-200/90',
+      dotClass: 'bg-rose-600',
+    },
+    {
+      id: 'china_domestic',
+      label: '国内要闻与治理',
+      activeClass: 'bg-amber-600 text-white shadow-md shadow-amber-500/25 ring-2 ring-amber-500 border-amber-600',
+      idleClass: 'bg-amber-50/90 hover:bg-amber-100 text-amber-900 border-amber-300/80',
+      dotClass: 'bg-amber-600',
+    },
+    {
+      id: 'china_policy',
+      label: '发达国家对华',
+      activeClass: 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25 ring-2 ring-indigo-500 border-indigo-600',
+      idleClass: 'bg-indigo-50/90 hover:bg-indigo-100 text-indigo-900 border-indigo-200/90',
+      dotClass: 'bg-indigo-600',
+    },
+    {
+      id: 'global_cognition',
+      label: '全球认知与顶刊',
+      activeClass: 'bg-purple-600 text-white shadow-md shadow-purple-500/25 ring-2 ring-purple-500 border-purple-600',
+      idleClass: 'bg-purple-50/90 hover:bg-purple-100 text-purple-900 border-purple-200/90',
+      dotClass: 'bg-purple-600',
+    },
   ];
 
   return (
@@ -157,46 +199,52 @@ export default function Home() {
         {/* 筛选与搜索控制栏 */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 mb-8 shadow-sm">
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-            {/* 赛道切换药丸按钮：各赛道专属色彩，告别单一黑灰色 */}
+            {/* 赛道切换药丸按钮：各赛道专属鲜明色彩，高度严格对齐为 h-10 (40px) */}
             <div className="flex items-center gap-2.5 overflow-x-auto pb-2 lg:pb-0 scrollbar-none">
               {trackTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setSelectedTrack(tab.id)}
-                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
-                    selectedTrack === tab.id
-                      ? `${tab.activeClass} shadow-md`
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
+                  className={`h-10 inline-flex items-center gap-2 px-4 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer border ${
+                    selectedTrack === tab.id ? tab.activeClass : tab.idleClass
                   }`}
                 >
-                  <span className={`w-2 h-2 rounded-full ${tab.dotClass}`} />
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full ${
+                      selectedTrack === tab.id ? 'bg-white' : tab.dotClass
+                    } flex-shrink-0`}
+                  />
                   <span>{tab.label}</span>
                 </button>
               ))}
             </div>
 
-            {/* 右侧：仅看重大与搜索 */}
+            {/* 右侧：仅看重大与搜索，高度统一对齐为 h-10 */}
             <div className="flex items-center gap-3 w-full lg:w-auto">
               <button
                 onClick={() => setOnlyLevel1(!onlyLevel1)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition-all cursor-pointer whitespace-nowrap ${
+                className={`h-10 inline-flex items-center gap-2 px-4 rounded-xl text-xs sm:text-sm font-bold border transition-all cursor-pointer whitespace-nowrap shadow-xs ${
                   onlyLevel1
-                    ? 'bg-rose-50 text-rose-700 border-rose-300 shadow-sm'
-                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:text-slate-900'
+                    ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-500/25 ring-2 ring-rose-400'
+                    : 'bg-rose-50/80 hover:bg-rose-100 text-rose-800 border-rose-200/90'
                 }`}
               >
-                <span className={`w-2 h-2 rounded-full ${onlyLevel1 ? 'bg-rose-600 animate-ping' : 'bg-slate-400'}`} />
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    onlyLevel1 ? 'bg-white animate-ping' : 'bg-rose-500'
+                  } flex-shrink-0`}
+                />
                 <span>仅看重大关注</span>
               </button>
 
-              <div className="relative flex-1 lg:w-60">
+              <div className="relative flex-1 lg:w-60 h-10">
                 <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="搜索关键词 / 股票 / 战局..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-800 focus:bg-white transition-all"
+                  className="h-10 w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-800 focus:bg-white transition-all"
                 />
               </div>
             </div>
