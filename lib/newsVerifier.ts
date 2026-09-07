@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import { NewsItem, FlashBrief, MarketQuote, Summary5W1H } from './types';
 import { fetchAggregatedNews, getFlashBriefs, getMarketQuotes } from './rssFetcher';
 
@@ -185,18 +183,8 @@ export async function runNewsAccuracyVerification(): Promise<VerificationAuditRe
     details,
   };
 
-  // 持久化巡检日志到本地文件
-  try {
-    const logDir = path.join(process.cwd(), 'logs');
-    if (!fs.existsSync(logDir)) {
-      fs.mkdirSync(logDir, { recursive: true });
-    }
-    const logFile = path.join(logDir, 'news_verification.log');
-    const logEntry = `[${report.verifiedAtLocal}] 15分钟自动化核验完成 | 得分: ${accuracyScore}/100 | 合格率: ${passRate} | 总条数: ${total} | 状态: ${overallStatus}\n`;
-    fs.appendFileSync(logFile, logEntry, 'utf8');
-  } catch (err) {
-    console.warn('写入巡检日志异常:', err);
-  }
+  // 打印巡检日志（兼容 Edge Runtime）
+  console.log(`[${report.verifiedAtLocal}] 15分钟自动化核验完成 | 得分: ${accuracyScore}/100 | 合格率: ${passRate} | 总条数: ${total} | 状态: ${overallStatus}`);
 
   return report;
 }
