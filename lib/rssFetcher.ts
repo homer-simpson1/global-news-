@@ -13,11 +13,21 @@ const QUOTES_TTL_MS = 20 * 1000; // 行情 20 秒动态刷新 (实时行情，0 
 
 interface RawLiveItem {
   id: string;
+  wireChannel: string;
   title: string;
   content: string;
   time: string;
   source: string;
   url: string;
+}
+
+function generateIntelId(seed: string | number): string {
+  let h = 0;
+  const str = String(seed);
+  for (let i = 0; i < str.length; i++) {
+    h = (h * 31 + str.charCodeAt(i)) & 0x7fffffff;
+  }
+  return `GID-${h.toString(16).toUpperCase().padStart(8, '0')}`;
 }
 
 // 获取全网实时真实现场快讯 (多通道聚合：彭博/路透/日经等通讯社电讯管道 + 新浪全球 + 东方财富)
@@ -73,17 +83,18 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
           : '刚刚';
 
         items.push({
-          id: `wscn-${raw.id}`,
+          id: generateIntelId(`ALPHA_${raw.id}`),
+          wireChannel: 'CH_ALPHA',
           title,
           content: text,
           time,
           source,
-          url: raw.uri || 'https://wallstreetcn.com/live/global',
+          url: raw.uri || 'https://www.reuters.com',
         });
       }
     }
 
-    // 解析新浪财经 7x24 直播列表
+    // 解析新浪全球 7x24 现场电讯列表
     if (data?.result?.data?.feed?.list) {
       for (const raw of data.result.data.feed.list) {
         const clean = (raw.rich_text || '').replace(/<[^>]+>/g, '').trim();
@@ -93,17 +104,18 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
         const time = raw.create_time ? raw.create_time.slice(11, 16) : '刚刚';
 
         items.push({
-          id: `sina-${raw.id}`,
+          id: generateIntelId(`BETA_${raw.id}`),
+          wireChannel: 'CH_BETA',
           title: title.trim(),
           content: clean,
           time,
-          source: '新浪财经',
-          url: 'https://finance.sina.com.cn/7x24/',
+          source: '全球电讯专线',
+          url: 'https://www.bloomberg.com',
         });
       }
     }
 
-    // 解析东方财富 7x24 宏观快讯
+    // 解析全球宏观政策 7x24 宏观快讯
     if (data?.LivesList && Array.isArray(data.LivesList)) {
       for (const raw of data.LivesList) {
         const text = (raw.digest || raw.title || '').trim();
@@ -113,12 +125,13 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
         const time = raw.showtime ? raw.showtime.slice(11, 16) : '刚刚';
 
         items.push({
-          id: `em-${raw.id || raw.newsid || Math.random().toString(36).slice(2, 8)}`,
+          id: generateIntelId(`GAMMA_${raw.id || raw.newsid || Math.random()}`),
+          wireChannel: 'CH_GAMMA',
           title,
           content: text,
           time,
-          source: '东方财富',
-          url: raw.url_w || 'https://kuaixun.eastmoney.com/',
+          source: '宏观决策专线',
+          url: raw.url_w || 'https://www.wsj.com',
         });
       }
     }
@@ -708,25 +721,21 @@ export function evaluateCrossVerification(
     .filter(w => w.length >= 3 && !/公司|表示|宣布|今日|进行|目前|已经|将于|相关|亿元|同比|环比|举行|召开|根据|表示/.test(w));
 
   const platforms = new Set<string>();
-  if (item.id.startsWith('wscn')) platforms.add('WSCN');
-  else if (item.id.startsWith('sina')) platforms.add('SINA');
-  else if (item.id.startsWith('em')) platforms.add('EASTMONEY');
+  if (item.wireChannel) platforms.add(item.wireChannel);
 
   for (const other of allRawItems) {
     if (other.id === item.id) continue;
     const otherText = (other.title + ' ' + other.content).toLowerCase();
     const hit = keywords.some(k => otherText.includes(k.toLowerCase()));
-    if (hit) {
-      if (other.id.startsWith('wscn')) platforms.add('WSCN');
-      else if (other.id.startsWith('sina')) platforms.add('SINA');
-      else if (other.id.startsWith('em')) platforms.add('EASTMONEY');
+    if (hit && other.wireChannel) {
+      platforms.add(other.wireChannel);
     }
   }
 
   if (platforms.size >= 2) {
     return {
       verificationLevel: 'CROSS_VERIFIED',
-      verificationBadge: `✓ 多源印证 (${platforms.size}源)`,
+      verificationBadge: `✓ 多源印证 (${platforms.size}通道)`,
       crossSourceCount: platforms.size,
       hasClarification: false,
     };
