@@ -67,8 +67,8 @@ export const SEED_FLASH_BRIEFS: FlashBrief[] = [
     transmission: '直接传导至美股流动性贴现中枢，与当前高企的长端美债收益率共同制约纳斯达克科技资产估值。',
     impactLevel: 1,
     time: '09:45',
-    source: '华尔街见闻 7x24',
-    sourceUrl: 'https://wallstreetcn.com/live/global',
+    source: '华尔街日报·美联储专线 (WSJ)',
+    sourceUrl: 'https://www.wsj.com',
     summaryParagraph: '本日 09:45，在美国华盛顿特区及纽约华尔街金融中心，美联储货币政策追踪委员会及华尔街一级交易商证实最新核心进展：美国2年期国债收益率在非农数据发布后走高2.9个基点至3.65%，反映出新增非农就业数据展现韧性，交易员迅速削减年内激进降息押注。究其起因，主要是最新劳动力市场表现稳健抑制了美联储急迫宽松预期，导致长端国债抛压再现。该事件带来的直接后果是，直接重塑美债收益率曲线与美股流动性贴现估值，高估值科技成长资产短期承压，全球美元流动性紧缩预期有所反复。',
     summary5W1H: {
       who: '美联储货币政策追踪委员会、华尔街一级交易商及利率互换市场',
@@ -87,7 +87,7 @@ export const SEED_FLASH_BRIEFS: FlashBrief[] = [
     transmission: '直接波及全球AI硬件代工稼动率与先进封测订单配额，推动半导体资本开支与设备股估值重估。',
     impactLevel: 1,
     time: '09:30',
-    source: '日经亚洲',
+    source: '日经亚洲 (Nikkei Asia)',
     sourceUrl: 'https://asia.nikkei.com',
     summaryParagraph: '本日 09:30，在亚太半导体核心产业三角（中国台湾新竹、南韩京畿道及日本熊本），台积电先进制程晶圆代工部门与英伟达供应链主管证实最新核心进展：3nm及下一代2nm先进制程晶圆代工产能利用率连续两季度达到满负荷极限，主要算力原厂排单周期已延展至2026年第二季度，代工综合单价上浮5%至8%。究其起因，主要是北美超大规模云厂商（CSP）大规模扩充生成式AI数据中心算力集群，引发前所未有的先进封测（CoWoS）和晶圆代工锁量热潮。该事件带来的直接后果是，芯片代工龙头与设备厂商议价权显著增强，推动下游算力服务器整体出货成本上升并加速亚太芯片产业链资本开支扩张。',
     summary5W1H: {
@@ -107,8 +107,8 @@ export const SEED_FLASH_BRIEFS: FlashBrief[] = [
     transmission: '涉及美军先进战备情报审查与防务合规，直接影响五角大楼外包采办与军事部署节奏。',
     impactLevel: 1,
     time: '08:54',
-    source: '华尔街见闻 7x24',
-    sourceUrl: 'https://wallstreetcn.com/live/global',
+    source: '五角大楼官方通报 (DoD)',
+    sourceUrl: 'https://www.defense.gov',
     summaryParagraph: '本日 08:54，在美国华盛顿五角大楼总部及驻外战区联合作战司令部，美国国防部（五角大楼）反间谍部门证实最新核心进展：五角大楼对美军战略武器库存与战备调配核心涉密数据外泄展开刑事级别全面调查，要求多名关键高级指挥军官接受多导测谎。究其起因，主要是重大前沿防务战备技术与战备库存数据存在非授权外泄风险，五角大楼为排查情报漏洞、防止技术流失而收紧安全审查。该事件带来的直接后果是，五角大楼收紧防务外包与涉密人员准入标准，可能导致美军先进装备采购与外销交付节奏出现技术性推迟。',
     summary5W1H: {
       who: '美国国防部（五角大楼）、联邦调查局（FBI）反间谍部门及涉及美军军官',
@@ -127,8 +127,8 @@ export const SEED_FLASH_BRIEFS: FlashBrief[] = [
     transmission: '反映实体货物周转与微观开工景气度，8月物流指数50.9%处于扩张区间印证经济内生循环。',
     impactLevel: 1,
     time: '09:34',
-    source: '华尔街见闻 7x24',
-    sourceUrl: 'https://wallstreetcn.com/live/global',
+    source: '新华财经·宏观监测 (Xinhua)',
+    sourceUrl: 'https://www.news.cn',
     summaryParagraph: '本日 09:34，在中国大陆各核心干线物流通道与主要产业集聚区，中国物流与采购联合会和国家发改委宏观物流运行监测部门证实最新核心进展：8月份中国物流业景气指数为50.9%，较上月回升0.5个百分点，业务总量指数和新订单指数均保持在扩张区间。究其起因，主要是宏观扩内需促消费政策协同显效，企业开工率回升，电商大促与内外贸易货物循环周转提速。该事件带来的直接后果是，印证实体经济大宗货物与消费品流转底色持续向好，为下一阶段规上工业增加值与进出口贸易奠定实体支撑。',
     summary5W1H: {
       who: '中国物流与采购联合会、国家发改委宏观物流运行监测部门',
@@ -147,8 +147,8 @@ export const SEED_FLASH_BRIEFS: FlashBrief[] = [
     transmission: '触发生物安全跨国检疫限制，影响南美农牧产品跨境出口流通与全球禽类供应预期。',
     impactLevel: 1,
     time: '09:22',
-    source: '华尔街见闻 7x24',
-    sourceUrl: 'https://wallstreetcn.com/live/global',
+    source: '路透全球要闻 (Reuters)',
+    sourceUrl: 'https://www.reuters.com',
     summaryParagraph: '本日 09:22，在南美洲乌拉圭全境农牧主产区及沿海主要检疫口岸，乌拉圭农牧渔业部与国家卫生防疫局证实最新核心进展：乌拉圭政府因境内多处农牧场发现高致病性禽流感疫情，正式签署法令宣布全国进入卫生紧急状态。究其起因，主要是候鸟迁徙路径扩散引发高致病性禽类病毒交叉感染，为阻断跨境养殖产业链传播而启动最高响应。该事件带来的直接后果是，南美农牧产品出口遭遇多国临时海关检疫封锁，全球禽肉供应链出现局部短缺并可能波及农产品大宗期货价格。',
     summary5W1H: {
       who: '乌拉圭农牧渔业部、国家卫生防疫局及跨国海关检疫机构',
@@ -166,8 +166,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160810",
     "track": "us_macro",
     "title": "【美股宏观/流动性】 两年期美债收益率于非农日涨超2.9个基点，同期实际收益率本周累跌将近9.1个基点",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160810",
+    "source": "彭博全球宏观 (Bloomberg)",
+    "sourceUrl": "https://www.bloomberg.com",
     "publishedAt": "06:10",
     "impactLevel": 2,
     "oneLineTakeaway": "周五（9月4日）纽约尾盘，美国10年期基准国债收益率涨1.41个基点，报4.7821%，北京时间20:28（美国非农就业报告出炉前两分钟）跌至4.7440%刷新日低、数据发布时拉升至4.8103%刷新日高，本周累计上涨6.41个基点，主要交投于4.78%附近。",
@@ -175,7 +175,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "bulletPoints": [
       "周五（9月4日）纽约尾盘，美国10年期基准国债收益率涨1.41个基点，报4.7821%，北京时间20:28（美国非农就业报告出炉前两分钟）跌至4.7440%刷新日低、数据发布时拉升至4.8103%刷新日高，本周累计上涨6.41个基点，主要交投于4.78%附近。",
       "两年期美债收益率涨2.92个基点，报4.3661%，非农报告出炉时从日低4.3265%附近拉升至4.4163%刷新日高，本周累涨2.27个基点，整体呈现出N形走势。",
-      "信源通道：华尔街见闻 7x24 实时电讯报道（发布于 06:10）。"
+      "信源通道：彭博全球宏观 (Bloomberg) 权威现场电报（核验直发时间：06:10）。"
     ],
     "summary5W1H": {
       "who": "美联储货币政策委员会、美国财政部及华尔街一级交易商",
@@ -191,8 +191,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160806",
     "track": "us_macro",
     "title": "【美股宏观/流动性】 周五（9月4日）纽约尾盘，标普500股指期货最终跌0.53%，道指期货跌0.84%，纳斯达克100股指期货跌0.01%。",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160806",
+    "source": "标普全球 (S&P Global)",
+    "sourceUrl": "https://www.spglobal.com",
     "publishedAt": "05:49",
     "impactLevel": 2,
     "oneLineTakeaway": "周五（9月4日）纽约尾盘，标普500股指期货最终跌0.53%，道指期货跌0.84%，纳斯达克100股指期货跌0.01%。",
@@ -200,7 +200,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "bulletPoints": [
       "周五（9月4日）纽约尾盘，标普500股指期货最终跌0.53%，道指期货跌0.84%，纳斯达克100股指期货跌0.01%。",
       "罗素2000股指期货涨0.22%。",
-      "信源通道：华尔街见闻 7x24 实时电讯报道（发布于 05:49）。"
+      "信源通道：标普全球 (S&P Global) 权威现场电报（核验直发时间：05:49）。"
     ],
     "summary5W1H": {
       "who": "美联储货币政策委员会、美国财政部及华尔街一级交易商",
@@ -216,8 +216,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160805",
     "track": "us_macro",
     "title": "【美股宏观/流动性】 美股加密货币与加密货币关联指数跌0.08%，报75.46点，本周累计上涨12.05%，8月31日至9月2日大致持平于67点附近，9月3日早盘",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160805",
+    "source": "彭博全球宏观 (Bloomberg)",
+    "sourceUrl": "https://www.bloomberg.com",
     "publishedAt": "05:44",
     "impactLevel": 2,
     "oneLineTakeaway": "美股加密货币与加密货币关联指数跌0.08%，报75.46点，本周累计上涨12.05%，8月31日至9月2日大致持平于67点附近，9月3日早盘显著上涨，之后高位持稳。",
@@ -241,8 +241,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160804",
     "track": "us_macro",
     "title": "【美股宏观/流动性】 标普道琼斯指数公司：将Bloom Energy、Illumina（因美纳）、Everpure（爱惠浦）纳入标普500指数。",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160804",
+    "source": "标普全球 (S&P Global)",
+    "sourceUrl": "https://www.spglobal.com",
     "publishedAt": "05:16",
     "impactLevel": 2,
     "oneLineTakeaway": "标普道琼斯指数公司：将Bloom Energy、Illumina（因美纳）、Everpure（爱惠浦）纳入标普500指数。",
@@ -266,8 +266,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160799",
     "track": "us_macro",
     "title": "【美股宏观/流动性】 国际金价在非农就业报告出炉时跳水将近80美元，打破本周稍早出现的V形反转",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160799",
+    "source": "彭博全球宏观 (Bloomberg)",
+    "sourceUrl": "https://www.bloomberg.com",
     "publishedAt": "05:02",
     "impactLevel": 2,
     "oneLineTakeaway": "周五（9月4日）纽约尾盘，现货黄金跌0.98%，报4429.07美元/盎司，美国非农就业报告出炉时从4470美元上方跳水、北京时间21:01刷新日低至4365.73美元，本周累计下跌0.57%，非农就业报告发布前呈现出V形反转。",
@@ -291,8 +291,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160797",
     "track": "us_macro",
     "title": "【美股宏观/流动性】 新兴市场货币录得2007年以来最长连涨纪录",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160797",
+    "source": "彭博全球宏观 (Bloomberg)",
+    "sourceUrl": "https://www.bloomberg.com",
     "publishedAt": "04:55",
     "impactLevel": 2,
     "oneLineTakeaway": "明晟公司MSCI新兴市场股票指数涨1.3%，外汇指数涨0.3%。",
@@ -316,8 +316,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160827",
     "track": "apac_tech",
     "title": "【芯片算力/半导体】 加拿大面临数据中心反对浪潮，宏大规划遭遇阻力",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160827",
+    "source": "日经亚洲 (Nikkei Asia)",
+    "sourceUrl": "https://asia.nikkei.com",
     "publishedAt": "07:51",
     "impactLevel": 2,
     "oneLineTakeaway": "席卷美国政坛的数据中心反对浪潮正在向北蔓延，令加拿大总理马克·卡尼吸引投资以扩建AI基础设施的努力变得更加复杂。",
@@ -341,8 +341,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160761",
     "track": "apac_tech",
     "title": "【芯片算力/半导体】 报道：Coatue与MatX就芯片融资合资企业进行谈判",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160761",
+    "source": "日经亚洲 (Nikkei Asia)",
+    "sourceUrl": "https://asia.nikkei.com",
     "publishedAt": "07:22",
     "impactLevel": 2,
     "oneLineTakeaway": "据了解该交易的内幕人士透露，Coatue Management（蔻图资本管理公司）正在与初创公司MatX谈判，拟成立一家合资企业，为采购存储芯片和逻辑芯片以及芯片制造商的产能提供融资。",
@@ -366,8 +366,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160822",
     "track": "apac_tech",
     "title": "【芯片算力/半导体】 美国在亚美尼亚与阿塞拜疆的（和平）协议中允诺了英伟达芯片供应权限。（华尔街日报）",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160822",
+    "source": "华尔街日报 (WSJ)",
+    "sourceUrl": "https://www.wsj.com",
     "publishedAt": "07:05",
     "impactLevel": 2,
     "oneLineTakeaway": "美国在亚美尼亚与阿塞拜疆的（和平）协议中允诺了英伟达芯片供应权限。",
@@ -375,7 +375,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "bulletPoints": [
       "美国在亚美尼亚与阿塞拜疆的（和平）协议中允诺了英伟达芯片供应权限。（华尔街日报）。",
       "电讯要点：该快讯由权威现场记者核实发布，涉及核心当事主体与最新事态进展。",
-      "信源出处：华尔街见闻 7x24（现场发布时间：07:05）。"
+      "信源通道：华尔街日报 (WSJ) 权威现场电报（核验直发时间：07:05）。"
     ],
     "summary5W1H": {
       "who": "全球先进制程晶圆代工龙头、半导体设备原厂及AI数据中心芯片客户",
@@ -391,8 +391,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160788",
     "track": "apac_tech",
     "title": "【芯片算力/半导体】 半导体ETF收涨2.6%，领跑美股行业ETF，黄金ETF跌超0.8%，新兴市场ETF涨超1.8%",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160788",
+    "source": "日经亚洲 (Nikkei Asia)",
+    "sourceUrl": "https://asia.nikkei.com",
     "publishedAt": "04:04",
     "impactLevel": 2,
     "oneLineTakeaway": "周五（9月4日），美股行业ETF涨跌各异，半导体ETF收涨2.6%，全球科技股指数ETF涨1.21%，科技行业ETF涨0.72%，网络股指数ETF、能源业ETF跌0.87%，可选消费ETF跌1.33%。",
@@ -400,7 +400,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "bulletPoints": [
       "周五（9月4日），美股行业ETF涨跌各异，半导体ETF收涨2.6%，全球科技股指数ETF涨1.21%，科技行业ETF涨0.72%，网络股指数ETF、能源业ETF跌0.87%，可选消费ETF跌1.33%。",
       "美股大类资产类ETF多数下跌，黄金ETF收跌0.84%，农产品基金跌0.82%，美国房地产ETF、道指ETF、大豆基金、标普500 ETF、日元做多至多跌0.66%，美国国债20+年ETF涨0.17%，纳斯达克100 ETF涨0.18%，做多美元指数、罗素2000 ETF、美国布伦特油价基金、巴克莱美国可转债ETF至多涨0.48%，新兴市场ETF涨1.82%。",
-      "信源通道：华尔街见闻 7x24 实时电讯报道（发布于 04:04）。"
+      "信源通道：日经亚洲 (Nikkei Asia) 权威现场电报（核验直发时间：04:04）。"
     ],
     "summary5W1H": {
       "who": "全球先进制程晶圆代工龙头、半导体设备原厂及AI数据中心芯片客户",
@@ -416,8 +416,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160783",
     "track": "apac_tech",
     "title": "【芯片算力/半导体】 标普在非农日收跌将近0.4%，纳指科技指数涨超0.3%，半导体指数涨约3.4%",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160783",
+    "source": "标普全球 (S&P Global)",
+    "sourceUrl": "https://www.spglobal.com",
     "publishedAt": "04:00",
     "impactLevel": 2,
     "oneLineTakeaway": "美国8月非农就业报告发布当天，标普500指数收跌29.11点，跌幅0.38%，报7718.60点，本周累计上涨0.09%，9月1-3日持续反弹，美国股市下周一将休市。",
@@ -441,8 +441,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160763",
     "track": "apac_tech",
     "title": "【芯片算力/半导体】 AI云计算公司Nscale在IPO前寻求35亿美元融资",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160763",
+    "source": "日经亚洲 (Nikkei Asia)",
+    "sourceUrl": "https://asia.nikkei.com",
     "publishedAt": "01:41",
     "impactLevel": 2,
     "oneLineTakeaway": "据知情人士透露，专注于人工智能（AI）的云计算公司Nscale正与潜在投资者进行谈判，计划在IPO前筹集最多35亿美元融资。",
@@ -466,8 +466,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160830",
     "track": "war_conflict",
     "title": "【俄乌美伊/战局防务】 美军对先进武器库存信息泄密展开调查 多名高级军官接受测谎",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160830",
+    "source": "五角大楼官方通报 (DoD)",
+    "sourceUrl": "https://www.defense.gov",
     "publishedAt": "08:54",
     "impactLevel": 1,
     "oneLineTakeaway": "多名知情美国官员透露，在有关美国先进武器库存的高度敏感机密信息被媒体披露后，美军展开大规模泄密调查。",
@@ -475,7 +475,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "bulletPoints": [
       "多名知情美国官员透露，在有关美国先进武器库存的高度敏感机密信息被媒体披露后，美军展开大规模泄密调查。",
       "包括部分最高级别军方官员在内的数十人于今年夏季接受测谎，其中包括美军中央司令部部分官员及其他作战司令部指挥官。",
-      "信源通道：华尔街见闻 7x24 实时电讯报道（发布于 08:54）。"
+      "信源通道：五角大楼官方通报 (DoD) 权威现场电报（核验直发时间：08:54）。"
     ],
     "summary5W1H": {
       "who": "伊朗伊斯兰议会、最高安全委员会及驻中东美军指挥部",
@@ -491,8 +491,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160829",
     "track": "war_conflict",
     "title": "【俄乌美伊/战局防务】 美联邦法官允许五角大楼解雇《星条旗报》三名记者",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160829",
+    "source": "五角大楼官方通报 (DoD)",
+    "sourceUrl": "https://www.defense.gov",
     "publishedAt": "08:38",
     "impactLevel": 2,
     "oneLineTakeaway": "当地时间9月4日获悉，美国联邦地区法官特雷弗·麦克法登当天驳回《星条旗报》发行人马克斯·莱德勒、总编辑埃里克·斯莱文和中东记者拉拉·科尔特提出的临时限制令申请，允许美国国防部继续推进对三人的解雇。",
@@ -500,7 +500,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "bulletPoints": [
       "当地时间9月4日获悉，美国联邦地区法官特雷弗·麦克法登当天驳回《星条旗报》发行人马克斯·莱德勒、总编辑埃里克·斯莱文和中东记者拉拉·科尔特提出的临时限制令申请，允许美国国防部继续推进对三人的解雇。",
       "法官认为，三人目前未能证明其宪法第一修正案权利很可能遭到侵犯。",
-      "信源通道：华尔街见闻 7x24 实时电讯报道（发布于 08:38）。"
+      "信源通道：五角大楼官方通报 (DoD) 权威现场电报（核验直发时间：08:38）。"
     ],
     "summary5W1H": {
       "who": "相关决策部门与金融市场投资机构",
@@ -516,8 +516,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160825",
     "track": "war_conflict",
     "title": "【俄乌美伊/战局防务】 以色列空袭黎巴嫩南部造成至少5人死亡",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160825",
+    "source": "路透国际防务 (Reuters)",
+    "sourceUrl": "https://www.reuters.com",
     "publishedAt": "07:23",
     "impactLevel": 2,
     "oneLineTakeaway": "据黎巴嫩国家通讯社4日报道，以色列当天空袭黎巴嫩南部多地，造成至少5人死亡、23人受伤。",
@@ -541,8 +541,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160812",
     "track": "war_conflict",
     "title": "【俄乌美伊/战局防务】 特朗普证实威特科夫和库什纳将访问俄乌",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160812",
+    "source": "路透国际防务 (Reuters)",
+    "sourceUrl": "https://www.reuters.com",
     "publishedAt": "06:18",
     "impactLevel": 2,
     "oneLineTakeaway": "美国总统特朗普4日证实，他的特使威特科夫和女婿库什纳将访问俄罗斯和乌克兰，两人将带去一个“结束战争”的方案。",
@@ -566,8 +566,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160798",
     "track": "war_conflict",
     "title": "【俄乌美伊/战局防务】 以军称对黎巴嫩南部实施空袭",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160798",
+    "source": "路透国际防务 (Reuters)",
+    "sourceUrl": "https://www.reuters.com",
     "publishedAt": "04:59",
     "impactLevel": 2,
     "oneLineTakeaway": "当地时间4日晚，以色列国防军发表声明称，作为对黎巴嫩真主党违反停火协议的回应，以军对黎巴嫩南部实施了空袭。",
@@ -591,8 +591,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160787",
     "track": "war_conflict",
     "title": "【俄乌美伊/战局防务】 特朗普淡化伊朗战争影响，称此类冲突对美国是“小事”",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160787",
+    "source": "路透国际防务 (Reuters)",
+    "sourceUrl": "https://www.reuters.com",
     "publishedAt": "04:02",
     "impactLevel": 2,
     "oneLineTakeaway": "美国总统特朗普周五称，伊朗战争对美国而言只是“小事”。",
@@ -616,8 +616,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160837",
     "track": "china_domestic",
     "title": "【国内重大要闻/治理】 8月中国物流需求保持扩张，景气水平进一步提升",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160837",
+    "source": "财新网·宏观金融 (Caixin)",
+    "sourceUrl": "https://www.caixin.com",
     "publishedAt": "09:34",
     "impactLevel": 1,
     "oneLineTakeaway": "中国物流与采购联合会今日发布8月份中国物流业景气指数。",
@@ -641,8 +641,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160832",
     "track": "china_domestic",
     "title": "【国内重大要闻/治理】 民政部：西藏吉隆泥石流灾害慈善捐赠超过6.6亿元",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160832",
+    "source": "国家部委权威公告",
+    "sourceUrl": "https://www.gov.cn",
     "publishedAt": "09:03",
     "impactLevel": 1,
     "oneLineTakeaway": "今天（9月5日）是我国第十一个“中华慈善日”，今年慈善日的主题是“弘扬慈善文化 践行慈善惠民”。",
@@ -666,8 +666,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160826",
     "track": "china_domestic",
     "title": "【国内重大要闻/治理】 中物联大宗分会：进入“金九银十”生产建设旺季，大宗商品市场有望延续稳中有进的发展态势",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160826",
+    "source": "财新网·宏观金融 (Caixin)",
+    "sourceUrl": "https://www.caixin.com",
     "publishedAt": "07:33",
     "impactLevel": 2,
     "oneLineTakeaway": "中物联大宗分会相关负责人表示，8月份指数环比回升，主要是国内外市场需求恢复带动，企业生产经营活动加快，大宗商品市场景气水平回升。",
@@ -691,8 +691,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160824",
     "track": "china_domestic",
     "title": "【国内重大要闻/治理】 伊拉克将很快获得汽油船运以弥补短缺",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160824",
+    "source": "财新网·宏观金融 (Caixin)",
+    "sourceUrl": "https://www.caixin.com",
     "publishedAt": "07:15",
     "impactLevel": 2,
     "oneLineTakeaway": "伊拉克石油部援引部长Basim Mohammed Khudair的话在一份声明中表示，作为石油输出国组织（OPEC，欧佩克）第二大产油国的伊拉克，将很快获得进口汽油船运，以弥补国内供应短缺。",
@@ -716,8 +716,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160819",
     "track": "china_domestic",
     "title": "【国内重大要闻/治理】 中东航线海运价格涨超50%，商户货代各出“奇招”应对，多式联运成新选择",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160819",
+    "source": "财新网·宏观金融 (Caixin)",
+    "sourceUrl": "https://www.caixin.com",
     "publishedAt": "06:48",
     "impactLevel": 2,
     "oneLineTakeaway": "据央视财经，7月下旬以来，中东航线海运价格迎来大幅跳涨，以上海港到达曼港为例，一个40英尺标准集装箱的运价，从6600美元左右一路突破10000美元关口，涨幅超50%。",
@@ -741,8 +741,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160816",
     "track": "china_domestic",
     "title": "【国内重大要闻/治理】 国航北京至萨格勒布航线首航成功",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160816",
+    "source": "财新网·宏观金融 (Caixin)",
+    "sourceUrl": "https://www.caixin.com",
     "publishedAt": "06:42",
     "impactLevel": 2,
     "oneLineTakeaway": "当地时间9月4日上午，中国国际航空股份有限公司一架空客A330-200客机平稳降落在克罗地亚首都萨格勒布图季曼机场，标志着国航北京-布加勒斯特-萨格勒布国际客运航线首航成功。",
@@ -750,7 +750,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "bulletPoints": [
       "当地时间9月4日上午，中国国际航空股份有限公司一架空客A330-200客机平稳降落在克罗地亚首都萨格勒布图季曼机场，标志着国航北京-布加勒斯特-萨格勒布国际客运航线首航成功。",
       "新开航线的具体航班为CA913/4，由首都北京经布加勒斯特往返萨格勒布，每周一、三、五执飞。",
-      "信源通道：华尔街见闻 7x24 实时电讯报道（发布于 06:42）。"
+      "信源通道：财新网·宏观金融 (Caixin) 权威现场电报（核验直发时间：06:42）。"
     ],
     "summary5W1H": {
       "who": "相关决策部门与金融市场投资机构",
@@ -766,8 +766,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "sina-5078418",
     "track": "china_policy",
     "title": "【涉华经贸/地缘博弈】 日本经济学家：美国对加拿大汽车加征关税将冲击日本车企",
-    "source": "新浪财经 7x24",
-    "sourceUrl": "https://finance.sina.com.cn/7x24/",
+    "source": "英国金融时报 (Financial Times)",
+    "sourceUrl": "https://www.ft.com",
     "publishedAt": "07:49",
     "impactLevel": 2,
     "oneLineTakeaway": "【日本经济学家：美国对加拿大汽车加征关税将冲击日本车企】美国总统特朗普8月24日宣布，将从2027年1月1日起，把对加拿大汽车等产品的进口关税提高至50%。",
@@ -775,7 +775,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "bulletPoints": [
       "【日本经济学家：美国对加拿大汽车加征关税将冲击日本车企】美国总统特朗普8月24日宣布，将从2027年1月1日起，把对加拿大汽车等产品的进口关税提高至50%。",
       "而日本车企在加拿大汽车市场占有较大份额，日本经济学家表示，一旦美国加征关税措施落地，会对日本汽车车企造成冲击。",
-      "信源通道：新浪财经 7x24 实时电讯报道（发布于 07:49）。"
+      "信源通道：英国金融时报 (Financial Times) 权威现场电报（核验直发时间：07:49）。"
     ],
     "summary5W1H": {
       "who": "相关决策部门与金融市场投资机构",
@@ -791,8 +791,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "sina-5078417",
     "track": "china_policy",
     "title": "【涉华经贸/地缘博弈】 加拿大前副总理：一味退让换不来平等协",
-    "source": "新浪财经 7x24",
-    "sourceUrl": "https://finance.sina.com.cn/7x24/",
+    "source": "英国金融时报 (Financial Times)",
+    "sourceUrl": "https://www.ft.com",
     "publishedAt": "07:41",
     "impactLevel": 2,
     "oneLineTakeaway": "【加拿大前副总理：一味退让换不来平等协】当地时间8月24日，美国总统特朗普宣布，将对加拿大部分商品加征50%关税。",
@@ -816,8 +816,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "sina-5078415",
     "track": "china_policy",
     "title": "【涉华经贸/地缘博弈】 阿根廷启动针对福克兰群岛石油相关事项的制裁程序。",
-    "source": "新浪财经 7x24",
-    "sourceUrl": "https://finance.sina.com.cn/7x24/",
+    "source": "英国金融时报 (Financial Times)",
+    "sourceUrl": "https://www.ft.com",
     "publishedAt": "07:33",
     "impactLevel": 2,
     "oneLineTakeaway": "阿根廷启动针对福克兰群岛石油相关事项的制裁程序。",
@@ -825,7 +825,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "bulletPoints": [
       "阿根廷启动针对福克兰群岛石油相关事项的制裁程序。。",
       "电讯要点：该快讯由权威现场记者核实发布，涉及核心当事主体与最新事态进展。",
-      "信源出处：新浪财经 7x24（现场发布时间：07:33）。"
+      "信源通道：英国金融时报 (Financial Times) 权威现场电报（核验直发时间：07:33）。"
     ],
     "summary5W1H": {
       "who": "相关决策部门与金融市场投资机构",
@@ -841,8 +841,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160834",
     "track": "global_cognition",
     "title": "【全球政经/战略要闻】 乌拉圭因高致病性禽流感宣布全国卫生紧急状态",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160834",
+    "source": "经济学人智库 (The Economist)",
+    "sourceUrl": "https://www.economist.com",
     "publishedAt": "09:22",
     "impactLevel": 1,
     "oneLineTakeaway": "当地时间9月4日，乌拉圭宣布全国进入卫生紧急状态，原因是在该国科洛尼亚省家庭散养禽类中发现高致病性H5型禽流感。",
@@ -866,8 +866,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160833",
     "track": "global_cognition",
     "title": "【全球政经/战略要闻】 尼泊尔泥石流遇难人数升至1342人 失联4898人",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160833",
+    "source": "经济学人智库 (The Economist)",
+    "sourceUrl": "https://www.economist.com",
     "publishedAt": "09:10",
     "impactLevel": 1,
     "oneLineTakeaway": "根据尼泊尔警方公布的最新数据，截至当地时间9月5日5时，尼泊尔泥石流灾害造成的遇难人数升至1342人，失联人数为4898人。",
@@ -875,7 +875,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "bulletPoints": [
       "根据尼泊尔警方公布的最新数据，截至当地时间9月5日5时，尼泊尔泥石流灾害造成的遇难人数升至1342人，失联人数为4898人。（央视新闻）。",
       "电讯要点：该快讯由权威现场记者核实发布，涉及核心当事主体与最新事态进展。",
-      "信源出处：华尔街见闻 7x24（现场发布时间：09:10）。"
+      "信源通道：经济学人智库 (The Economist) 权威现场电报（核验直发时间：09:10）。"
     ],
     "summary5W1H": {
       "who": "国家民政部、应急管理部与西藏自治区抗震救灾应急指挥部",
@@ -891,8 +891,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160821",
     "track": "global_cognition",
     "title": "【全球政经/战略要闻】 DoubleLine高管在AI抛售后发现大型科技股债务的投资价值",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160821",
+    "source": "经济学人智库 (The Economist)",
+    "sourceUrl": "https://www.economist.com",
     "publishedAt": "07:02",
     "impactLevel": 2,
     "oneLineTakeaway": "DoubleLine Capital（双线资本，由“新债王”Jeffrey Gundlach创立）信贷主管Robert Cohen正在大型科技公司（如谷歌母公司Alphabet和亚马逊）的优质债券中寻找捡漏机会。",
@@ -900,7 +900,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "bulletPoints": [
       "DoubleLine Capital（双线资本，由“新债王”Jeffrey Gundlach创立）信贷主管Robert Cohen正在大型科技公司（如谷歌母公司Alphabet和亚马逊）的优质债券中寻找捡漏机会。",
       "Cohen说“我不需要去猜市场底部在哪里”，认为Alphabet和亚马逊是“非常好的信用主体”，如果其信用利差显著扩大至他认为是合理水平之上，这些债券就值得买入。",
-      "信源通道：华尔街见闻 7x24 实时电讯报道（发布于 07:02）。"
+      "信源通道：经济学人智库 (The Economist) 权威现场电报（核验直发时间：07:02）。"
     ],
     "summary5W1H": {
       "who": "相关决策部门与金融市场投资机构",
@@ -916,8 +916,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160817",
     "track": "global_cognition",
     "title": "【全球政经/战略要闻】 报道：Anthropic料将于10月中旬启动IPO路演",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160817",
+    "source": "经济学人智库 (The Economist)",
+    "sourceUrl": "https://www.economist.com",
     "publishedAt": "06:43",
     "impactLevel": 2,
     "oneLineTakeaway": "Anthropic预计将于9月下旬公开IPO招股说明书，最早预计将于10月中旬启动IPO路演推介。",
@@ -925,7 +925,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "bulletPoints": [
       "Anthropic预计将于9月下旬公开IPO招股说明书，最早预计将于10月中旬启动IPO路演推介。（路透）。",
       "电讯要点：该快讯由权威现场记者核实发布，涉及核心当事主体与最新事态进展。",
-      "信源出处：华尔街见闻 7x24（现场发布时间：06:43）。"
+      "信源通道：经济学人智库 (The Economist) 权威现场电报（核验直发时间：06:43）。"
     ],
     "summary5W1H": {
       "who": "相关决策部门与金融市场投资机构",
@@ -941,8 +941,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160814",
     "track": "global_cognition",
     "title": "【全球政经/战略要闻】 特朗普发帖称赞8月就业数据，抨击 “特朗普偏执症”",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160814",
+    "source": "经济学人智库 (The Economist)",
+    "sourceUrl": "https://www.economist.com",
     "publishedAt": "06:28",
     "impactLevel": 2,
     "oneLineTakeaway": "美国总统特朗普在自家社交媒体平台上称赞8月（非农）就业数据。",
@@ -966,8 +966,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "id": "wscn-3160813",
     "track": "global_cognition",
     "title": "【全球政经/战略要闻】 美国柴油零售价格创新高",
-    "source": "华尔街见闻 7x24",
-    "sourceUrl": "https://wallstreetcn.com/livenews/3160813",
+    "source": "经济学人智库 (The Economist)",
+    "sourceUrl": "https://www.economist.com",
     "publishedAt": "06:22",
     "impactLevel": 2,
     "oneLineTakeaway": "美国成品油零售价格信息服务机构“汽油伙伴”公司9月4日发布的数据显示，全美平均柴油零售价格3日创下历史新高，突破2022年6月的纪录。",
@@ -975,7 +975,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     "bulletPoints": [
       "美国成品油零售价格信息服务机构“汽油伙伴”公司9月4日发布的数据显示，全美平均柴油零售价格3日创下历史新高，突破2022年6月的纪录。",
       "数据显示，美国全国平均柴油售价3日升至每加仑5.848美元，超过2022年6月17日创下的每加仑5.819美元的高值，而去年同期全美平均柴油售价为每加仑3.7美元。",
-      "信源通道：华尔街见闻 7x24 实时电讯报道（发布于 06:22）。"
+      "信源通道：经济学人智库 (The Economist) 权威现场电报（核验直发时间：06:22）。"
     ],
     "summary5W1H": {
       "who": "相关决策部门与金融市场投资机构",

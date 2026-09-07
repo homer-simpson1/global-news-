@@ -8,12 +8,11 @@ async function runDailyHealthCheck() {
   console.log('巡检执行时间:', new Date().toLocaleString('zh-CN', { hour12: false }));
 
   const endpoints = [
-    { name: '华尔街见闻 7x24 全球快讯', url: 'https://api-one-wscn.awtmt.com/apiv1/content/lives?channel=global-channel&limit=5' },
-    { name: '华尔街见闻 7x24 A股要闻', url: 'https://api-one-wscn.awtmt.com/apiv1/content/lives?channel=a-stock-channel&limit=5' },
-    { name: '华尔街见闻 7x24 外汇通道', url: 'https://api-one-wscn.awtmt.com/apiv1/content/lives?channel=forex-channel&limit=5' },
-    { name: '华尔街见闻 7x24 大宗商品', url: 'https://api-one-wscn.awtmt.com/apiv1/content/lives?channel=commodity-channel&limit=5' },
+    { name: '全球电讯数据通道 (WSCN Global)', url: 'https://api-one-wscn.awtmt.com/apiv1/content/lives?channel=global-channel&limit=5' },
+    { name: '亚太要闻数据通道 (WSCN Macro)', url: 'https://api-one-wscn.awtmt.com/apiv1/content/lives?channel=a-stock-channel&limit=5' },
     { name: '新浪财经 7x24 全球直播流', url: 'https://zhibo.sina.com.cn/api/zhibo/feed?page=1&page_size=5&zhibo_id=152' },
-    { name: '新浪全球高频行情引擎', url: 'https://hq.sinajs.cn/list=gb_inx,gb_ndx,gb_sox,hf_CL,hf_GC', headers: { Referer: 'https://finance.sina.com.cn' } },
+    { name: '东方财富 7x24 宏观快讯接口', url: 'https://newsapi.eastmoney.com/kuaixun/v1/getlist_102_ajaxResult_5_1_.html' },
+    { name: '东方财富全市场实时高频行情引擎', url: 'https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=100.SPX,100.N225&fields=f12,f14' },
     { name: '美联储 (FRED) 10年美债基准', url: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10' }
   ];
 
