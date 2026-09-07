@@ -3,8 +3,9 @@
 import React, { useState } from 'react';
 import { NewsItem } from '@/lib/types';
 import { TrackVisualTheme, TRACK_THEMES } from '@/lib/trackThemes';
-import { ExternalLink, BookOpen, Sparkles, ChevronDown, ChevronUp, Award } from 'lucide-react';
+import { ExternalLink, BookOpen, Sparkles, ChevronDown, ChevronUp, Award, Search } from 'lucide-react';
 import Summary5W1HView from './Summary5W1HView';
+import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
 
 interface NewsCardProps {
   item: NewsItem;
@@ -32,6 +33,10 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
   };
 
   const { tag, cleanTitle } = parseTitle(item.title);
+  const keywords = extractSearchKeywords(cleanTitle || item.title, item.source);
+  const bingSearchUrl = getSearchUrl(keywords, 'bing');
+  const googleSearchUrl = getSearchUrl(keywords, 'google');
+  const baiduSearchUrl = getSearchUrl(keywords, 'baidu');
 
   return (
     <div
@@ -44,7 +49,7 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
       }`}
     >
       <div className="p-5 md:p-6">
-        {/* 顶部元数据行：分类标签、信源、时间、头条徽章、右侧单一交互按钮 */}
+        {/* 顶部元数据行：分类标签、信源、时间、头条徽章、右侧一键查错与展开按钮 */}
         <div className="flex items-center justify-between gap-4 mb-3.5 flex-wrap">
           <div className="flex items-center gap-2.5 flex-wrap">
             {/* 头条要闻专属标记 */}
@@ -100,20 +105,33 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
             )}
           </div>
 
-          {/* 右侧唯一的展开/收起按钮，与板块主题色彩统一联动 */}
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer select-none border ${
-              expanded ? theme.buttonActive : theme.buttonIdle
-            }`}
-          >
-            <span>{expanded ? '收起深度小结' : '展开 5W1H 深度小结'}</span>
-            {expanded ? (
-              <ChevronUp className="w-3.5 h-3.5" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5" />
-            )}
-          </button>
+          {/* 右侧操作区：一键搜索查错与展开深度小结按钮 */}
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <a
+              href={bingSearchUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`自动抓取关键词并在必应搜索核实: "${keywords}"`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:text-blue-600 bg-white hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 shadow-sm transition-all cursor-pointer select-none"
+            >
+              <Search className="w-3.5 h-3.5 text-blue-500" />
+              <span>一键查错</span>
+            </a>
+
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer select-none border ${
+                expanded ? theme.buttonActive : theme.buttonIdle
+              }`}
+            >
+              <span>{expanded ? '收起深度小结' : '展开 5W1H 深度小结'}</span>
+              {expanded ? (
+                <ChevronUp className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* 报道大标题：头条大黑体突出，自然排版，支持点击 */}
@@ -196,20 +214,64 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
               </div>
             </div>
 
-            {/* 原文权威出处直达 */}
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-xs text-slate-500">
-                权威出处：{item.source} 现场快讯
-              </span>
-              <a
-                href={item.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 text-xs md:text-sm font-semibold transition-colors"
-              >
-                <span>阅读报道原文</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
+            {/* 交叉查错与权威出处直达 */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t border-slate-200">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-slate-600 flex items-center gap-1">
+                  <Search className="w-3.5 h-3.5 text-blue-500" />
+                  <span>交叉搜索查错:</span>
+                </span>
+                <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 max-w-[260px] truncate" title={`抓取的核查关键词: ${keywords}`}>
+                  {keywords}
+                </span>
+                <div className="inline-flex items-center gap-1.5 ml-1">
+                  <a
+                    href={bingSearchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="国内直连无障碍（推荐）"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors"
+                  >
+                    <span>必应 Bing</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <a
+                    href={googleSearchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="谷歌全球资讯交叉索引"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
+                  >
+                    <span>谷歌</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <a
+                    href={baiduSearchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="百度中文资讯索引"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
+                  >
+                    <span>百度</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 self-end md:self-auto">
+                <span className="text-xs text-slate-500">
+                  出处：{item.source}
+                </span>
+                <a
+                  href={item.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs md:text-sm font-semibold shadow-sm transition-colors"
+                >
+                  <span>阅读报道原文</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
             </div>
           </div>
         )}
