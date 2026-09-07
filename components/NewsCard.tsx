@@ -40,6 +40,7 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
 
   return (
     <div
+      id={`news-card-${item.id}`}
       className={`rounded-2xl transition-all duration-200 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} border ${theme.cardBorder} ${
         isLead ? 'shadow-md ring-1 ring-black/5' : 'hover:shadow-md shadow-sm'
       } ${
