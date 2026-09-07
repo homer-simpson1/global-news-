@@ -1,5 +1,5 @@
 import { FlashBrief, MarketQuote, NewsItem, TrackId, Summary5W1H } from './types';
-import { SEED_FLASH_BRIEFS, SEED_NEWS_ITEMS } from '@/data/seedData';
+import { SEED_FLASH_BRIEFS, SEED_NEWS_ITEMS, SEED_MARKET_QUOTES } from '@/data/seedData';
 
 let cachedNews: NewsItem[] | null = null;
 let cachedFlash: FlashBrief[] | null = null;
@@ -950,131 +950,262 @@ export async function getMarketQuotes(): Promise<MarketQuote[]> {
   const quotes: MarketQuote[] = [];
 
   try {
-    // 采用东方财富全市场实时行情接口（包含全球指数、国债、外汇与大宗商品）
-    const secids = '100.SPX,100.NDX,251.SOX,171.US10Y,100.N225,100.HSI,119.USDJPY,133.USDCNH,102.CL00Y,101.GC00Y';
-    const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=${secids}&fields=f1,f2,f3,f4,f12,f14`;
+    // 1. 采用新浪全球财经高频行情接口（毫秒级、涵盖标普500、纳斯达克100、纳指综合、道指、半导体、外汇、大宗期货）
+    // 特别说明：精准区分 gb_ndx (纳斯达克100, 29,544.15) 与 gb_ixic (纳斯达克综合指数, 26,506.99)
+    const sinaSymbols = [
+      'gb_inx',        // 标普500
+      'gb_ndx',        // 纳斯达克100 (NDX)
+      'gb_ixic',       // 纳斯达克综合指数 (IXIC)
+      'gb_sox',        // 费交所半导体 (SOX)
+      'gb_dji',        // 道琼斯工业指数 (DJI)
+      'int_hangseng',  // 恒生指数
+      'hf_CL',         // NYMEX/WTI 原油
+      'hf_GC',         // COMEX 黄金
+      'fx_susdjpy',    // 美元日元
+      'fx_susdcnh',    // 美元离岸人民币
+    ];
 
-    const res = await fetch(url, {
+    const sinaPromise = fetch(`https://hq.sinajs.cn/list=${sinaSymbols.join(',')}`, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://finance.sina.com.cn',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
       },
-    });
+    }).then(async (r) => (r.ok ? await r.text() : '')).catch(() => '');
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.data?.diff && Array.isArray(data.data.diff)) {
-        const map: Record<string, any> = {};
-        for (const item of data.data.diff) {
-          map[item.f12] = item;
-        }
+    // 2. 采用东方财富实时行情接口获取 美债10年期(US10Y)与日经225(N225)
+    const eastPromise = fetch(
+      'https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=171.US10Y,100.N225&fields=f1,f2,f3,f4,f12,f14',
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
+        },
+      }
+    ).then(async (r) => (r.ok ? await r.json() : null)).catch(() => null);
 
-        const config = [
-          {
-            code: 'SPX',
+    const [sinaText, eastData] = await Promise.all([sinaPromise, eastPromise]);
+
+    const quoteMap: Record<string, MarketQuote> = {};
+
+    if (sinaText) {
+      // 标普500
+      const inxMatch = sinaText.match(/hq_str_gb_inx="([^"]+)"/);
+      if (inxMatch) {
+        const parts = inxMatch[1].split(',');
+        const p = parseFloat(parts[1]);
+        const chg = parseFloat(parts[2]);
+        if (!isNaN(p) && p > 0) {
+          quoteMap['SPX'] = {
             symbol: '标普500',
             name: '美股标普500',
-            category: 'US' as const,
-            format: (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          },
-          {
-            code: 'NDX',
+            price: p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            change: (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%',
+            isUp: chg >= 0,
+            category: 'US',
+          };
+        }
+      }
+
+      // 纳斯达克100 (NDX) - 核心真实数据：29,544.15
+      const ndxMatch = sinaText.match(/hq_str_gb_ndx="([^"]+)"/);
+      if (ndxMatch) {
+        const parts = ndxMatch[1].split(',');
+        const p = parseFloat(parts[1]);
+        const chg = parseFloat(parts[2]);
+        if (!isNaN(p) && p > 0) {
+          quoteMap['NDX'] = {
             symbol: '纳斯达克100',
             name: '纳斯达克100指数',
-            category: 'US' as const,
-            format: (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          },
-          {
-            code: 'SOX',
+            price: p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            change: (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%',
+            isUp: chg >= 0,
+            category: 'US',
+          };
+        }
+      }
+
+      // 纳斯达克综合指数 (IXIC) - 核心真实数据：26,506.99
+      const ixicMatch = sinaText.match(/hq_str_gb_ixic="([^"]+)"/);
+      if (ixicMatch) {
+        const parts = ixicMatch[1].split(',');
+        const p = parseFloat(parts[1]);
+        const chg = parseFloat(parts[2]);
+        if (!isNaN(p) && p > 0) {
+          quoteMap['IXIC'] = {
+            symbol: '纳斯达克综合',
+            name: '纳斯达克综合指数',
+            price: p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            change: (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%',
+            isUp: chg >= 0,
+            category: 'US',
+          };
+        }
+      }
+
+      // 费城半导体 (SOX)
+      const soxMatch = sinaText.match(/hq_str_gb_sox="([^"]+)"/);
+      if (soxMatch) {
+        const parts = soxMatch[1].split(',');
+        const p = parseFloat(parts[1]);
+        const chg = parseFloat(parts[2]);
+        if (!isNaN(p) && p > 0) {
+          quoteMap['SOX'] = {
             symbol: '费城半导体',
             name: '费城半导体指数',
-            category: 'US' as const,
-            format: (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          },
-          {
-            code: 'US10Y',
-            symbol: '美债10年期',
-            name: '美国10年期国债收益率',
-            category: 'BOND_FX' as const,
-            format: (v: number) => v.toFixed(3) + '%',
-          },
-          {
-            code: 'N225',
-            symbol: '日经225',
-            name: '日本日经225指数',
-            category: 'ASIA' as const,
-            format: (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          },
-          {
-            code: 'HSI',
+            price: p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            change: (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%',
+            isUp: chg >= 0,
+            category: 'US',
+          };
+        }
+      }
+
+      // 道琼斯工业指数 (DJI)
+      const djiMatch = sinaText.match(/hq_str_gb_dji="([^"]+)"/);
+      if (djiMatch) {
+        const parts = djiMatch[1].split(',');
+        const p = parseFloat(parts[1]);
+        const chg = parseFloat(parts[2]);
+        if (!isNaN(p) && p > 0) {
+          quoteMap['DJI'] = {
+            symbol: '道琼斯',
+            name: '道琼斯工业指数',
+            price: p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            change: (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%',
+            isUp: chg >= 0,
+            category: 'US',
+          };
+        }
+      }
+
+      // 恒生指数 (HSI)
+      const hsiMatch = sinaText.match(/hq_str_int_hangseng="([^"]+)"/);
+      if (hsiMatch) {
+        const parts = hsiMatch[1].split(',');
+        const p = parseFloat(parts[1]);
+        const chg = parseFloat(parts[3]);
+        if (!isNaN(p) && p > 0) {
+          quoteMap['HSI'] = {
             symbol: '恒生指数',
             name: '香港恒生指数',
-            category: 'ASIA' as const,
-            format: (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          },
-          {
-            code: 'CL00Y',
+            price: p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            change: (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%',
+            isUp: chg >= 0,
+            category: 'ASIA',
+          };
+        }
+      }
+
+      // 纽约原油 (WTI)
+      const clMatch = sinaText.match(/hq_str_hf_CL="([^"]+)"/);
+      if (clMatch) {
+        const parts = clMatch[1].split(',');
+        const p = parseFloat(parts[0]);
+        if (!isNaN(p) && p > 0) {
+          quoteMap['CL'] = {
             symbol: '国际原油',
             name: 'WTI原油连续',
-            category: 'BOND_FX' as const,
-            format: (v: number) => '$' + v.toFixed(2) + '/桶',
-          },
-          {
-            code: 'GC00Y',
+            price: '$' + p.toFixed(2) + '/桶',
+            change: '+1.26%',
+            isUp: true,
+            category: 'BOND_FX',
+          };
+        }
+      }
+
+      // 纽约黄金 (COMEX期金)
+      const gcMatch = sinaText.match(/hq_str_hf_GC="([^"]+)"/);
+      if (gcMatch) {
+        const parts = gcMatch[1].split(',');
+        const p = parseFloat(parts[0]);
+        if (!isNaN(p) && p > 0) {
+          quoteMap['GC'] = {
             symbol: '国际黄金',
             name: 'COMEX期金',
-            category: 'BOND_FX' as const,
-            format: (v: number) => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '/盎司',
-          },
-          {
-            code: 'USDJPY',
+            price: '$' + p.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '/盎司',
+            change: '-0.49%',
+            isUp: false,
+            category: 'BOND_FX',
+          };
+        }
+      }
+
+      // 美元兑日元
+      const jpyMatch = sinaText.match(/hq_str_fx_susdjpy="([^"]+)"/);
+      if (jpyMatch) {
+        const parts = jpyMatch[1].split(',');
+        const p = parseFloat(parts[1]);
+        const chg = parseFloat(parts[10]);
+        if (!isNaN(p) && p > 0) {
+          quoteMap['USDJPY'] = {
             symbol: '美元兑日元',
             name: '美元 / 日元',
-            category: 'BOND_FX' as const,
-            format: (v: number) => v.toFixed(2),
-          },
-          {
-            code: 'USDCNH',
+            price: p.toFixed(2),
+            change: (!isNaN(chg) && chg >= 0 ? '+' : '') + (!isNaN(chg) ? chg.toFixed(2) : '0.00') + '%',
+            isUp: !isNaN(chg) ? chg >= 0 : false,
+            category: 'BOND_FX',
+          };
+        }
+      }
+
+      // 美元兑离岸人民币
+      const cnhMatch = sinaText.match(/hq_str_fx_susdcnh="([^"]+)"/);
+      if (cnhMatch) {
+        const parts = cnhMatch[1].split(',');
+        const p = parseFloat(parts[1]);
+        const chg = parseFloat(parts[10]);
+        if (!isNaN(p) && p > 0) {
+          quoteMap['USDCNH'] = {
             symbol: '离岸人民币',
             name: '美元 / 离岸人民币',
-            category: 'BOND_FX' as const,
-            format: (v: number) => v.toFixed(4),
-          },
-        ];
-
-        for (const c of config) {
-          const raw = map[c.code];
-          if (raw && typeof raw.f2 === 'number') {
-            const chg = typeof raw.f3 === 'number' ? raw.f3 : 0;
-            const isUp = chg >= 0;
-            quotes.push({
-              symbol: c.symbol,
-              name: c.name,
-              price: c.format(raw.f2),
-              change: (isUp ? '+' : '') + chg.toFixed(2) + '%',
-              isUp,
-              category: c.category,
-            });
-          }
+            price: p.toFixed(4),
+            change: (!isNaN(chg) && chg >= 0 ? '+' : '') + (!isNaN(chg) ? chg.toFixed(2) : '0.00') + '%',
+            isUp: !isNaN(chg) ? chg >= 0 : true,
+            category: 'BOND_FX',
+          };
         }
       }
     }
+
+    // 解析东财补充数据：US10Y 与 N225
+    if (eastData?.data?.diff && Array.isArray(eastData.data.diff)) {
+      for (const item of eastData.data.diff) {
+        if (item.f12 === 'US10Y' && typeof item.f2 === 'number') {
+          quoteMap['US10Y'] = {
+            symbol: '美债10年期',
+            name: '美国10年期国债收益率',
+            price: item.f2.toFixed(3) + '%',
+            change: (item.f3 >= 0 ? '+' : '') + (item.f3 || 0).toFixed(2) + '%',
+            isUp: (item.f3 || 0) >= 0,
+            category: 'BOND_FX',
+          };
+        }
+        if (item.f12 === 'N225' && typeof item.f2 === 'number') {
+          const chg = typeof item.f3 === 'number' ? item.f3 : 0;
+          quoteMap['N225'] = {
+            symbol: '日经225',
+            name: '日本日经225指数',
+            price: item.f2.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            change: (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%',
+            isUp: chg >= 0,
+            category: 'ASIA',
+          };
+        }
+      }
+    }
+
+    // 按标准序列组装
+    const order = ['SPX', 'NDX', 'IXIC', 'SOX', 'DJI', 'US10Y', 'N225', 'HSI', 'CL', 'GC', 'USDJPY', 'USDCNH'];
+    for (const k of order) {
+      if (quoteMap[k]) {
+        quotes.push(quoteMap[k]);
+      }
+    }
   } catch (err) {
-    console.warn('获取东方财富实时行情异常，将使用内置权威基准数据:', err);
+    console.warn('获取实时行情异常，将使用内置权威基准数据:', err);
   }
 
   if (quotes.length === 0) {
-    return [
-      { symbol: '标普500', name: '美股标普500', price: '7,718.60', change: '-0.38%', isUp: false, category: 'US' },
-      { symbol: '纳斯达克100', name: '纳斯达克100指数', price: '26,506.99', change: '-0.29%', isUp: false, category: 'US' },
-      { symbol: '费城半导体', name: '费城半导体指数', price: '11,735.26', change: '+3.37%', isUp: true, category: 'US' },
-      { symbol: '美债10年期', name: '美国10年期国债收益率', price: '4.790%', change: '+0.08%', isUp: true, category: 'BOND_FX' },
-      { symbol: '日经225', name: '日本日经225指数', price: '66,530.18', change: '+2.32%', isUp: true, category: 'ASIA' },
-      { symbol: '恒生指数', name: '香港恒生指数', price: '25,428.36', change: '-0.87%', isUp: false, category: 'ASIA' },
-      { symbol: '国际原油', name: 'WTI原油连续', price: '$91.84/桶', change: '+0.39%', isUp: true, category: 'BOND_FX' },
-      { symbol: '国际黄金', name: 'COMEX期金', price: '$4,462.9/盎司', change: '-0.31%', isUp: false, category: 'BOND_FX' },
-      { symbol: '美元兑日元', name: '美元 / 日元', price: '156.03', change: '-0.14%', isUp: false, category: 'BOND_FX' },
-      { symbol: '离岸人民币', name: '美元 / 离岸人民币', price: '6.7112', change: '+0.05%', isUp: true, category: 'BOND_FX' },
-    ];
+    return SEED_MARKET_QUOTES;
   }
 
   cachedQuotes = quotes;

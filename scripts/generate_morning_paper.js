@@ -59,14 +59,15 @@ async function buildNewspaper() {
 
   // 行情数据整理
   const tickerItems = [
-    { label: '日经225', val: '66,399.84', chg: '+2.12%', up: true },
     { label: '美股标普', val: '7,718.60', chg: '-0.38%', up: false },
-    { label: '纳斯达克', val: '26,506.99', chg: '-0.29%', up: false },
+    { label: '纳指100', val: '29,544.15', chg: '+0.21%', up: true },
+    { label: '纳指综合', val: '26,506.99', chg: '-0.29%', up: false },
     { label: '费城半导体', val: '11,735.26', chg: '+3.37%', up: true },
+    { label: '日经225', val: '66,399.84', chg: '+2.12%', up: true },
     { label: '美债10Y', val: '4.790%', chg: '+0.08%', up: true },
-    { label: 'WTI原油', val: '$91.45/桶', chg: '+1.4%', up: true },
-    { label: 'COMEX黄金', val: '$4,457.0/盎司', chg: '+0.6%', up: true },
-    { label: 'USD/CNH', val: '6.7089', chg: '-0.05%', up: false }
+    { label: 'WTI原油', val: '$92.67/桶', chg: '+1.26%', up: true },
+    { label: 'COMEX黄金', val: '$4,450.8/盎司', chg: '-0.49%', up: false },
+    { label: 'USD/CNH', val: '6.7096', chg: '+0.01%', up: true }
   ];
 
   const today = new Date();

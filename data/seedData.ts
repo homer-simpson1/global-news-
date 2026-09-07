@@ -39,6 +39,7 @@ export const TRACK_METADATA: Record<string, TrackMetadata> = {
   global_cognition: {
     id: 'global_cognition',
     title: '全球宏观认知与深度要闻',
+
     tagline: '全球大宗供求 · 跨国政经变局 · 国际机构权威深度追踪',
     iconName: 'BookOpen',
     badgeColor: 'border-purple-500 text-purple-700 bg-purple-50',
@@ -47,15 +48,17 @@ export const TRACK_METADATA: Record<string, TrackMetadata> = {
 
 export const SEED_MARKET_QUOTES: MarketQuote[] = [
   { symbol: '标普500', name: '美股标普500', price: '7,718.60', change: '-0.38%', isUp: false, category: 'US' },
-  { symbol: '纳斯达克100', name: '纳斯达克100指数', price: '26,506.99', change: '-0.29%', isUp: false, category: 'US' },
+  { symbol: '纳斯达克100', name: '纳斯达克100指数', price: '29,544.15', change: '+0.21%', isUp: true, category: 'US' },
+  { symbol: '纳斯达克综合', name: '纳斯达克综合指数', price: '26,506.99', change: '-0.29%', isUp: false, category: 'US' },
   { symbol: '费城半导体', name: '费城半导体指数', price: '11,735.26', change: '+3.37%', isUp: true, category: 'US' },
+  { symbol: '道琼斯', name: '道琼斯工业指数', price: '53,414.25', change: '-0.51%', isUp: false, category: 'US' },
   { symbol: '美债10年期', name: '美国10年期国债收益率', price: '4.790%', change: '+0.08%', isUp: true, category: 'BOND_FX' },
-  { symbol: '日经225', name: '日本日经225指数', price: '66,530.18', change: '+2.32%', isUp: true, category: 'ASIA' },
-  { symbol: '恒生指数', name: '香港恒生指数', price: '25,428.36', change: '-0.87%', isUp: false, category: 'ASIA' },
-  { symbol: '国际原油', name: 'WTI原油连续', price: '$91.84/桶', change: '+0.39%', isUp: true, category: 'BOND_FX' },
-  { symbol: '国际黄金', name: 'COMEX期金', price: '$4,462.9/盎司', change: '-0.31%', isUp: false, category: 'BOND_FX' },
-  { symbol: '美元兑日元', name: '美元 / 日元', price: '156.03', change: '-0.14%', isUp: false, category: 'BOND_FX' },
-  { symbol: '离岸人民币', name: '美元 / 离岸人民币', price: '6.7112', change: '+0.05%', isUp: true, category: 'BOND_FX' },
+  { symbol: '日经225', name: '日本日经225指数', price: '66,399.84', change: '+2.12%', isUp: true, category: 'ASIA' },
+  { symbol: '恒生指数', name: '香港恒生指数', price: '25,413.12', change: '-0.93%', isUp: false, category: 'ASIA' },
+  { symbol: '国际原油', name: 'WTI原油连续', price: '$92.67/桶', change: '+1.26%', isUp: true, category: 'BOND_FX' },
+  { symbol: '国际黄金', name: 'COMEX期金', price: '$4,450.8/盎司', change: '-0.49%', isUp: false, category: 'BOND_FX' },
+  { symbol: '美元兑日元', name: '美元 / 日元', price: '154.23', change: '-0.08%', isUp: false, category: 'BOND_FX' },
+  { symbol: '离岸人民币', name: '美元 / 离岸人民币', price: '6.7096', change: '+0.01%', isUp: true, category: 'BOND_FX' },
 ];
 
 export const SEED_FLASH_BRIEFS: FlashBrief[] = [
@@ -69,10 +72,10 @@ export const SEED_FLASH_BRIEFS: FlashBrief[] = [
     "time": "9月5日 09:45",
     "source": "华尔街日报·美联储专线 (WSJ)",
     "sourceUrl": "https://www.wsj.com",
-    "summaryParagraph": "据9月5日 09:45（权威电讯核验发布）通报，在美国华盛顿特区及纽约华尔街金融中心，美联储货币政策追踪委员会及华尔街一级交易商证实最新核心进展：美国2年期国债收益率在非农数据发布后走高2.9个基点至3.65%，反映出新增非农就业数据展现韧性，交易员迅速削减年内激进降息押注。究其起因，主要是最新劳动力市场表现稳健抑制了美联储急迫宽松预期，导致长端国债抛压再现。该事件带来的直接后果是，直接重塑美债收益率曲线与美股流动性贴现估值，高估值科技成长资产短期承压，全球美元流动性紧缩预期有所反复。",
+    "summaryParagraph": "据9月5日 09:45（权威电讯核验发布）通报，在美国华盛顿特区及纽约华尔街金融中心，美联储货币政策追踪委员会及华尔街一级交易商证实最新核心进展：美国2年期国债收益率在非农数据发布后走高2.9个基点至4.37%，反映出新增非农就业数据展现韧性，交易员迅速削减年内激进降息押注。究其起因，主要是最新劳动力市场表现稳健抑制了美联储急迫宽松预期，导致长端国债抛压再现。该事件带来的直接后果是，直接重塑美债收益率曲线与美股流动性贴现估值，高估值科技成长资产短期承压，全球美元流动性紧缩预期有所反复。",
     "summary5W1H": {
       "who": "美联储货币政策追踪委员会、华尔街一级交易商及利率互换市场",
-      "what": "美国2年期国债收益率在非农数据发布后走高2.9个基点至3.65%，交易员削减激进降息押注。",
+      "what": "美国2年期国债收益率在非农数据发布后走高2.9个基点至4.37%，交易员削减激进降息押注。",
       "when": "9月5日 09:45（权威电讯核验发布）",
       "where": "美国华盛顿特区及纽约华尔街全球金融交易中心",
       "why": "最新劳动力市场表现稳健抑制了美联储急迫宽松预期，导致国债抛压再现。",

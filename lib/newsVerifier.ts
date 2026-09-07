@@ -146,15 +146,22 @@ export async function runNewsAccuracyVerification(): Promise<VerificationAuditRe
     });
   }
 
-  // 5. 核心行情数据合理性与实时性交叉核验
+  // 5. 核心行情数据合理性与实时性交叉核验（严格防范纳指100与纳指综合混淆）
   const quoteChecks = quotes.map(q => {
     let valid = true;
     const num = parseFloat(q.price.replace(/[$,%]/g, '').replace(/,/g, ''));
     if (isNaN(num) || num <= 0) valid = false;
-    if (q.symbol.includes('日经') && num < 40000) valid = false;
+    // 纳斯达克100指数应在 28,000 ~ 33,000 区间，严防与纳指综合(26,000区间)混淆
+    if (q.symbol.includes('纳斯达克100') && (num < 28000 || num > 33000)) valid = false;
+    // 纳斯达克综合指数应在 24,000 ~ 28,000 区间
+    if (q.symbol.includes('纳斯达克综合') && (num < 24000 || num > 28000)) valid = false;
+    if (q.symbol.includes('标普500') && (num < 7000 || num > 8500)) valid = false;
+    if (q.symbol.includes('费城半导体') && (num < 10000 || num > 14000)) valid = false;
+    if (q.symbol.includes('日经') && (num < 55000 || num > 75000)) valid = false;
+    if (q.symbol.includes('恒生') && (num < 20000 || num > 32000)) valid = false;
     if (q.symbol.includes('美债') && (num < 1 || num > 10)) valid = false;
-    if (q.symbol.includes('原油') && (num < 30 || num > 200)) valid = false;
-    if (q.symbol.includes('黄金') && (num < 1500 || num > 6000)) valid = false;
+    if (q.symbol.includes('原油') && (num < 40 || num > 160)) valid = false;
+    if (q.symbol.includes('黄金') && (num < 3000 || num > 6000)) valid = false;
 
     return {
       symbol: q.symbol,
