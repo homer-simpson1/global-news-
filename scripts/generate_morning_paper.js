@@ -128,29 +128,30 @@ async function buildNewspaper() {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
 
-  /* 行情看板横条 */
+  /* 行情看板横条 - 双行两排开阔布局 */
   .ticker-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #181c24;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    row-gap: 8px;
+    column-gap: 20px;
+    background: #141820;
     color: #fff;
-    padding: 10px 16px;
+    padding: 10px 18px;
     border-radius: 6px;
-    margin-bottom: 22px;
+    margin-bottom: 26px;
     font-family: "SF Pro Mono", Menlo, Consolas, monospace;
-    font-size: 11px;
   }
   .ticker-item {
     display: flex;
-    gap: 4px;
-    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    align-items: baseline;
     white-space: nowrap;
   }
-  .ticker-label { color: #8fa0b5; font-size: 10.5px; }
-  .ticker-val { font-weight: bold; color: #fff; }
-  .ticker-chg-up { color: #ff5252; font-weight: bold; }
-  .ticker-chg-down { color: #4cd964; font-weight: bold; }
+  .ticker-label { color: #8fa0b5; font-size: 11.5px; }
+  .ticker-val { font-weight: bold; color: #fff; font-size: 12.5px; }
+  .ticker-chg-up { color: #ff5252; font-weight: bold; font-size: 11.5px; }
+  .ticker-chg-down { color: #4cd964; font-weight: bold; font-size: 11.5px; }
 
   /* 三栏主体 - 精确无溢出 */
   .paper-body {
@@ -518,7 +519,7 @@ async function buildNewspaper() {
     '--disable-dev-shm-usage',
     '--disable-gpu',
     '--hide-scrollbars',
-    '--window-size=1200,1235',
+    '--window-size=1200,1265',
     '--force-device-scale-factor=2.5',
     `--screenshot=${outImgPath}`,
     uri
