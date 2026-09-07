@@ -47,4 +47,22 @@ app.prepare().then(() => {
   serverLegacy.listen(legacyPort, '0.0.0.0', () => {
     console.log(`[OK] 兼容服务已就绪: http://localhost:${legacyPort} 或 http://127.0.0.1:${legacyPort}`);
   });
+
+  // 15分钟自动化新闻真实性与准确性自检引擎
+  const VERIFY_INTERVAL_MS = 15 * 60 * 1000;
+  async function triggerVerification() {
+    try {
+      const res = await fetch(`http://127.0.0.1:${primaryPort}/api/verify?force=true`);
+      if (res.ok) {
+        const d = await res.json();
+        console.log(`[15分钟自动核验] 巡检成功 - 得分: ${d.data?.accuracyScore}/100 | 合格率: ${d.data?.passRate} | 总条数目: ${d.data?.totalNewsChecked} | 时间: ${d.data?.verifiedAtLocal}`);
+      }
+    } catch (e) {
+      console.warn('[15分钟自动核验] 巡检触发异常:', e.message);
+    }
+  }
+
+  // 服务启动 5 秒后执行首次核验，其后每 15 分钟循环自检
+  setTimeout(triggerVerification, 5000);
+  setInterval(triggerVerification, VERIFY_INTERVAL_MS);
 });

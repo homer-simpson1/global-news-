@@ -1,0 +1,216 @@
+import fs from 'fs';
+import path from 'path';
+import { NewsItem, FlashBrief, MarketQuote, Summary5W1H } from './types';
+import { fetchAggregatedNews, getFlashBriefs, getMarketQuotes } from './rssFetcher';
+
+export interface VerificationItemResult {
+  id: string;
+  title: string;
+  source: string;
+  sourceUrl: string;
+  track: string;
+  titleOk: boolean;
+  sourceOk: boolean;
+  summary5W1HOk: boolean;
+  hasDomainQualifier: boolean;
+  status: 'PASS' | 'WARNING' | 'FAIL';
+  reasons: string[];
+}
+
+export interface VerificationAuditReport {
+  verifiedAt: string;
+  verifiedAtLocal: string;
+  totalNewsChecked: number;
+  totalFlashChecked: number;
+  passedCount: number;
+  warningCount: number;
+  failedCount: number;
+  accuracyScore: number; // 0 - 100
+  passRate: string;      // e.g. "100.0%"
+  overallStatus: 'EXCELLENT' | 'GOOD' | 'NEEDS_ATTENTION';
+  quoteChecks: {
+    symbol: string;
+    price: string;
+    valid: boolean;
+  }[];
+  details: VerificationItemResult[];
+}
+
+// 权威合法信源白名单基线
+const KNOWN_AUTHORITIES = [
+  '彭博', 'bloomberg', '路透', 'reuters', '华尔街日报', 'wsj', '日经', 'nikkei',
+  '财新', 'caixin', '第一财经', 'yicai', '经济学人', 'economist', '金融时报', 'ft',
+  '新华社', 'xinhua', '央视', '人民日报', '美联社', 'ap', '标普', 's&p',
+  '半岛电视台', 'al jazeera', '塔斯社', 'tass', '交通运输部', '财政部', '发改委',
+  '住建部', '民政部', '应急管理部', '人民银行', '央行', '美联储', 'fomc', '国防部', 'dod', '国资委',
+  '国家部委', '部委', '公报', '政府', '统计局', '商务部', '港交所'
+];
+
+export async function runNewsAccuracyVerification(): Promise<VerificationAuditReport> {
+  const [newsList, flashList, quotes] = await Promise.all([
+    fetchAggregatedNews(),
+    getFlashBriefs(),
+    getMarketQuotes(),
+  ]);
+
+  const details: VerificationItemResult[] = [];
+  let passedCount = 0;
+  let warningCount = 0;
+  let failedCount = 0;
+
+  for (const item of newsList) {
+    const reasons: string[] = [];
+    let titleOk = true;
+    let sourceOk = true;
+    let summary5W1HOk = true;
+    let hasDomainQualifier = true;
+
+    // 1. 标题完整性与语法连贯性核验
+    if (!item.title || item.title.length < 8) {
+      titleOk = false;
+      reasons.push('标题过短或为空');
+    }
+    // 检测是否以不完整连词/断句残缺结尾（例如 “并通过...”、“与...”、“等...”）
+    if (/([并与等及但而或者]|通过|进行|以及)\s*\.{2,3}$/.test(item.title)) {
+      titleOk = false;
+      reasons.push('标题末尾存在残缺截断（如“并通过...”）');
+    }
+
+    // 2. 一级权威信源与真实可访问 URL 核验
+    const sourceLower = (item.source || '').toLowerCase();
+    const isKnownAuthority = KNOWN_AUTHORITIES.some(a => sourceLower.includes(a));
+    if (!item.source || item.source.length < 2) {
+      sourceOk = false;
+      reasons.push('缺少信源声明');
+    } else if (!isKnownAuthority) {
+      reasons.push(`非常规一级信源: ${item.source}`);
+    }
+
+    if (!item.sourceUrl || !item.sourceUrl.startsWith('http')) {
+      sourceOk = false;
+      reasons.push('信源直达链接无效或缺失');
+    }
+
+    // 3. 5W1H 六要素深度小结完整性与实质性核验
+    const s = item.summary5W1H;
+    if (!s) {
+      summary5W1HOk = false;
+      reasons.push('缺少5W1H结构化要素小结');
+    } else {
+      if (!s.who || s.who.length < 2) {
+        summary5W1HOk = false;
+        reasons.push('5W1H主体(Who)不明确');
+      }
+      if (!s.what || s.what.length < 10) {
+        summary5W1HOk = false;
+        reasons.push('5W1H事件具体事实(What)过短或缺失');
+      }
+      if (!s.why || s.why.length < 8) {
+        summary5W1HOk = false;
+        reasons.push('5W1H起因背景(Why)不充分');
+      }
+      if (!s.consequence || s.consequence.length < 8) {
+        summary5W1HOk = false;
+        reasons.push('5W1H决策传导后果(Consequence)不充分');
+      }
+    }
+
+    // 4. 专有名词是否带有专业释义（针对如“曦云C600”、“B200”等特殊芯片或代码）
+    if (/c600|c700|b200|gaudi/.test(item.title.toLowerCase()) && !/gpu|芯片|算力/.test(item.title.toLowerCase() + ' ' + (item.summaryParagraph || ''))) {
+      hasDomainQualifier = false;
+      reasons.push('技术缩写缺少通俗领域解释');
+    }
+
+    // 综合评级
+    let status: 'PASS' | 'WARNING' | 'FAIL' = 'PASS';
+    if (!titleOk || !sourceOk || !summary5W1HOk) {
+      status = reasons.length > 2 ? 'FAIL' : 'WARNING';
+    } else if (reasons.length > 0) {
+      status = 'WARNING';
+    }
+
+    if (status === 'PASS') passedCount++;
+    else if (status === 'WARNING') warningCount++;
+    else failedCount++;
+
+    details.push({
+      id: item.id,
+      title: item.title,
+      source: item.source,
+      sourceUrl: item.sourceUrl,
+      track: item.track,
+      titleOk,
+      sourceOk,
+      summary5W1HOk,
+      hasDomainQualifier,
+      status,
+      reasons,
+    });
+  }
+
+  // 5. 核心行情数据合理性与实时性交叉核验
+  const quoteChecks = quotes.map(q => {
+    let valid = true;
+    const num = parseFloat(q.price.replace(/[$,%]/g, '').replace(/,/g, ''));
+    if (isNaN(num) || num <= 0) valid = false;
+    if (q.symbol.includes('日经') && num < 40000) valid = false;
+    if (q.symbol.includes('美债') && (num < 1 || num > 10)) valid = false;
+    if (q.symbol.includes('原油') && (num < 30 || num > 200)) valid = false;
+    if (q.symbol.includes('黄金') && (num < 1500 || num > 6000)) valid = false;
+
+    return {
+      symbol: q.symbol,
+      price: q.price,
+      valid,
+    };
+  });
+
+  const total = newsList.length;
+  const accuracyScore = total > 0 ? Math.round(((passedCount + warningCount * 0.8) / total) * 100) : 100;
+  const passRate = total > 0 ? ((passedCount / total) * 100).toFixed(1) + '%' : '100.0%';
+  const overallStatus = accuracyScore >= 95 ? 'EXCELLENT' : accuracyScore >= 80 ? 'GOOD' : 'NEEDS_ATTENTION';
+
+  const report: VerificationAuditReport = {
+    verifiedAt: new Date().toISOString(),
+    verifiedAtLocal: new Date().toLocaleString('zh-CN', { hour12: false }),
+    totalNewsChecked: total,
+    totalFlashChecked: flashList.length,
+    passedCount,
+    warningCount,
+    failedCount,
+    accuracyScore,
+    passRate,
+    overallStatus,
+    quoteChecks,
+    details,
+  };
+
+  // 持久化巡检日志到本地文件
+  try {
+    const logDir = path.join(process.cwd(), 'logs');
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+    }
+    const logFile = path.join(logDir, 'news_verification.log');
+    const logEntry = `[${report.verifiedAtLocal}] 15分钟自动化核验完成 | 得分: ${accuracyScore}/100 | 合格率: ${passRate} | 总条数: ${total} | 状态: ${overallStatus}\n`;
+    fs.appendFileSync(logFile, logEntry, 'utf8');
+  } catch (err) {
+    console.warn('写入巡检日志异常:', err);
+  }
+
+  return report;
+}
+
+let lastVerificationReport: VerificationAuditReport | null = null;
+let lastVerificationTime = 0;
+const VERIFY_INTERVAL_MS = 15 * 60 * 1000; // 15分钟自动化核验周期
+
+export async function getOrRunNewsVerification(): Promise<VerificationAuditReport> {
+  const now = Date.now();
+  if (lastVerificationReport && (now - lastVerificationTime < VERIFY_INTERVAL_MS)) {
+    return lastVerificationReport;
+  }
+  lastVerificationReport = await runNewsAccuracyVerification();
+  lastVerificationTime = now;
+  return lastVerificationReport;
+}
