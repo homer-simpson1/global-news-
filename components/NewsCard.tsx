@@ -41,8 +41,8 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
   return (
     <div
       id={`news-card-${item.id}`}
-      className={`rounded-2xl transition-all duration-200 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} border ${theme.cardBorder} ${
-        isLead ? 'shadow-md ring-1 ring-black/5' : 'hover:shadow-md shadow-sm'
+      className={`rounded-2xl transition-all duration-200 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} dark:bg-slate-900 dark:border-slate-800 border ${theme.cardBorder} ${
+        isLead ? 'shadow-md ring-1 ring-black/5 dark:ring-white/10' : 'hover:shadow-md shadow-sm'
       } ${
         expanded
           ? `${theme.cardActiveBorder} shadow-xl ring-4 ${theme.cardActiveRing}`
@@ -94,12 +94,32 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
               </span>
             )}
 
-            <span className="text-xs text-slate-500 font-mono">
+            {/* 多空倾向 / 情绪温度色彩标签 */}
+            {item.sentiment === 'BULLISH' && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 shadow-xs" title="事件定性：偏暖扩张 / 市场利多">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>利多 · 偏暖</span>
+              </span>
+            )}
+            {item.sentiment === 'BEARISH' && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/30 shadow-xs" title="事件定性：承压收缩 / 市场利空">
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                <span>利空 · 承压</span>
+              </span>
+            )}
+            {item.sentiment === 'NEUTRAL' && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700" title="事件定性：中性观望">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                <span>中性 · 观望</span>
+              </span>
+            )}
+
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
               {item.publishedAt}
             </span>
 
             {item.impactLevel === 1 && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" />
                 重大关注
               </span>
@@ -112,11 +132,11 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
               href={bingSearchUrl}
               target="_blank"
               rel="noopener noreferrer"
-              title={`自动抓取关键词并在必应搜索核实: "${keywords}"`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:text-blue-600 bg-white hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 shadow-sm transition-all cursor-pointer select-none"
+              title={`提取核心实体词在必应搜索核实: "${keywords}"`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 bg-white dark:bg-slate-800 hover:bg-blue-50/80 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 hover:border-blue-300 shadow-xs transition-all cursor-pointer select-none"
             >
               <Search className="w-3.5 h-3.5 text-blue-500" />
-              <span>一键查错</span>
+              <span>实体查错</span>
             </a>
 
             <button
@@ -125,7 +145,7 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
                 expanded ? theme.buttonActive : theme.buttonIdle
               }`}
             >
-              <span>{expanded ? '收起深度小结' : '展开 5W1H 深度小结'}</span>
+              <span>{expanded ? '收起研报细节' : '展开投研视角'}</span>
               {expanded ? (
                 <ChevronUp className="w-3.5 h-3.5" />
               ) : (
@@ -135,47 +155,82 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
           </div>
         </div>
 
-        {/* 报道大标题：头条大黑体突出，自然排版，支持点击 */}
+        {/* 报道大标题：主旨提炼式，头条突出，自然排版 */}
         <div
           onClick={() => setExpanded(!expanded)}
-          className="cursor-pointer group mb-4"
+          className="cursor-pointer group mb-3.5"
         >
           <h3
-            className={`font-bold text-slate-900 leading-snug tracking-tight transition-colors ${
+            className={`font-bold text-slate-900 dark:text-slate-100 leading-snug tracking-tight transition-colors ${
               isLead
-                ? 'text-xl md:text-2xl font-black text-slate-950 group-hover:text-amber-700'
-                : 'text-lg md:text-xl group-hover:text-blue-600'
+                ? 'text-xl md:text-2xl font-black text-slate-950 dark:text-white group-hover:text-amber-700 dark:group-hover:text-amber-400'
+                : 'text-lg md:text-xl group-hover:text-blue-600 dark:group-hover:text-blue-400'
             }`}
           >
             {cleanTitle}
           </h3>
         </div>
 
-        {/* 核心结论与传导：具备呼吸感的通透卡片 */}
+        {/* 核心结论与深度归因：严禁复述事实，写出底层原因与本质 */}
         <div className="space-y-2.5">
           <div
-            className={`p-3.5 rounded-xl border-l-4 ${theme.conclusionBorder} ${theme.conclusionBg} text-sm md:text-base text-slate-800 leading-relaxed`}
+            className={`p-3.5 md:p-4 rounded-xl border-l-4 ${theme.conclusionBorder} ${theme.conclusionBg} dark:bg-slate-800/80 dark:border-l-blue-500 text-sm md:text-base leading-relaxed shadow-xs`}
           >
-            <div className={`flex items-center gap-1.5 text-xs font-bold ${theme.conclusionText} mb-1`}>
+            <div className={`flex items-center gap-1.5 text-xs font-extrabold ${theme.conclusionText} dark:text-blue-400 mb-1.5`}>
               <Sparkles className="w-3.5 h-3.5" />
-              <span>核心结论</span>
+              <span>核心结论 · 底层动因与本质归纳</span>
             </div>
-            <p className="font-medium text-slate-900">{item.oneLineTakeaway}</p>
+            <p className="font-semibold text-slate-900 dark:text-slate-100">{item.oneLineTakeaway}</p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-50 border-l-4 border-slate-400 text-sm md:text-base text-slate-800 leading-relaxed">
-            <div className="text-xs font-bold text-slate-700 mb-1">
-              🎯 市场投资与战略传导
+          <div className="p-3.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/50 border-l-4 border-slate-400 dark:border-slate-600 text-sm md:text-base leading-relaxed">
+            <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              🎯 市场传导与资产定价
             </div>
-            <p className="text-slate-700">{item.transmissionImpact}</p>
+            <p className="text-slate-700 dark:text-slate-300">{item.transmissionImpact}</p>
           </div>
+
+          {/* 下一步观察哨（关键时间窗口 / 待验证指标） */}
+          {item.nextWatchlist && (
+            <div className="p-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/90 dark:border-indigo-800/60 text-xs md:text-sm text-indigo-950 dark:text-indigo-200 flex items-start gap-2 shadow-xs">
+              <span className="text-base select-none mt-0.5">🔭</span>
+              <div>
+                <span className="font-extrabold text-indigo-900 dark:text-indigo-300 mr-1">【后续观察哨】：</span>
+                <span className="font-medium text-indigo-800 dark:text-indigo-200">{item.nextWatchlist.replace(/^[【\[]后续观察哨[】\]][：:]\s*/, '')}</span>
+              </div>
+            </div>
+          )}
+
+          {/* 市场多空分歧焦点 (Consensus vs Divergence) */}
+          {item.bullBearDivergence && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
+              <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/50">
+                <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-emerald-800 dark:text-emerald-300 mb-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span>多方 · 乐观共识逻辑（押注点）</span>
+                </div>
+                <p className="text-xs text-emerald-950 dark:text-emerald-200 leading-relaxed font-medium">
+                  {item.bullBearDivergence.bullConsensus}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-800/50">
+                <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-rose-800 dark:text-rose-300 mb-1">
+                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  <span>空方 · 风险分歧逻辑（担忧点）</span>
+                </div>
+                <p className="text-xs text-rose-950 dark:text-rose-200 leading-relaxed font-medium">
+                  {item.bullBearDivergence.bearDivergence}
+                </p>
+              </div>
+            </div>
+          )}
 
           {item.chinaPolicyAngle && (
-            <div className="p-3.5 rounded-xl bg-amber-50/60 border-l-4 border-amber-500 text-sm md:text-base text-slate-800 leading-relaxed">
-              <div className="text-xs font-bold text-amber-800 mb-1">
-                🇨🇳 治理与政策分析
+            <div className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border-l-4 border-amber-500 text-sm md:text-base leading-relaxed">
+              <div className="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1">
+                🇨🇳 治理与政策视角
               </div>
-              <p className="text-slate-700">{item.chinaPolicyAngle}</p>
+              <p className="text-slate-700 dark:text-slate-300">{item.chinaPolicyAngle}</p>
             </div>
           )}
         </div>

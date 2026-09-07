@@ -50,55 +50,55 @@ export default function Summary5W1HView({
   const consequenceHighlight = summary?.consequence || null;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 md:p-5 my-3.5 space-y-3.5">
-      {/* 小结标题栏：清爽杂志风格，不搞花哨网格 */}
-      <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/80">
+    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/60 p-4 md:p-5 my-3.5 space-y-3.5">
+      {/* 小结标题栏 */}
+      <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/80 dark:border-slate-800">
         <div className="flex items-center gap-2">
-          <FileText className="w-4 h-4 text-blue-600" />
-          <h4 className="text-sm font-bold text-slate-900 tracking-tight">
+          <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 tracking-tight">
             事件深度小结（5W1H 全要素归纳）
           </h4>
         </div>
-        <span className="text-[11px] font-mono text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded">
+        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded">
           叙事性事实提炼
         </span>
       </div>
 
       {/* 辟谣与澄清反向警示条 */}
       {hasClarification && (
-        <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-xs md:text-sm text-amber-900 shadow-sm">
-          <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-xs md:text-sm text-amber-900 dark:text-amber-200 shadow-sm">
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
           <div className="leading-relaxed">
-            <span className="font-bold text-amber-800 mr-1.5">官方辟谣/澄清特别提示：</span>
+            <span className="font-bold text-amber-800 dark:text-amber-300 mr-1.5">官方辟谣/澄清特别提示：</span>
             <span>{clarificationNote || '该事实存在官方最新澄清或辟谣修正，请重点结合后续通报研判。'}</span>
           </div>
         </div>
       )}
 
-      {/* 核心需求：用户要求的一整段连贯总结，字号适中开阔，舒适松弛行距，黑字大排版 */}
-      <div className="p-5 md:p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
-        <p className="text-base md:text-lg text-slate-800 leading-relaxed md:leading-loose tracking-wide text-justify font-normal indent-8">
+      {/* 核心段落总结 */}
+      <div className="p-5 md:p-6 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 shadow-sm">
+        <p className="text-base md:text-lg text-slate-800 dark:text-slate-200 leading-relaxed md:leading-loose tracking-wide text-justify font-normal indent-8">
           {paragraph}
         </p>
       </div>
 
       {/* 关键后果与传导高亮条 */}
       {consequenceHighlight && (
-        <div className="flex items-start gap-2.5 p-3 rounded-lg bg-rose-50/80 border border-rose-200/80 text-xs md:text-sm">
-          <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
-          <div className="text-slate-800 leading-relaxed">
-            <span className="font-bold text-rose-800 mr-1.5">核心后果与影响：</span>
+        <div className="flex items-start gap-2.5 p-3 rounded-lg bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-800/60 text-xs md:text-sm">
+          <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />
+          <div className="text-slate-800 dark:text-slate-200 leading-relaxed">
+            <span className="font-bold text-rose-800 dark:text-rose-400 mr-1.5">核心后果与影响：</span>
             <span>{consequenceHighlight}</span>
           </div>
         </div>
       )}
 
       {/* 底部信源时间脚标与多源印证状态 */}
-      <div className="text-[11px] text-slate-500 font-mono flex items-center justify-between pt-1">
+      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono flex items-center justify-between pt-1">
         <div className="flex items-center gap-2">
           <span>信源出处：{source || '权威电讯直发'}</span>
           {verificationBadge && (
-            <span className="px-1.5 py-0.5 rounded bg-slate-200/80 text-slate-700 font-sans font-semibold">
+            <span className="px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-sans font-semibold">
               {verificationBadge}
             </span>
           )}

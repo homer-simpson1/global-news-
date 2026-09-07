@@ -40,40 +40,39 @@ export default function FlashBriefing({ briefs }: FlashBriefingProps) {
 
   return (
     <section className="w-full mb-12">
-      {/* 模块标题栏：大气通透 */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-200">
+      {/* 模块标题栏 */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-3.5">
-          <div className="p-2.5 rounded-2xl bg-slate-900 text-white shadow-md flex items-center justify-center">
-            <Zap className="w-5 h-5 fill-amber-400 text-amber-400" />
+          <div className="p-2.5 rounded-2xl bg-slate-900 dark:bg-amber-500 text-white shadow-md flex items-center justify-center">
+            <Zap className="w-5 h-5 fill-amber-400 dark:fill-slate-950 text-amber-400 dark:text-slate-950" />
           </div>
           <div>
             <div className="flex items-center gap-2.5">
-              <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 今日决策速递
               </h2>
-              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-900 text-white">
-                5大宏观领域核心事件
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-900 dark:bg-blue-600 text-white">
+                全球核心事件速览
               </span>
             </div>
-            <p className="text-xs md:text-sm text-slate-500 mt-1">
-              全景梳理今日决定性大事件 · 多彩色彩锚点区分不同领域 · 点击展开 5W1H 叙事深度小结
+            <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">
+              全景梳理今日关键大事件 · 独立赛道色彩锚点 · 情绪温度定性 · 5W1H 决策传导小结
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-600 bg-slate-100 border border-slate-200 font-semibold px-3 py-1.5 rounded-xl">
+          <span className="text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold px-3 py-1.5 rounded-xl">
             💡 领域色彩独立区分 · 点击任意卡片查看小结
           </span>
         </div>
       </div>
 
-      {/* 5条速递列表：每条速递采用自身板块的专属色彩体系，拒绝全篇千篇一律的单调黄白 */}
+      {/* 5条速递列表 */}
       <div className="space-y-4 md:space-y-5">
         {briefs.slice(0, 5).map((brief, idx) => {
           const isExpanded = !!expandedMap[brief.id];
           const parsed = parseContent(brief.content, brief.tag);
-          // 根据该条速递的赛道归属，直接调取专属视觉色彩主题（红/绿/蓝/金/紫）
           const theme = TRACK_THEMES[brief.track] || TRACK_THEMES.china_domestic;
           const keywords = extractSearchKeywords(parsed.title || brief.content, brief.source);
           const bingSearchUrl = getSearchUrl(keywords, 'bing');
@@ -83,14 +82,14 @@ export default function FlashBriefing({ briefs }: FlashBriefingProps) {
           return (
             <div
               key={brief.id}
-              className={`rounded-2xl transition-all duration-200 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} border ${theme.cardBorder} ${
+              className={`rounded-2xl transition-all duration-200 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} dark:bg-slate-900 dark:border-slate-800 border ${theme.cardBorder} ${
                 isExpanded
                   ? `${theme.cardActiveBorder} shadow-xl ring-4 ${theme.cardActiveRing}`
                   : 'hover:shadow-md shadow-sm'
               }`}
             >
               <div className="p-5 md:p-6">
-                {/* 顶部元数据行：该赛道专属色彩编号徽章、分类药丸、信源、时间、右侧一键查错与展开按钮 */}
+                {/* 顶部元数据行 */}
                 <div className="flex items-center justify-between gap-4 mb-3.5 flex-wrap">
                   <div className="flex items-center gap-2.5 flex-wrap">
                     {/* 彩色编号徽章 */}
@@ -107,49 +106,69 @@ export default function FlashBriefing({ briefs }: FlashBriefingProps) {
                       {parsed.tag || theme.name}
                     </span>
 
-                    <span className="text-[11px] font-bold font-mono tracking-wider text-slate-400 uppercase">
+                    <span className="text-[11px] font-bold font-mono tracking-wider text-slate-400 dark:text-slate-500 uppercase">
                       {theme.enTag}
                     </span>
 
-                    <span className="text-xs text-slate-600 font-medium px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
+                    <span className="text-xs text-slate-600 dark:text-slate-300 font-medium px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                       {brief.source}
                     </span>
 
+                    {/* 多空情绪色彩胶囊 */}
+                    {brief.sentiment === 'BULLISH' && (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>利多 · 偏暖</span>
+                      </span>
+                    )}
+                    {brief.sentiment === 'BEARISH' && (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-0.5 rounded-md bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/30">
+                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                        <span>利空 · 承压</span>
+                      </span>
+                    )}
+                    {brief.sentiment === 'NEUTRAL' && (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                        <span>中性 · 观望</span>
+                      </span>
+                    )}
+
                     {/* 多源交叉印证 / 官方通报 / 辟谣警示 徽章 */}
                     {brief.hasClarification ? (
-                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
                         ⚠️ 官方澄清
                       </span>
                     ) : brief.verificationLevel === 'OFFICIAL_DECREE' ? (
-                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-200" title="国家部委/官方公报直发">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="国家部委/官方公报直发">
                         🏛️ 官方通报
                       </span>
                     ) : brief.verificationLevel === 'CROSS_VERIFIED' ? (
-                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300" title={`已在 ${brief.crossSourceCount || 2} 个独立电讯渠道交叉印证`}>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800" title={`已在 ${brief.crossSourceCount || 2} 个独立电讯渠道交叉印证`}>
                         ✓ 多源印证 ({brief.crossSourceCount || 2}源)
                       </span>
                     ) : (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                      <span className="text-xs font-medium px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
                         ⚡ 一手速递
                       </span>
                     )}
 
-                    <span className="text-xs font-mono text-slate-400">
+                    <span className="text-xs font-mono text-slate-400 dark:text-slate-500">
                       {brief.time}
                     </span>
                   </div>
 
-                  {/* 右侧操作区：一键搜索查错与展开深度小结按钮 */}
+                  {/* 右侧操作区 */}
                   <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                     <a
                       href={bingSearchUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       title={`自动抓取关键词并在必应搜索核实: "${keywords}"`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:text-blue-600 bg-white hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 shadow-sm transition-all cursor-pointer select-none"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 bg-white dark:bg-slate-800 hover:bg-blue-50/80 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 hover:border-blue-300 shadow-xs transition-all cursor-pointer select-none"
                     >
                       <Search className="w-3.5 h-3.5 text-blue-500" />
-                      <span>一键查错</span>
+                      <span>实体查错</span>
                     </a>
 
                     <button
@@ -168,30 +187,39 @@ export default function FlashBriefing({ briefs }: FlashBriefingProps) {
                   </div>
                 </div>
 
-                {/* 标题：通栏大横向空间，自然排版，支持点击 */}
+                {/* 标题 */}
                 <div
                   onClick={() => toggleExpand(brief.id)}
                   className="cursor-pointer group mb-3.5"
                 >
-                  <h3 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 leading-snug tracking-tight group-hover:text-blue-600 transition-colors">
+                  <h3 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 dark:text-slate-100 leading-snug tracking-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {parsed.title}
                   </h3>
                 </div>
 
-                {/* 决策与市场传导条：带该领域背景色 */}
+                {/* 决策与市场传导条 */}
                 <div
-                  className={`flex items-start gap-2 p-3 rounded-xl border ${theme.conclusionBorder} ${theme.conclusionBg} text-xs sm:text-sm text-slate-800 leading-relaxed`}
+                  className={`flex items-start gap-2 p-3 rounded-xl border ${theme.conclusionBorder} ${theme.conclusionBg} dark:bg-slate-800/80 dark:border-slate-700 text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed`}
                 >
-                  <span className={`font-bold ${theme.conclusionText} flex-shrink-0 flex items-center gap-1`}>
+                  <span className={`font-bold ${theme.conclusionText} dark:text-blue-400 flex-shrink-0 flex items-center gap-1`}>
                     <Sparkles className="w-3.5 h-3.5 inline" />
                     决策传导:
                   </span>
                   <span>{brief.transmission}</span>
                 </div>
 
-                {/* 展开区域：舒展大气的 5W1H 一段深度小结 */}
+                {/* 下一步观察哨 */}
+                {brief.nextWatchlist && (
+                  <div className="mt-2.5 p-2.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-xs text-indigo-950 dark:text-indigo-200 flex items-center gap-2">
+                    <span className="text-sm select-none">🔭</span>
+                    <span className="font-bold text-indigo-900 dark:text-indigo-300 flex-shrink-0">观察哨:</span>
+                    <span>{brief.nextWatchlist.replace(/^[【\[]后续观察哨[】\]][：:]\s*/, '')}</span>
+                  </div>
+                )}
+
+                {/* 展开区域：5W1H 深度小结 */}
                 {isExpanded && (
-                  <div className="mt-5 pt-5 border-t border-slate-100 animate-in fade-in duration-200 space-y-4">
+                  <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-800 animate-in fade-in duration-200 space-y-4">
                     <Summary5W1HView
                       summaryParagraph={brief.summaryParagraph}
                       summary={brief.summary5W1H}
@@ -204,13 +232,13 @@ export default function FlashBriefing({ briefs }: FlashBriefingProps) {
                     />
 
                     {/* 交叉查错与权威出处直达 */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t border-slate-200">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-bold text-slate-600 flex items-center gap-1">
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1">
                           <Search className="w-3.5 h-3.5 text-blue-500" />
                           <span>交叉搜索查错:</span>
                         </span>
-                        <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 max-w-[260px] truncate" title={`抓取的核查关键词: ${keywords}`}>
+                        <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 max-w-[260px] truncate" title={`抓取的核查关键词: ${keywords}`}>
                           {keywords}
                         </span>
                         <div className="inline-flex items-center gap-1.5 ml-1">
@@ -219,7 +247,7 @@ export default function FlashBriefing({ briefs }: FlashBriefingProps) {
                             target="_blank"
                             rel="noopener noreferrer"
                             title="国内直连无障碍（推荐）"
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-950 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition-colors"
                           >
                             <span>必应 Bing</span>
                             <ExternalLink className="w-3 h-3" />
@@ -229,7 +257,7 @@ export default function FlashBriefing({ briefs }: FlashBriefingProps) {
                             target="_blank"
                             rel="noopener noreferrer"
                             title="谷歌全球资讯交叉索引"
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors"
                           >
                             <span>谷歌</span>
                             <ExternalLink className="w-3 h-3" />
@@ -239,7 +267,7 @@ export default function FlashBriefing({ briefs }: FlashBriefingProps) {
                             target="_blank"
                             rel="noopener noreferrer"
                             title="百度中文资讯索引"
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors"
                           >
                             <span>百度</span>
                             <ExternalLink className="w-3 h-3" />
@@ -252,7 +280,7 @@ export default function FlashBriefing({ briefs }: FlashBriefingProps) {
                           href={brief.sourceUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition-colors self-end md:self-auto"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition-colors self-end md:self-auto"
                         >
                           <span>查看权威电讯原文</span>
                           <ExternalLink className="w-3.5 h-3.5" />

@@ -5,7 +5,7 @@ import { NewsItem, TrackId } from '@/lib/types';
 import { TRACK_METADATA } from '@/data/seedData';
 import { TRACK_THEMES } from '@/lib/trackThemes';
 import NewsCard from './NewsCard';
-import { TrendingUp, Cpu, ShieldAlert, Globe, Flame, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { TrendingUp, Cpu, ShieldAlert, Globe, Flame, BookOpen, Anchor, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface RegionalTrackProps {
   trackId: TrackId;
@@ -24,6 +24,8 @@ export default function RegionalTrack({ trackId, items }: RegionalTrackProps) {
         return <TrendingUp className={iconClass} />;
       case 'apac_tech':
         return <Cpu className={iconClass} />;
+      case 'commodities_shipping':
+        return <Anchor className={iconClass} />;
       case 'war_conflict':
         return <Flame className={iconClass} />;
       case 'china_domestic':

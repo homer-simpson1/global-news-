@@ -16,5 +16,6 @@ config/discord_webhook.txt
 public/morning_paper.html
 public/morning_paper.png
 public/*.png
+!public/icon*.png
 morning_paper.log
 
