@@ -1,0 +1,40 @@
+name: Daily Morning Paper Discord Dispatch (云端关机全自动)
+
+on:
+  schedule:
+    # 每天北京时间 08:00 (UTC 00:00) 自动触发，电脑关机也能准时运行
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 支持在 GitHub 网页上随时点击 Run workflow 手动测试
+
+jobs:
+  dispatch-morning-paper:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出仓库代码 (Checkout Repository)
+        uses: actions/checkout@v4
+
+      - name: 配置 Node.js 环境 (Setup Node.js)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 安装高清中文字体 (Install Chinese Fonts for Retina Print)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-noto-cjk fonts-wqy-microhei fonts-wqy-zenhei
+
+      - name: 生成晨报长图并推送到 Discord (Generate & Dispatch)
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          API_BASE_URL: https://celebrated-custard-0fe903.netlify.app
+        run: |
+          node scripts/send_discord_morning_paper.js
+
+      - name: 归档保存当日晨报长图 (Archive Morning Paper)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: morning-paper-daily
+          path: public/morning_paper.png
+          retention-days: 7

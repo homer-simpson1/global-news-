@@ -65,4 +65,25 @@ app.prepare().then(() => {
   // 服务启动 5 秒后执行首次核验，其后每 15 分钟循环自检
   setTimeout(triggerVerification, 5000);
   setInterval(triggerVerification, VERIFY_INTERVAL_MS);
+
+  // 每日早间 08:00 自动生成晨报长图并推送到 Discord (0 Token 本地免唤醒)
+  let lastMorningSentDate = '';
+  function checkMorningPaperSchedule() {
+    const now = new Date();
+    if (now.getHours() === 8 && lastMorningSentDate !== now.toDateString()) {
+      lastMorningSentDate = now.toDateString();
+      console.log(`[早间 08:00 晨报调度] 触发晨报长图生成与推送...`);
+      try {
+        const { sendMorningPaperToDiscord } = require('./scripts/send_discord_morning_paper');
+        sendMorningPaperToDiscord().then(res => {
+          console.log('[早间 08:00 晨报调度] 执行结果:', res?.success ? '推送成功' : '完成 (等待 Webhook 填入)');
+        }).catch(err => {
+          console.error('[早间 08:00 晨报调度] 执行异常:', err.message);
+        });
+      } catch (err) {
+        console.error('[早间 08:00 晨报调度] 模块调用异常:', err.message);
+      }
+    }
+  }
+  setInterval(checkMorningPaperSchedule, 30 * 1000);
 });

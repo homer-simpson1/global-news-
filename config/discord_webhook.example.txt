@@ -1,0 +1,4 @@
+# Discord Webhook 配置示例
+# 复制此文件为 discord_webhook.txt 并填入真实 Webhook URL
+# 或在 GitHub 仓库 Settings -> Secrets and variables -> Actions 中添加 DISCORD_WEBHOOK_URL
+https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN
