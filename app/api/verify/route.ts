@@ -8,12 +8,19 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const force = searchParams.get('force') === 'true';
-    const report = force ? await runNewsAccuracyVerification() : await getOrRunNewsVerification();
+    const report = await getOrRunNewsVerification(force);
 
-    return NextResponse.json({
-      success: true,
-      data: report,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: report,
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('API /api/verify error:', error);
     return NextResponse.json(

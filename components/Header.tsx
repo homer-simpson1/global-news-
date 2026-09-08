@@ -169,15 +169,15 @@ export default function Header({
       // silent fallback
     } finally {
       if (force) {
-        setTimeout(() => setIsVerifyingNow(false), 600);
+        setTimeout(() => setIsVerifyingNow(false), 250);
       }
     }
   };
 
   useEffect(() => {
-    // 15分钟自动化核验状态同步
+    // 15分钟自动化核验状态同步（与15分自检周期严格对齐，零冗余开销）
     fetchVerify();
-    const verifyInterval = setInterval(() => fetchVerify(false), 60 * 1000); // 每分钟轮询最新核验结果
+    const verifyInterval = setInterval(() => fetchVerify(false), 15 * 60 * 1000);
 
     return () => {
       clearInterval(verifyInterval);

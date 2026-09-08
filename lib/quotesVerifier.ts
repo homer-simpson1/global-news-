@@ -6,6 +6,12 @@ let cachedSummary: QuotesVerificationSummary | null = null;
 let lastFetchTime = 0;
 const QUOTES_TTL_MS = 20 * 1000; // 20 秒热缓存，0 Token 毫秒级静默刷新
 
+export function getCachedVerifiedQuotesSnapshot(): MarketQuote[] {
+  return (cachedVerifiedQuotes && cachedVerifiedQuotes.length > 0)
+    ? cachedVerifiedQuotes
+    : SEED_MARKET_QUOTES;
+}
+
 interface RawSourceItem {
   price: number;
   changePercent?: number;

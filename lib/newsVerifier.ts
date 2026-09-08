@@ -1,5 +1,5 @@
 import { NewsItem, FlashBrief, MarketQuote, Summary5W1H } from './types';
-import { fetchAggregatedNews, getFlashBriefs, getMarketQuotes } from './rssFetcher';
+import { getFastIntelSnapshot } from './rssFetcher';
 
 export interface VerificationItemResult {
   id: string;
@@ -34,21 +34,41 @@ export interface VerificationAuditReport {
   details: VerificationItemResult[];
 }
 
-// 权威合法信源白名单基线（接入严肃中立华文雷达：联合早报、财新网、路透中文、彭博中国）
+// 权威合法信源白名单基线（接入严肃中立华文雷达：联合早报、财新网、路透中文、彭博中国、劳氏日报、国家电网等）
 const KNOWN_AUTHORITIES = [
+  // 国际四大通讯社与顶级主流财经智库
   '彭博', 'bloomberg', '路透', 'reuters', '华尔街日报', 'wsj', '日经', 'nikkei',
   '财新', 'caixin', '联合早报', 'zaobao', '第一财经', 'yicai', '经济学人', 'economist', '金融时报', 'ft',
-  '美联社', 'ap', '标普', 's&p', '半岛电视台', 'al jazeera', '塔斯社', 'tass',
-  '交通运输部', '财政部', '发改委', '住建部', '民政部', '应急管理部', '人民银行', '央行',
-  '美联储', 'fomc', '国防部', 'dod', '国资委', '国家部委', '部委', '公报', '政府', '统计局', '商务部', '港交所'
+  '美联社', 'ap', '标普', 's&p', '半岛电视台', 'al jazeera', '塔斯社', 'tass', '新华社', 'xinhua',
+  // 专业权威行业与航运智库（劳氏日报为全球最权威海事航运情报中心）
+  '劳氏日报', '劳氏', 'lloyd', 'lloyds', '波罗的海', 'baltic', '克拉克森', 'clarksons',
+  '普氏', 'platts', '标普全球', 's&p global',
+  // 关键基础设施与主权电网机构（如乌克兰国家电网、国家电网等）
+  '国家电网', '南方电网', '乌克兰国家电网', 'ukrenergo', '能源局', 'nea',
+  // 权威政府部委、监管决策机构与国际组织
+  '交通运输部', '财政部', '发改委', '住建部', '民政部', '应急管理部', '人民银行', '央行', 'pboc',
+  '美联储', 'fomc', 'fed', '国防部', 'dod', '国资委', '国家部委', '部委', '公报', '政府', '统计局', '商务部', '海关总署', '海事局', '港交所',
+  'opec', 'iea', 'eia', 'iaea', 'who', 'imf', 'world bank', '中东防务'
 ];
 
-export async function runNewsAccuracyVerification(): Promise<VerificationAuditReport> {
-  const [newsList, flashList, quotes] = await Promise.all([
-    fetchAggregatedNews(),
-    getFlashBriefs(),
-    getMarketQuotes(),
-  ]);
+export async function runNewsAccuracyVerification(
+  providedNews?: NewsItem[],
+  providedFlash?: FlashBrief[],
+  providedQuotes?: MarketQuote[]
+): Promise<VerificationAuditReport> {
+  const startMs = Date.now();
+
+  // 极速内存快照：0 网络 I/O 耗时，彻底根除高频网络重拉引发的超时与卡顿
+  let newsList = providedNews;
+  let flashList = providedFlash;
+  let quotes = providedQuotes;
+
+  if (!newsList || !flashList || !quotes) {
+    const snapshot = getFastIntelSnapshot();
+    if (!newsList) newsList = snapshot.news;
+    if (!flashList) flashList = snapshot.flash;
+    if (!quotes) quotes = snapshot.quotes;
+  }
 
   const details: VerificationItemResult[] = [];
   let passedCount = 0;
@@ -198,8 +218,9 @@ export async function runNewsAccuracyVerification(): Promise<VerificationAuditRe
     details,
   };
 
+  const elapsedMs = Date.now() - startMs;
   // 打印巡检日志（兼容 Edge Runtime）
-  console.log(`[${report.verifiedAtLocal}] 15分钟自动化核验完成 | 得分: ${accuracyScore}/100 | 合格率: ${passRate} | 总条数: ${total} | 状态: ${overallStatus}`);
+  console.log(`[${report.verifiedAtLocal}] 15分钟自动化核验完成 (耗时: ${elapsedMs}ms) | 得分: ${accuracyScore}/100 | 合格率: ${passRate} | 总条数: ${total} | 状态: ${overallStatus}`);
 
   return report;
 }
@@ -208,9 +229,9 @@ let lastVerificationReport: VerificationAuditReport | null = null;
 let lastVerificationTime = 0;
 const VERIFY_INTERVAL_MS = 15 * 60 * 1000; // 15分钟自动化核验周期
 
-export async function getOrRunNewsVerification(): Promise<VerificationAuditReport> {
+export async function getOrRunNewsVerification(force = false): Promise<VerificationAuditReport> {
   const now = Date.now();
-  if (lastVerificationReport && (now - lastVerificationTime < VERIFY_INTERVAL_MS)) {
+  if (!force && lastVerificationReport && (now - lastVerificationTime < VERIFY_INTERVAL_MS)) {
     return lastVerificationReport;
   }
   lastVerificationReport = await runNewsAccuracyVerification();

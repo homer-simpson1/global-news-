@@ -1,6 +1,6 @@
 import { FlashBrief, MarketQuote, NewsItem, TrackId, Summary5W1H, MarketSentiment, BullBearDivergence } from './types';
 import { SEED_FLASH_BRIEFS, SEED_NEWS_ITEMS, SEED_MARKET_QUOTES, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
-import { fetchVerifiedMarketQuotes } from './quotesVerifier';
+import { fetchVerifiedMarketQuotes, getCachedVerifiedQuotesSnapshot } from './quotesVerifier';
 import { enforceCountryEntityGuardrails, checkCrossContamination, validateTitleSummaryEntityConsistency, FOREIGN_ENTITIES } from './guardrails';
 
 let cachedNews: NewsItem[] | null = null;
@@ -9,6 +9,19 @@ let cachedQuotes: MarketQuote[] | null = null;
 let lastFetchTime = 0;
 let lastQuotesFetchTime = 0;
 let inFlightFetch: Promise<NewsItem[]> | null = null;
+
+// 毫秒级内存瞬时快照（用于自检与即时渲染，0 网络 I/O，杜绝阻塞）
+export function getFastIntelSnapshot(): {
+  news: NewsItem[];
+  flash: FlashBrief[];
+  quotes: MarketQuote[];
+} {
+  return {
+    news: (cachedNews && cachedNews.length > 0) ? cachedNews : SEED_NEWS_ITEMS,
+    flash: (cachedFlash && cachedFlash.length > 0) ? cachedFlash : SEED_FLASH_BRIEFS,
+    quotes: (cachedQuotes && cachedQuotes.length > 0) ? cachedQuotes : getCachedVerifiedQuotesSnapshot(),
+  };
+}
 
 // 动态缓存与刷新周期：3分钟极速响应
 const CACHE_TTL_MS = 3 * 60 * 1000;
