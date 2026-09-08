@@ -194,7 +194,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
   // 严格过滤娱乐/体育/公关展览等低信噪比杂音，并按标题相似度去重
   const seen = new Set<string>();
   const deduped: RawLiveItem[] = [];
-  const noiseRegex = /摩托车|锦标赛|排球|足球|篮球|马拉松|选美|车展|博览会闭幕|闭幕式|开幕式|演唱会|明星|彩票|中奖|电视剧|电影节/;
+  const noiseRegex = /摩托车|锦标赛|排球|足球|篮球|马拉松|选美|车展|博览会闭幕|闭幕式|开幕式|演唱会|明星|彩票|中奖|电视剧|电影节|见闻早餐|早报\s*\||连板|早盘必读|盘中异动/;
 
   for (const item of items) {
     if (noiseRegex.test(item.title + ' ' + item.content)) {
@@ -1224,7 +1224,8 @@ export async function fetchAggregatedNews(): Promise<NewsItem[]> {
           id: `flash-${candidate.id}`,
           tag: trackTagMap[trk] || '宏观要闻',
           track: trk,
-          content: candidate.title,
+          content: candidate.title.replace(/^[【\[][^】\]]+[】\]]\s*/, ''),
+          oneLineTakeaway: candidate.oneLineTakeaway,
           transmission: candidate.transmissionImpact,
           impactLevel: candidate.impactLevel,
           time: candidate.publishedAt,

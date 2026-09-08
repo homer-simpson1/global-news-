@@ -197,13 +197,24 @@ export default function FlashBriefing({ briefs }: FlashBriefingProps) {
                   </h3>
                 </div>
 
+                {/* 核心结论 / 底层本质透视 */}
+                {brief.oneLineTakeaway && (
+                  <div className="mb-2.5 p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-xs sm:text-sm text-amber-950 dark:text-amber-200 leading-relaxed flex items-start gap-2">
+                    <span className="font-bold text-amber-800 dark:text-amber-300 flex-shrink-0 flex items-center gap-1">
+                      <Zap className="w-3.5 h-3.5 inline text-amber-600 dark:text-amber-400" />
+                      核心结论:
+                    </span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{brief.oneLineTakeaway}</span>
+                  </div>
+                )}
+
                 {/* 决策与市场传导条 */}
                 <div
                   className={`flex items-start gap-2 p-3 rounded-xl border ${theme.conclusionBorder} ${theme.conclusionBg} dark:bg-slate-800/80 dark:border-slate-700 text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed`}
                 >
                   <span className={`font-bold ${theme.conclusionText} dark:text-blue-400 flex-shrink-0 flex items-center gap-1`}>
                     <Sparkles className="w-3.5 h-3.5 inline" />
-                    决策传导:
+                    利益链传导:
                   </span>
                   <span>{brief.transmission}</span>
                 </div>

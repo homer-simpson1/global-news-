@@ -58,6 +58,7 @@ export interface FlashBrief {
   track: TrackId;
   content: string;
   transmission: string;
+  oneLineTakeaway?: string; // 核心结论与白话透视
   impactLevel: ImpactLevel;
   time: string;
   source: string;
