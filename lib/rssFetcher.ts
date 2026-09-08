@@ -8,8 +8,8 @@ let cachedQuotes: MarketQuote[] | null = null;
 let lastFetchTime = 0;
 let lastQuotesFetchTime = 0;
 
-// 严格按要求：半小时（30分钟）缓存与刷新周期
-const CACHE_TTL_MS = 30 * 60 * 1000;
+// 动态缓存与刷新周期：3分钟极速响应
+const CACHE_TTL_MS = 3 * 60 * 1000;
 const QUOTES_TTL_MS = 20 * 1000; // 行情 20 秒动态刷新 (实时行情，0 Token)
 
 interface RawLiveItem {
@@ -1392,9 +1392,9 @@ export function evaluateCrossVerification(
   };
 }
 
-export async function fetchAggregatedNews(): Promise<NewsItem[]> {
+export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsItem[]> {
   const now = Date.now();
-  if (cachedNews && now - lastFetchTime < CACHE_TTL_MS) {
+  if (!forceRefresh && cachedNews && now - lastFetchTime < CACHE_TTL_MS) {
     return cachedNews;
   }
 
@@ -1612,9 +1612,9 @@ export async function getMarketQuotes(): Promise<MarketQuote[]> {
   }
 }
 
-export async function getFlashBriefs(): Promise<FlashBrief[]> {
-  if (!cachedFlash || cachedFlash.length === 0) {
-    await fetchAggregatedNews();
+export async function getFlashBriefs(forceRefresh = false): Promise<FlashBrief[]> {
+  if (forceRefresh || !cachedFlash || cachedFlash.length === 0) {
+    await fetchAggregatedNews(forceRefresh);
   }
   return cachedFlash && cachedFlash.length > 0 ? cachedFlash : SEED_FLASH_BRIEFS;
 }
@@ -1628,19 +1628,19 @@ export async function checkAllLiveSources() {
       url: 'https://api-one-wscn.awtmt.com/apiv1/content/lives?channel=global-channel&limit=5',
     },
     {
-      name: '亚太要闻管道 (WSCN Macro Feed)',
-      channel: 'wscn_astock',
-      url: 'https://api-one-wscn.awtmt.com/apiv1/content/lives?channel=a-stock-channel&limit=5',
+      name: '联合早报中立中国频道 (Zaobao China)',
+      channel: 'zaobao_china',
+      url: 'https://www.zaobao.com.sg/realtime/china',
     },
     {
-      name: '新浪全球财经 7x24 直播数据流',
-      channel: 'sina_global_feed',
-      url: 'https://zhibo.sina.com.cn/api/zhibo/feed?page=1&page_size=5&zhibo_id=152',
+      name: '财新网金融与法治调查频道 (Caixin Finance)',
+      channel: 'caixin_finance',
+      url: 'https://finance.caixin.com/',
     },
     {
-      name: '东方财富 7x24 宏观快讯接口',
-      channel: 'eastmoney_kuaixun',
-      url: 'https://newsapi.eastmoney.com/kuaixun/v1/getlist_102_ajaxResult_5_1_.html',
+      name: '财新网公司与产业风险频道 (Caixin Companies)',
+      channel: 'caixin_companies',
+      url: 'https://companies.caixin.com/',
     },
     {
       name: '东方财富全市场高频行情接口 (push2.eastmoney.com)',

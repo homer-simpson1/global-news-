@@ -4,11 +4,13 @@ import { fetchAggregatedNews, getFlashBriefs } from '@/lib/rssFetcher';
 export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const force = searchParams.get('refresh') === 'true' || searchParams.get('force') === 'true';
     const [news, flashBriefs] = await Promise.all([
-      fetchAggregatedNews(),
-      getFlashBriefs(),
+      fetchAggregatedNews(force),
+      getFlashBriefs(force),
     ]);
 
     return NextResponse.json({
