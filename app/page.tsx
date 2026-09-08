@@ -41,6 +41,7 @@ function TerminalApp() {
   const [quotesVerification, setQuotesVerification] = useState<QuotesVerificationSummary | null>(null);
   const [isVerifyingQuotes, setIsVerifyingQuotes] = useState<boolean>(false);
   const [isTopBarHidden, setIsTopBarHidden] = useState<boolean>(false);
+  const [isScrolledDown, setIsScrolledDown] = useState<boolean>(false);
 
   useEffect(() => {
     try {
@@ -49,6 +50,48 @@ function TerminalApp() {
         setIsTopBarHidden(true);
       }
     } catch (e) {}
+  }, []);
+
+  // 页面滚动监听：下滑自动渐变隐藏顶部，上滑或处于顶部时自动平滑浮现
+  useEffect(() => {
+    let lastScrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+    let ticking = false;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      // 顶部安全区（距离顶部小于 70px 时始终保持完整显现）
+      if (currentScrollY <= 70) {
+        setIsScrolledDown(false);
+        lastScrollY = currentScrollY;
+        ticking = false;
+        return;
+      }
+
+      const diff = currentScrollY - lastScrollY;
+
+      // 向下滚动超过 8px：平滑渐变隐藏顶部
+      if (diff > 8) {
+        setIsScrolledDown(true);
+      }
+      // 向上滚动超过 8px：平滑渐变浮现
+      else if (diff < -8) {
+        setIsScrolledDown(false);
+      }
+
+      lastScrollY = currentScrollY;
+      ticking = false;
+    };
+
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(handleScroll);
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   const refreshQuotes = async () => {
@@ -406,15 +449,20 @@ function TerminalApp() {
     { id: 'HISTORIC', label: '历史精选' },
   ];
 
+  const isTopBarVisible = !isTopBarHidden && !isScrolledDown;
+
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
-      {/* 顶部常驻固定容器 (Sticky Top Container): 始终固定在页面顶端，不随翻页滚动被挡住，并配有一键隐藏/展开微件 */}
+      {/* 顶部常驻固定容器 (Sticky Top Container): 随页面下滑平滑渐变隐藏，上滑自动渐变浮现，同时支持手动一键隐藏 */}
       <div
-        className={`sticky top-0 z-40 w-full transition-all duration-300 ease-in-out ${
-          isTopBarHidden
+        className={`sticky top-0 z-40 w-full will-change-transform ${
+          !isTopBarVisible
             ? '-translate-y-full opacity-0 pointer-events-none max-h-0 overflow-hidden'
             : 'translate-y-0 opacity-100 max-h-[300px] shadow-md'
         }`}
+        style={{
+          transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1), opacity 320ms ease-out, max-height 360ms ease-out',
+        }}
       >
         {/* 顶部行情跑马灯（集成全网多源0 Token实时交叉验真中心） */}
         <MarketTicker
@@ -440,6 +488,9 @@ function TerminalApp() {
           }}
           isTopBarHidden={isTopBarHidden}
         />
+
+        {/* 底部柔和渐变羽化边缘：保证下滑收起与上滑呼出具备柔和渐变通透质感 */}
+        <div className="h-2 w-full bg-gradient-to-b from-black/5 via-black/[0.02] to-transparent dark:from-white/5 dark:via-white/[0.02] pointer-events-none" />
       </div>
 
       {/* 当顶部栏隐藏时，在页面最上方居中悬浮一个精致小胶囊，点击即可一键展开恢复 */}

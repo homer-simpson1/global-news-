@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Smartphone, Download, Share, PlusSquare, X, CheckCircle, Sparkles } from 'lucide-react';
@@ -24,9 +24,19 @@ export default function PwaManager() {
               if (installingWorker) {
                 installingWorker.onstatechange = () => {
                   if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    console.log('[PWA] 发现新版本情报终端，已后台就绪');
+                    console.log('[PWA] 发现新版本情报终端，自动激活最新部署');
+                    installingWorker.postMessage({ type: 'SKIP_WAITING' });
                   }
                 };
+              }
+            });
+
+            // 监听控制器变更，自动刷新获取最新生产脚本
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+              if (!refreshing) {
+                refreshing = true;
+                window.location.reload();
               }
             });
           })
@@ -86,6 +96,17 @@ export default function PwaManager() {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
+
+  useEffect(() => {
+    if (!showIOSGuide) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || e.key === 'Esc' || e.code === 'Escape' || e.keyCode === 27) {
+        setShowIOSGuide(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [showIOSGuide]);
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
@@ -161,8 +182,14 @@ export default function PwaManager() {
 
       {/* iOS Safari 专有指引弹窗 */}
       {showIOSGuide && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-slate-700 text-white rounded-2xl max-w-sm w-full p-5 shadow-2xl relative">
+        <div
+          onClick={() => setShowIOSGuide(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-slate-900 border border-slate-700 text-white rounded-2xl max-w-sm w-full p-5 shadow-2xl relative cursor-default"
+          >
             <button
               onClick={() => setShowIOSGuide(false)}
               className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"

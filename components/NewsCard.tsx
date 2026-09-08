@@ -39,19 +39,53 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
     };
   }, [item.id, item.title, item.source]);
 
+  const cardRef = React.useRef<HTMLDivElement>(null);
+
   React.useEffect(() => {
     if (!expanded) return;
+
+    // 1. 键盘 ESC 捕获优先监听
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (
+        e.key === 'Escape' ||
+        e.key === 'Esc' ||
+        e.code === 'Escape' ||
+        e.keyCode === 27 ||
+        e.which === 27
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
         setExpanded(false);
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+    // 2. 点击空白处自动收起（Click Outside）
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+        setExpanded(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('keydown', handleKeyDown, true);
+
+    const clickTimer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }, 80);
+
+    return () => {
+      clearTimeout(clickTimer);
+      window.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, [expanded]);
 
   return (
     <div
+      ref={cardRef}
       id={`news-card-${item.id}`}
       data-disaster-card={item.isOngoingDisaster || item.disasterTracker || item.id === 'GID-JILONG-PORT-DISASTER' ? 'true' : undefined}
       className={`scroll-mt-32 content-visibility-auto card-layout-isolate relative rounded-2xl transition-[border-color,box-shadow] duration-150 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} dark:bg-slate-900 dark:border-slate-800 border ${theme.cardBorder} ${

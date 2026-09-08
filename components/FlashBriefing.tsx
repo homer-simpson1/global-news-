@@ -15,15 +15,48 @@ interface FlashBriefingProps {
 function FlashBriefing({ briefs }: FlashBriefingProps) {
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
 
+  const sectionRef = React.useRef<HTMLElement>(null);
+  const hasAnyExpanded = Object.values(expandedMap).some(Boolean);
+
   React.useEffect(() => {
+    if (!hasAnyExpanded) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (
+        e.key === 'Escape' ||
+        e.key === 'Esc' ||
+        e.code === 'Escape' ||
+        e.keyCode === 27 ||
+        e.which === 27
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
         setExpandedMap({});
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (sectionRef.current && !sectionRef.current.contains(e.target as Node)) {
+        setExpandedMap({});
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('keydown', handleKeyDown, true);
+
+    const clickTimer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }, 80);
+
+    return () => {
+      clearTimeout(clickTimer);
+      window.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [hasAnyExpanded]);
 
   if (!briefs || briefs.length === 0) return null;
 
@@ -50,7 +83,7 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
   };
 
   return (
-    <section className="w-full mb-12">
+    <section ref={sectionRef} className="w-full mb-12">
       {/* 模块标题栏 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-3.5">

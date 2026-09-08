@@ -34,8 +34,33 @@ export default function ShareImageModal({
       renderCanvas();
     }, 80);
 
-    return () => clearTimeout(timer);
-  }, [isOpen, exportMode, flashBriefs, newsItems, quotes]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === 'Escape' ||
+        e.key === 'Esc' ||
+        e.code === 'Escape' ||
+        e.keyCode === 27 ||
+        e.which === 27
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('keydown', handleKeyDown, true);
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen, exportMode, flashBriefs, newsItems, quotes, onClose]);
 
   const renderCanvas = () => {
     const canvas = canvasRef.current;
@@ -445,8 +470,32 @@ export default function ShareImageModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-white">
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-hidden select-none"
+    >
+      {/* 独立全屏透明暗色蒙层：点击空白处 100% 触发关闭 */}
+      <div
+        className="fixed inset-0 bg-black/80 backdrop-blur-md cursor-pointer transition-opacity z-0 animate-in fade-in duration-150"
+        onClick={onClose}
+        title="点击空白背景关闭 (Esc)"
+      />
+
+      {/* 浮动右上角关闭大按钮：无论窗口多大均永久高亮突出 */}
+      <button
+        type="button"
+        onClick={onClose}
+        className="fixed top-4 right-4 z-30 p-2.5 rounded-full bg-slate-900/90 hover:bg-rose-600 text-white border border-slate-600/70 shadow-2xl transition-all cursor-pointer select-none active:scale-90 hover:scale-105"
+        title="关闭长图预览 (快捷键: Esc / 点击空白处)"
+      >
+        <X className="w-5 h-5 stroke-[2.5]" />
+      </button>
+
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative z-10 bg-slate-900 border border-slate-700/80 rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-white animate-in zoom-in-95 duration-200"
+      >
         {/* 弹窗顶栏 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/80">
           <div className="flex items-center gap-3">
@@ -554,6 +603,23 @@ export default function ShareImageModal({
               <span>正在生成高清早晚报长图...</span>
             </div>
           )}
+        </div>
+
+        {/* 弹窗底栏（常驻底部，随时一键退出） */}
+        <div className="flex-shrink-0 sticky bottom-0 z-20 px-6 py-3.5 border-t border-slate-800 bg-slate-950/95 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+            <span>超高清 2x 视网膜长图渲染完成 · 支持社群直接粘贴原图分享</span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition-all cursor-pointer select-none active:scale-95 w-full sm:w-auto"
+            title="关闭长图 (快捷键: Esc)"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>关闭长图预览</span>
+          </button>
         </div>
       </div>
     </div>

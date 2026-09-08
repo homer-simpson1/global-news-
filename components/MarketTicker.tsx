@@ -87,13 +87,33 @@ function MarketTicker({
 
   React.useEffect(() => {
     if (!isModalOpen) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (
+        e.key === 'Escape' ||
+        e.key === 'Esc' ||
+        e.code === 'Escape' ||
+        e.keyCode === 27 ||
+        e.which === 27
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
         setIsModalOpen(false);
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+    // 关键加固：捕获阶段 capture: true 优先处理，同时监听 window 与 document
+    window.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('keydown', handleKeyDown, true);
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [isModalOpen]);
 
   const marketStatus = React.useMemo(() => getGlobalMarketTradingStatus(), []);
@@ -216,12 +236,30 @@ function MarketTicker({
       {/* 全球行情多源联网交叉验真中心 弹窗 / 浮层 */}
       {isModalOpen && (
         <div
-          onClick={() => setIsModalOpen(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-hidden"
         >
+          {/* 独立全屏暗色毛玻璃背景：点击任意空白处 100% 触发立即关闭 */}
+          <div
+            className="fixed inset-0 bg-black/75 backdrop-blur-md cursor-pointer transition-opacity z-0 animate-in fade-in duration-150"
+            onClick={() => setIsModalOpen(false)}
+            title="点击空白背景关闭 (Esc)"
+          />
+
+          {/* 浮动超醒目右上角关闭大按钮：无论屏幕尺寸与滚动位置，永久高亮可用 */}
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(false)}
+            className="fixed top-4 right-4 z-30 p-2.5 rounded-full bg-slate-900/90 hover:bg-rose-600 text-white border border-slate-600/70 shadow-2xl transition-all cursor-pointer select-none active:scale-90 hover:scale-105"
+            title="关闭窗口 (快捷键: Esc / 点击空白处)"
+          >
+            <X className="w-5 h-5 stroke-[2.5]" />
+          </button>
+
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-4xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden text-slate-900 dark:text-slate-100 animate-in zoom-in-95 duration-200"
+            className="relative z-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-4xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden text-slate-900 dark:text-slate-100 animate-in zoom-in-95 duration-200"
           >
             {/* 顶栏（Sticky 头部常驻，永不滚出视野） */}
             <div className="flex-shrink-0 sticky top-0 z-20 flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md">
