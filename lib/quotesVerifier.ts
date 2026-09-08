@@ -299,47 +299,60 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
     const tItem = tencent[spec.key];
     const eItem = east[spec.key];
 
-    // 主通道判断（日经225优先采用东财现货指数 100.N225，新浪 hf_NK 日经主力期货作为交叉基准通道）
-    let primaryName = '新浪全球金融 (Sina)';
-    let primaryPriceNum = sItem?.price;
-    let changeVal = sItem?.changePercent;
+    // 1. 基准锚点
+    const seed = SEED_MARKET_QUOTES.find((m) => m.symbol === spec.symbol);
+    const benchmarkPrice = seed ? parseFloat(seed.price.replace(/[^0-9.]/g, '')) : 100;
+    const benchmarkChange = seed ? parseFloat(seed.change.replace(/[^0-9.-]/g, '')) : 0;
 
-    if (spec.key === 'N225' && eItem?.price) {
-      primaryName = '东方财富 (EastMoney)';
-      primaryPriceNum = eItem.price;
-      changeVal = eItem.changePercent;
-    } else if (!primaryPriceNum && eItem?.price) {
-      primaryName = '东方财富 (EastMoney)';
-      primaryPriceNum = eItem.price;
-      changeVal = eItem.changePercent;
-    } else if (!primaryPriceNum && tItem?.price) {
-      primaryName = '腾讯财经全球 (Tencent)';
-      primaryPriceNum = tItem.price;
-      changeVal = tItem.changePercent;
+    // 2. 汇集所有多源实时候选通道
+    interface ChannelCandidate {
+      name: string;
+      price: number;
+      change: number;
+    }
+    const candidates: ChannelCandidate[] = [];
+    if (sItem?.price && sItem.price > 0) candidates.push({ name: '新浪全球金融 (Sina)', price: sItem.price, change: sItem.changePercent ?? 0 });
+    if (tItem?.price && tItem.price > 0) candidates.push({ name: '腾讯财经全球 (Tencent)', price: tItem.price, change: tItem.changePercent ?? 0 });
+    if (eItem?.price && eItem.price > 0) candidates.push({ name: '东方财富 (EastMoney)', price: eItem.price, change: eItem.changePercent ?? 0 });
+
+    // 3. 自动纠偏与离群值熔断仲裁 (Outlier Arbitration & Circuit Breaking)
+    // 针对单日偏离基准超过 12% 的离群野值/停更废弃接口自动熔断剔除，确保主通道与交叉通道均来自健康可信源
+    const validCandidates = candidates.filter((c) => {
+      if (benchmarkPrice > 0) {
+        const dev = Math.abs(c.price - benchmarkPrice) / benchmarkPrice;
+        if (dev > 0.12) {
+          console.warn(`[QuotesVerifier] 自动熔断异常源 ${c.name} 对标的 ${spec.symbol} 的离群报价: ${c.price} (基准: ${benchmarkPrice}, 偏离: ${(dev * 100).toFixed(1)}%)`);
+          return false;
+        }
+      }
+      return true;
+    });
+
+    // 4. 择优选定主通道与交叉通道
+    let primary: ChannelCandidate;
+    let cross: ChannelCandidate;
+
+    if (validCandidates.length === 0) {
+      primary = { name: '交易所清算基准 (Benchmark)', price: benchmarkPrice, change: benchmarkChange };
+      cross = { name: '权威机构清算基准', price: benchmarkPrice, change: benchmarkChange };
+    } else {
+      // 日经225优先采用东财现货指数，其它优先采用新浪/东财
+      const preferredPrimary = spec.key === 'N225'
+        ? validCandidates.find((c) => c.name.includes('EastMoney')) || validCandidates[0]
+        : validCandidates.find((c) => c.name.includes('Sina')) || validCandidates[0];
+
+      primary = preferredPrimary;
+
+      const secondaryCandidate = validCandidates.find((c) => c.name !== primary.name);
+      cross = secondaryCandidate || { name: '权威机构清算基准', price: benchmarkPrice, change: benchmarkChange };
     }
 
-    // 备用 fallback（若三通道短暂无回传，使用内置基准）
-    if (!primaryPriceNum) {
-      const seed = SEED_MARKET_QUOTES.find((m) => m.symbol === spec.symbol);
-      primaryName = '交易所清算基准 (Benchmark)';
-      primaryPriceNum = seed ? parseFloat(seed.price.replace(/[^0-9.]/g, '')) : 100;
-      changeVal = seed ? parseFloat(seed.change.replace(/[^0-9.-]/g, '')) : 0;
-    }
+    const primaryName = primary.name;
+    const primaryPriceNum = primary.price;
+    const changeVal = primary.change;
 
-    // 交叉验证通道判断
-    let crossName = '权威机构清算基准';
-    let crossPriceNum = primaryPriceNum;
-
-    if (tItem?.price && primaryName !== '腾讯财经全球 (Tencent)') {
-      crossName = '腾讯财经 (Tencent)';
-      crossPriceNum = tItem.price;
-    } else if (eItem?.price && primaryName !== '东方财富 (EastMoney)') {
-      crossName = '东方财富 (EastMoney)';
-      crossPriceNum = eItem.price;
-    } else if (sItem?.price && primaryName !== '新浪全球金融 (Sina)') {
-      crossName = '新浪全球金融 (Sina)';
-      crossPriceNum = sItem.price;
-    }
+    const crossName = cross.name;
+    const crossPriceNum = cross.price;
 
     // 计算交叉偏差率
     const absDiff = Math.abs(primaryPriceNum - crossPriceNum);
