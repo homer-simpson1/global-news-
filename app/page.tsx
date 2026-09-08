@@ -8,7 +8,7 @@ import OngoingDisasterBanner from '@/components/OngoingDisasterBanner';
 import RegionalTrack from '@/components/RegionalTrack';
 import { FlashBrief, MarketQuote, NewsItem, TrackId, TimeWindow, QuotesVerificationSummary, DisasterTracker } from '@/lib/types';
 import { SEED_FLASH_BRIEFS, SEED_MARKET_QUOTES, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
-import { SEED_LEAD_NEWS_ITEMS } from '@/data/seedLeadNews';
+import { SEED_NEWS_ITEMS } from '@/data/seedNews';
 import { Search, SlidersHorizontal, Calendar, Clock } from 'lucide-react';
 
 const REFRESH_INTERVAL_SECONDS = 30 * 60; // 30分钟 = 1800秒
@@ -18,7 +18,7 @@ type TimeFilterType = 'ALL' | 'TODAY' | 'PAST_24H' | 'HISTORIC';
 export default function Home() {
   const [quotes, setQuotes] = useState<MarketQuote[]>(SEED_MARKET_QUOTES);
   const [flashBriefs, setFlashBriefs] = useState<FlashBrief[]>(SEED_FLASH_BRIEFS);
-  const [news, setNews] = useState<NewsItem[]>(SEED_LEAD_NEWS_ITEMS);
+  const [news, setNews] = useState<NewsItem[]>(SEED_NEWS_ITEMS);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [lastUpdated, setLastUpdated] = useState<string>('刚刚');
   const [selectedTrack, setSelectedTrack] = useState<string>('all');
@@ -160,6 +160,22 @@ export default function Home() {
   // 筛选与搜索过滤（useMemo 确保只有搜索、专区或数据发生改变时才执行过滤）
   const filteredNews = React.useMemo(() => {
     return news.filter((item) => {
+      // 核心去重门禁：若某篇新闻已在“今日决策速递”中推出，下方各专区板块绝不重复出现！
+      const cleanItemTitle = item.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
+      const isAlreadyInFlash = flashBriefs.some((f) => {
+        if (f.id === item.id || f.id === `flash-${item.id}` || `flash-${f.id}` === item.id) return true;
+        const cleanFlashContent = f.content.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
+        if (cleanItemTitle === cleanFlashContent) return true;
+        if (cleanItemTitle.length > 8 && cleanFlashContent.length > 8) {
+          if (cleanItemTitle.includes(cleanFlashContent) || cleanFlashContent.includes(cleanItemTitle)) return true;
+        }
+        return false;
+      });
+
+      if (isAlreadyInFlash) {
+        return false;
+      }
+
       if (selectedTrack !== 'all' && item.track !== selectedTrack) {
         return false;
       }
@@ -185,7 +201,7 @@ export default function Home() {
       }
       return true;
     });
-  }, [news, selectedTrack, onlyLevel1, timeFilter, searchQuery]);
+  }, [news, flashBriefs, selectedTrack, onlyLevel1, timeFilter, searchQuery]);
 
   const tracks: { id: TrackId; items: NewsItem[] }[] = React.useMemo(() => [
     { id: 'us_macro', items: filteredNews.filter((n) => n.track === 'us_macro') },

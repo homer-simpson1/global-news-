@@ -1899,9 +1899,15 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
     };
 
     const flashList: FlashBrief[] = [];
+    const usedNewsIds: string[] = [];
+    const usedNewsTitles: string[] = [];
+
     for (const trk of targetTracks) {
       const candidate = categorized[trk][0];
       if (candidate) {
+        usedNewsIds.push(candidate.id);
+        const cleanT = candidate.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
+        usedNewsTitles.push(cleanT);
         flashList.push({
           id: `flash-${candidate.id}`,
           tag: trackTagMap[trk] || '宏观要闻',
@@ -1930,6 +1936,64 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
         const seedItem = SEED_FLASH_BRIEFS.find((s) => s.track === trk);
         if (seedItem) {
           flashList.push({ ...seedItem, tag: trackTagMap[trk] || seedItem.tag });
+          if (seedItem.id) usedNewsIds.push(seedItem.id.replace('flash-', ''));
+          const cleanT = seedItem.content.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
+          usedNewsTitles.push(cleanT);
+        }
+      }
+    }
+
+    // 核心物理去重：凡是被推送到“今日决策速递”的新闻，从下方各专区板块中彻底剔除，避免重复呈现！
+    for (const trk of Object.keys(categorized) as TrackId[]) {
+      categorized[trk] = categorized[trk].filter((item) => {
+        if (usedNewsIds.includes(item.id)) return false;
+        const cleanItemTitle = item.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
+        if (usedNewsTitles.includes(cleanItemTitle)) return false;
+        for (let i = 0; i < usedNewsTitles.length; i++) {
+          const ft = usedNewsTitles[i];
+          if (ft.length > 8 && cleanItemTitle.length > 8 && (cleanItemTitle.includes(ft) || ft.includes(cleanItemTitle))) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      // 如果剔除后该赛道内容少于 3 条，从候选池与深度优质备用库中补充非重复条目
+      if (categorized[trk].length < 3) {
+        const candidates = categorizedCandidates[trk] || [];
+        for (const c of candidates) {
+          if (categorized[trk].length >= 6) break;
+          const cleanC = c.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
+          let isDup = usedNewsIds.includes(c.id) || usedNewsTitles.includes(cleanC) || categorized[trk].some((e) => e.id === c.id || e.title === c.title);
+          if (!isDup) {
+            for (let i = 0; i < usedNewsTitles.length; i++) {
+              const ft = usedNewsTitles[i];
+              if (ft.length > 8 && cleanC.length > 8 && (cleanC.includes(ft) || ft.includes(cleanC))) {
+                isDup = true;
+                break;
+              }
+            }
+          }
+          if (!isDup) categorized[trk].push(c);
+        }
+
+        if (categorized[trk].length < 3) {
+          const seeds = SEED_NEWS_ITEMS.filter((s) => s.track === trk);
+          for (const s of seeds) {
+            if (categorized[trk].length >= 6) break;
+            const cleanS = s.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
+            let isDup = usedNewsIds.includes(s.id) || usedNewsTitles.includes(cleanS) || categorized[trk].some((e) => e.id === s.id || e.title === s.title);
+            if (!isDup) {
+              for (let i = 0; i < usedNewsTitles.length; i++) {
+                const ft = usedNewsTitles[i];
+                if (ft.length > 8 && cleanS.length > 8 && (cleanS.includes(ft) || ft.includes(cleanS))) {
+                  isDup = true;
+                  break;
+                }
+              }
+            }
+            if (!isDup) categorized[trk].push(s);
+          }
         }
       }
     }
