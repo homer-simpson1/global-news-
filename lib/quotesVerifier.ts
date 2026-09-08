@@ -46,7 +46,7 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
     'whUSDJPY', 'whUSDCNY', 'hf_CL', 'hf_GC'
   ];
 
-  const eastSecids = '171.US10Y,100.N225,100.HSI,100.DJIA,100.SPX,102.CL00Y,119.USDJPY,133.USDCNH';
+  const eastSecids = '251.SOX,171.US10Y,100.N225,100.HSI,100.DJIA,100.SPX,102.CL00Y,119.USDJPY,133.USDCNH';
 
   const [sinaRes, tencentRes, eastRes] = await Promise.allSettled([
     // 通道 A: 新浪全球金融实时行情 (Sina Finance)
@@ -165,6 +165,7 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
   if (eastData?.data?.diff) {
     eastData.data.diff.forEach((i: any) => {
       if (i.f12 === 'SPX' && typeof i.f2 === 'number') east['SPX'] = { price: i.f2, changePercent: i.f3 };
+      if (i.f12 === 'SOX' && typeof i.f2 === 'number') east['SOX'] = { price: i.f2, changePercent: i.f3 };
       if (i.f12 === 'DJIA' && typeof i.f2 === 'number') east['DJI'] = { price: i.f2, changePercent: i.f3 };
       if (i.f12 === 'HSI' && typeof i.f2 === 'number') east['HSI'] = { price: i.f2, changePercent: i.f3 };
       if (i.f12 === 'US10Y' && typeof i.f2 === 'number') east['US10Y'] = { price: i.f2, changePercent: i.f3 };
@@ -331,6 +332,7 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
     // 4. 择优选定主通道与交叉通道
     let primary: ChannelCandidate;
     let cross: ChannelCandidate;
+    let isSingleSourceFallback = false;
 
     if (validCandidates.length === 0) {
       primary = { name: '交易所清算基准 (Benchmark)', price: benchmarkPrice, change: benchmarkChange };
@@ -344,7 +346,8 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
       primary = preferredPrimary;
 
       const secondaryCandidate = validCandidates.find((c) => c.name !== primary.name);
-      cross = secondaryCandidate || { name: '权威机构清算基准', price: benchmarkPrice, change: benchmarkChange };
+      isSingleSourceFallback = !secondaryCandidate;
+      cross = secondaryCandidate || { name: '权威机构清算基准 (昨日收盘)', price: benchmarkPrice, change: benchmarkChange };
     }
 
     const primaryName = primary.name;
@@ -359,14 +362,19 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
     const diffRatio = primaryPriceNum > 0 ? (absDiff / primaryPriceNum) * 100 : 0;
 
     // 资产类别专属容差与全网自动纠偏标准 (Asset-Class Specific Financial Tolerance):
-    // 1. 国债收益率 (US10Y): 收益率以绝对点差(基点 bps)计，0.08 (8个基点) 以内属正常盘中利率微动；若仅有单源则自动与权威清算基准撮合
-    // 2. 日经225 (N225): 东财现货指数 (65,269) ⟷ 新浪期指主力连续 (65,516)，期现基差 (Basis Spread) 在 0.85% 以内属于健康跨市场套利基差，自动对齐现货
-    // 3. 大宗商品与外汇 (CL, GC, USDJPY, USDCNH): 存在银行间买卖点差与期货连续合约换月跳动，0.50% 以内属于正常点差
-    // 4. 欧美蓝筹主流股票指数: 0.25%
+    // 1. 单源降级基准对齐 (Single-Source Fallback): 当全网仅单一主力机构开市提供实时流时，比对源为昨日官方清算基准价。
+    //    日内正常市场交易涨跌（在日常波动极限 5.0% 以内）属于正常行情演进，自动对齐通过，杜绝将正常涨幅误报为“偏差超限”。
+    // 2. 国债收益率 (US10Y): 收益率以绝对点差(基点 bps)计，0.08 (8个基点) 以内属正常盘中利率微动；若仅有单源则自动与权威清算基准撮合
+    // 3. 日经225 (N225): 东财现货指数 (65,269) ⟷ 新浪期指主力连续 (65,516)，期现基差 (Basis Spread) 在 0.85% 以内属于健康跨市场套利基差，自动对齐现货
+    // 4. 大宗商品与外汇 (CL, GC, USDJPY, USDCNH): 存在银行间买卖点差与期货连续合约换月跳动，0.50% 以内属于正常点差
+    // 5. 欧美蓝筹主流股票指数双源同台比对: 0.25%
     let tolerance = 0.25;
     let isPass = false;
 
-    if (spec.key === 'US10Y') {
+    if (isSingleSourceFallback) {
+      tolerance = 5.0; // 单源与前日基准核对，日内正常涨跌幅在 5.0% 以内属合规波动
+      isPass = diffRatio <= tolerance;
+    } else if (spec.key === 'US10Y') {
       tolerance = 1.5;
       isPass = absDiff <= 0.08 || diffRatio <= tolerance;
     } else if (spec.key === 'N225') {
@@ -421,7 +429,9 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
       diffAbsolute: absDiff.toFixed(decimals),
       isConsistent: isPass,
       status: isPass ? (diffRatio < 0.01 ? 'PASS' : 'TOLERANCE') : 'WARN',
-      note: spec.specialNote,
+      note: isSingleSourceFallback
+        ? `${spec.specialNote ? spec.specialNote + ' · ' : ''}单源实时流与清算基准核验`
+        : spec.specialNote,
     };
 
     verificationDetails.push(verifyDetail);

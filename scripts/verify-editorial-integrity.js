@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 全球决策情报终端 · 深度采编与工程防范红线校验门禁 (Editorial & Architectural Integrity Linter)
  *
  * 作为构建与提交前置硬门禁 (Pre-build Gate)，一旦触碰任何一条红线立即抛出错误打断构建 (exit 1)。
@@ -87,6 +87,16 @@ check('Gate 2: 全球金融行情大类专属容差与基差仲裁审校', () =>
   // 必须具备针对 N225 日经225 的期现基差合理容差
   if (!content.includes("spec.key === 'N225'") || !content.includes('0.85')) {
     throw new Error('日经225指数 (N225) 缺少跨市场期现基差 (Basis) 合理区间容差（必须允许 0.85% 以内的正常期现升贴水）');
+  }
+
+  // 必须具备针对 费城半导体 SOX 的东财直连代码 (251.SOX)
+  if (!content.includes('251.SOX')) {
+    throw new Error('费城半导体指数 (SOX) 缺少东方财富通道直连代码 (251.SOX)，可能导致单源退化并误报偏差超限');
+  }
+
+  // 必须具备单源降级基准容差（不得用 0.25% 错杀日内正常波动）
+  if (!content.includes('isSingleSourceFallback') || !content.includes('5.0')) {
+    throw new Error('缺少单源降级容差保护：当全网仅单源开盘时必须放宽至日内正常波动区间(5.0%)，避免将正常涨幅误报为偏差超限');
   }
 });
 
