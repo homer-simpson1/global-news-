@@ -1,5 +1,5 @@
 import { FlashBrief, MarketQuote, NewsItem, TrackId, Summary5W1H } from './types';
-import { SEED_FLASH_BRIEFS, SEED_NEWS_ITEMS, SEED_MARKET_QUOTES } from '@/data/seedData';
+import { SEED_FLASH_BRIEFS, SEED_NEWS_ITEMS, SEED_MARKET_QUOTES, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
 import { fetchVerifiedMarketQuotes } from './quotesVerifier';
 
 let cachedNews: NewsItem[] | null = null;
@@ -1505,6 +1505,11 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
         isUnilateralClaim: isUnilateral,
       };
 
+      if (/吉隆口岸|冰岩崩|樟木口岸.*通关/.test(enrichedTitle + ' ' + raw.content)) {
+        newsItem.isOngoingDisaster = true;
+        newsItem.disasterTracker = GYIRONG_PORT_DISASTER_TRACKER;
+      }
+
       categorizedCandidates[track].push(newsItem);
     }
 
@@ -1537,11 +1542,21 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
       categorized[trk] = list.slice(0, 8);
     }
 
-    // 确保重大边境地质灾害与外溢治理（如吉隆口岸）始终置顶在 domestic 赛道
+    // 确保重大边境地质灾害与外溢治理（如吉隆口岸）始终置顶在 domestic 赛道，并携带持续追踪档案
     const jilongItem = SEED_NEWS_ITEMS.find((n) => n.id === 'GID-JILONG-PORT-DISASTER');
-    if (jilongItem && !categorized.china_domestic.some((e) => e.title.includes('吉隆口岸'))) {
-      categorized.china_domestic.unshift(jilongItem);
-      if (categorized.china_domestic.length > 8) categorized.china_domestic.pop();
+    if (jilongItem) {
+      jilongItem.isOngoingDisaster = true;
+      jilongItem.disasterTracker = GYIRONG_PORT_DISASTER_TRACKER;
+      if (!categorized.china_domestic.some((e) => e.title.includes('吉隆口岸'))) {
+        categorized.china_domestic.unshift(jilongItem);
+        if (categorized.china_domestic.length > 8) categorized.china_domestic.pop();
+      } else {
+        const liveMatch = categorized.china_domestic.find((e) => e.title.includes('吉隆口岸'));
+        if (liveMatch) {
+          liveMatch.isOngoingDisaster = true;
+          liveMatch.disasterTracker = GYIRONG_PORT_DISASTER_TRACKER;
+        }
+      }
     }
 
     // 兜底保障：若国内要闻实时抓取条数偏少，自动注入种子库中的严肃法治与财政注资真实调查

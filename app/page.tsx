@@ -4,9 +4,10 @@ import React, { useState, useEffect } from 'react';
 import MarketTicker from '@/components/MarketTicker';
 import Header from '@/components/Header';
 import FlashBriefing from '@/components/FlashBriefing';
+import OngoingDisasterBanner from '@/components/OngoingDisasterBanner';
 import RegionalTrack from '@/components/RegionalTrack';
-import { FlashBrief, MarketQuote, NewsItem, TrackId, TimeWindow, QuotesVerificationSummary } from '@/lib/types';
-import { SEED_FLASH_BRIEFS, SEED_MARKET_QUOTES, SEED_NEWS_ITEMS } from '@/data/seedData';
+import { FlashBrief, MarketQuote, NewsItem, TrackId, TimeWindow, QuotesVerificationSummary, DisasterTracker } from '@/lib/types';
+import { SEED_FLASH_BRIEFS, SEED_MARKET_QUOTES, SEED_NEWS_ITEMS, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
 import { Search, SlidersHorizontal, Calendar, Clock } from 'lucide-react';
 
 const REFRESH_INTERVAL_SECONDS = 30 * 60; // 30分钟 = 1800秒
@@ -254,6 +255,15 @@ export default function Home() {
 
       {/* 主体大版面 */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {/* 全球特大突发灾害 · 全生命周期持续追踪看板（常驻置顶，直到正式恢复通关结案） */}
+        <OngoingDisasterBanner
+          trackers={
+            news.some((n) => n.disasterTracker && n.disasterTracker.status === 'ONGOING')
+              ? news.filter((n) => n.disasterTracker && n.disasterTracker.status === 'ONGOING').map((n) => n.disasterTracker!)
+              : [GYIRONG_PORT_DISASTER_TRACKER]
+          }
+        />
+
         {/* 顶部：今日决策速递核心事件 */}
         <FlashBriefing briefs={flashBriefs} />
 
@@ -327,6 +337,27 @@ export default function Home() {
                   } flex-shrink-0`}
                 />
                 <span>仅看重大关注</span>
+              </button>
+
+              {/* 持续追踪特大灾害直达按钮 */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTrack('china_domestic');
+                  setTimeout(() => {
+                    const el = document.getElementById('news-card-GID-JILONG-PORT-DISASTER') || document.querySelector('[id^="news-card-"]');
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      el.classList.add('ring-4', 'ring-rose-500');
+                      setTimeout(() => el.classList.remove('ring-4', 'ring-rose-500'), 2500);
+                    }
+                  }, 60);
+                }}
+                className="h-9 inline-flex items-center gap-1.5 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap shadow-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700"
+                title="直达正在全生命周期持续追踪的吉隆口岸特大跨境地质灾害看板"
+              >
+                <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse flex-shrink-0" />
+                <span>持续追踪灾害 (1)</span>
               </button>
             </div>
 

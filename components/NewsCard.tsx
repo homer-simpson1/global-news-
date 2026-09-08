@@ -5,6 +5,7 @@ import { NewsItem } from '@/lib/types';
 import { TrackVisualTheme, TRACK_THEMES } from '@/lib/trackThemes';
 import { ExternalLink, BookOpen, Sparkles, ChevronDown, ChevronUp, Award, Search, AlertTriangle, ShieldAlert } from 'lucide-react';
 import Summary5W1HView from './Summary5W1HView';
+import DisasterTrackerView from './DisasterTrackerView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
 
 interface NewsCardProps {
@@ -104,6 +105,14 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
               <span className="inline-flex items-center gap-1 text-xs font-extrabold px-2.5 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950 text-rose-900 dark:text-rose-300 border border-rose-300 dark:border-rose-700" title={`命中通用重大外溢冲击指标：${item.spilloverCriterion}，强制收录`}>
                 <ShieldAlert className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                 <span>{item.spilloverCriterion}</span>
+              </span>
+            )}
+
+            {/* 特大灾害全生命周期持续追踪徽章 */}
+            {item.disasterTracker && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-0.5 rounded-md bg-rose-600 text-white shadow-xs animate-pulse" title={`始发于 ${item.disasterTracker.startDate}，已连续追踪 ${item.disasterTracker.trackedDays} 天，直到恢复通关正式结案`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                <span>持续追踪 · 第 {item.disasterTracker.trackedDays} 天</span>
               </span>
             )}
 
@@ -245,6 +254,11 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
               </div>
               <p className="text-slate-700 dark:text-slate-300">{item.chinaPolicyAngle}</p>
             </div>
+          )}
+
+          {/* 特大灾害全生命周期持续追踪看板 (五阶阶梯与动态演进时间线) */}
+          {item.disasterTracker && (
+            <DisasterTrackerView tracker={item.disasterTracker} />
           )}
         </div>
 
