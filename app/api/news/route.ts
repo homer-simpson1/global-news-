@@ -27,10 +27,8 @@ export async function GET(request: Request) {
       }
     }
 
-    const [news, flashBriefs] = await Promise.all([
-      fetchAggregatedNews(force),
-      getFlashBriefs(force),
-    ]);
+    const news = await fetchAggregatedNews(force);
+    const flashBriefs = await getFlashBriefs(false);
 
     const cacheControl = force
       ? 'no-cache, no-store, must-revalidate'
