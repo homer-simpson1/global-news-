@@ -41,6 +41,7 @@ function TerminalApp() {
   const [quotesVerification, setQuotesVerification] = useState<QuotesVerificationSummary | null>(null);
   const [isVerifyingQuotes, setIsVerifyingQuotes] = useState<boolean>(false);
   const [isTopBarHidden, setIsTopBarHidden] = useState<boolean>(false);
+  const [headerOpacity, setHeaderOpacity] = useState<number>(1);
 
   useEffect(() => {
     try {
@@ -49,6 +50,23 @@ function TerminalApp() {
         setIsTopBarHidden(true);
       }
     } catch (e) {}
+  }, []);
+
+  // 页面滚动微动渐变：下滑时顶栏平滑淡出，不引发任何布局重排抖动
+  useEffect(() => {
+    const handleScroll = () => {
+      const y = window.scrollY;
+      if (y <= 5) {
+        setHeaderOpacity(1);
+      } else if (y >= 65) {
+        setHeaderOpacity(0);
+      } else {
+        setHeaderOpacity(Math.max(0, 1 - (y - 5) / 60));
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const refreshQuotes = async () => {
@@ -408,19 +426,14 @@ function TerminalApp() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
-      {/* 1. 股市行情跑马灯：永久固定在屏幕最顶端 (top-0)，下滑时永不隐藏，高度恒定为 38px */}
-      <div className="sticky top-0 z-40 w-full select-none">
-        <MarketTicker
-          quotes={quotes}
-          verificationSummary={quotesVerification}
-          onRefreshQuotes={refreshQuotes}
-          isRefreshingQuotes={isVerifyingQuotes}
-        />
-      </div>
-
-      {/* 2. 顶栏 (Header)：位于股市栏正下方。页面下滑时自然随内容滚入股市栏下方隐藏；彻底杜绝浮动图层堆叠冲突与抖动 */}
+      {/* 1. 顶栏 (Header)：位于页面最顶部。页面下滑时平滑渐变淡出并自然滚出视口，从根源上彻底消除与股市栏图层重叠冲突 */}
       {!isTopBarHidden && (
-        <div className="w-full relative z-30 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs">
+        <div
+          className="w-full relative z-20 bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 shadow-xs transition-opacity duration-150"
+          style={{
+            opacity: headerOpacity,
+          }}
+        >
           <Header
             onRefresh={() => loadData(true)}
             isRefreshing={isRefreshing}
@@ -439,9 +452,19 @@ function TerminalApp() {
         </div>
       )}
 
+      {/* 2. 股市行情跑马灯：位于顶栏正下方，sticky top-0 永久吸顶。顶栏滚出视口后，股市栏自然无缝锁定在屏幕最顶端 (top-0)，高度恒定为 38px */}
+      <div className="sticky top-0 z-40 w-full select-none bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs">
+        <MarketTicker
+          quotes={quotes}
+          verificationSummary={quotesVerification}
+          onRefreshQuotes={refreshQuotes}
+          isRefreshingQuotes={isVerifyingQuotes}
+        />
+      </div>
+
       {/* 当用户手动隐藏顶栏时，在股市栏下方居中悬浮一个精致小胶囊，点击即可一键展开恢复 */}
       {isTopBarHidden && (
-        <div className="fixed top-[46px] left-1/2 -translate-x-1/2 z-40 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="fixed top-[46px] left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
           <button
             onClick={() => {
               setIsTopBarHidden(false);
