@@ -18,7 +18,7 @@ export default function PwaManager() {
       if ('caches' in window) {
         caches.keys().then((keys) => {
           keys.forEach((key) => {
-            if (!key.includes('v3.1')) {
+            if (!key.includes('v3.2')) {
               caches.delete(key);
             }
           });

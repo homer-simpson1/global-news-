@@ -99,6 +99,14 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
   // D. 降级企业未经证实吹牛词
   title = title.replace(ENTERPRISE_HYPE_REGEX, '实现核心突破');
 
+  // D2. 军事海事专业术语修正：消除“霍尔木兹海峡多国联军”等不准确表述（霍尔木兹实为美英IMSC“哨兵”行动与欧洲EMASOH护航编队）
+  if (/霍尔木兹.*多国联军|波斯湾.*多国联军/.test(title)) {
+    title = title
+      .replace(/霍尔木兹海峡多国联军/g, '美英海事联盟与欧洲护航编队')
+      .replace(/霍尔木兹.*多国联军/g, '美欧海事联盟护航编队')
+      .replace(/波斯湾.*多国联军/g, '美英与欧洲护航编队');
+  }
+
   // E. 修复断句残缺（如末尾留下“并通过...”、“以保证...”、“等...”）
   const danglingMatch = /([并与等及但而或者]|通过|进行|以及|以保证|以确保|正在全力|保障|为了|以实现)\s*\.{0,3}$/;
   if (danglingMatch.test(title)) {
@@ -320,6 +328,14 @@ export function autoCorrect5W1H(
   if (authorityMatch && (!s.who || s.who.includes('一线处置') || s.who.length < 4)) {
     s.who = authorityMatch[1];
     wasCorrected = true;
+  }
+
+  // 霍尔木兹海峡/波斯湾护航主体精确归因：杜绝泛化“多国联军”
+  if (/霍尔木兹|波斯湾.*(?:巡航|护航|保费|油轮)/.test(title)) {
+    if (!s.who || /多国联军|联合海上护航编队指挥部/.test(s.who) || s.who.length < 8) {
+      s.who = '国际海事安全构架（美、英、沙特等IMSC编队）、欧洲海事感知行动（法、荷、意、德等EMASOH编队）及伦敦保赔协会';
+      wasCorrected = true;
+    }
   }
 
   // 要素长度与完整性自愈
