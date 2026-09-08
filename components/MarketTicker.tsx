@@ -85,6 +85,17 @@ function MarketTicker({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen]);
+
   const marketStatus = React.useMemo(() => getGlobalMarketTradingStatus(), []);
 
   const displayQuotes = [...quotes, ...quotes];
@@ -204,10 +215,16 @@ function MarketTicker({
 
       {/* 全球行情多源联网交叉验真中心 弹窗 / 浮层 */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-slate-900 dark:text-slate-100 animate-in zoom-in-95 duration-200">
-            {/* 顶栏 */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50">
+        <div
+          onClick={() => setIsModalOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-4xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden text-slate-900 dark:text-slate-100 animate-in zoom-in-95 duration-200"
+          >
+            {/* 顶栏（Sticky 头部常驻，永不滚出视野） */}
+            <div className="flex-shrink-0 sticky top-0 z-20 flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                   <ShieldCheck className="w-5 h-5 stroke-[2.2]" />
@@ -236,15 +253,19 @@ function MarketTicker({
                     title="立即发起新一轮多源网络数据拉取与比对"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingQuotes ? 'animate-spin' : ''}`} />
-                    <span>{isRefreshingQuotes ? '比对中...' : '重新比对'}</span>
+                    <span className="hidden sm:inline">{isRefreshingQuotes ? '比对中...' : '重新比对'}</span>
                   </button>
                 )}
 
+                {/* 顶栏高清晰度关闭按钮 */}
                 <button
+                  type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition-all cursor-pointer select-none active:scale-95 shadow-xs"
+                  title="关闭验真中心窗口 (快捷键: Esc / 点击外部蒙层)"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                  <span>关闭</span>
                 </button>
               </div>
             </div>
@@ -423,14 +444,25 @@ function MarketTicker({
               </div>
             </div>
 
-            {/* 底栏 */}
-            <div className="px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+            {/* 底栏（Sticky 常驻固定在弹窗底部，无论表格如何滚动，关闭按钮永远触手可及） */}
+            <div className="flex-shrink-0 sticky bottom-0 z-20 px-5 sm:px-6 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-                <span>数据同步自国际交易所实时撮合报价 · 每 30 秒静默轮询比对</span>
+                <Sparkles className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                <span className="truncate">数据同步自国际交易所实时撮合报价 · 每 30 秒静默轮询比对</span>
               </div>
-              <div className="font-mono text-[11px]">
-                通道信源：新浪金融 · 腾讯财经 · 东方财富国际
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                <span className="font-mono text-[11px] hidden md:inline text-slate-400">
+                  通道信源：新浪金融 · 腾讯财经 · 东方财富
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-900 shadow-md transition-all cursor-pointer select-none active:scale-95 w-full sm:w-auto"
+                  title="完成核验，关闭弹窗 (快捷键: Esc)"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>关闭验真窗口</span>
+                </button>
               </div>
             </div>
           </div>
