@@ -143,15 +143,20 @@ export default function Home() {
     } catch (e) {}
   }, []);
 
-  // 2. 30分钟静默拉取与初始化
+  // 2. 30分钟静默拉取与初始化（首屏延迟 60ms 释放浏览器主线程，优先保障首屏 FCP/LCP 秒开）
   useEffect(() => {
-    loadData();
+    const timer = setTimeout(() => {
+      loadData();
+    }, 60);
 
     const interval = setInterval(() => {
       loadData();
     }, REFRESH_INTERVAL_SECONDS * 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
   }, []);
 
   // 实时全球行情高频静默刷新（每 30 秒自动拉取）

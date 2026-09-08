@@ -1,5 +1,5 @@
 // 全球决策情报终端 - 生产级 Service Worker (PWA)
-const CACHE_VERSION = 'git-pwa-v1.7';
+const CACHE_VERSION = 'git-pwa-v1.8';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 
@@ -103,24 +103,32 @@ self.addEventListener('fetch', (event) => {
   // 策略 C: 页面导航 -> Stale-While-Revalidate 极速秒开 (有本地缓存 0ms 瞬间打开，后台静默联网保鲜)
   if (req.mode === 'navigate') {
     event.respondWith(
-      caches.match(req).then((cached) => {
+      (async () => {
+        // 1. 毫秒级匹配已有网页壳缓存（优先匹配完整 URL，回退匹配根路径 '/'）
+        const cached = (await caches.match(req)) || (await caches.match('/'));
+
         const fetchPromise = fetch(req)
-          .then((networkRes) => {
+          .then(async (networkRes) => {
             if (networkRes && networkRes.status === 200) {
               const resClone = networkRes.clone();
-              caches.open(STATIC_CACHE).then((cache) => {
-                cache.put(req, resClone);
-              });
+              const cache = await caches.open(STATIC_CACHE);
+              await cache.put(req, resClone.clone());
+              await cache.put('/', resClone);
             }
             return networkRes;
           })
           .catch(() => {
-            return cached || caches.match('/');
+            return cached;
           });
 
-        // 核心提速：若本地已有网页缓存骨架，0ms 立即瞬时呈现，彻底杜绝白屏与网络等待感
-        return cached || fetchPromise;
-      })
+        // 核心提速：若本地已有网页缓存骨架，0ms 立即瞬时呈现，彻底杜绝白屏与网络等待感；后台静默保鲜
+        if (cached) {
+          event.waitUntil(fetchPromise);
+          return cached;
+        }
+
+        return await fetchPromise;
+      })()
     );
     return;
   }

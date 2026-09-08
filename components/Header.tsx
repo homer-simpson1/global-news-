@@ -175,11 +175,12 @@ export default function Header({
   };
 
   useEffect(() => {
-    // 15分钟自动化核验状态同步（与15分自检周期严格对齐，零冗余开销）
-    fetchVerify();
+    // 15分钟自动化核验状态同步（与15分自检周期严格对齐，零冗余开销；首屏延迟 120ms 释放首画主线程）
+    const initialTimer = setTimeout(() => fetchVerify(), 120);
     const verifyInterval = setInterval(() => fetchVerify(false), 15 * 60 * 1000);
 
     return () => {
+      clearTimeout(initialTimer);
       clearInterval(verifyInterval);
       if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     };

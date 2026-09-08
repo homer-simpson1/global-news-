@@ -38,6 +38,9 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://hq.sinajs.cn" />
         <link rel="dns-prefetch" href="https://qt.gtimg.cn" />
         <link rel="dns-prefetch" href="https://push2.eastmoney.com" />
+        <link rel="preconnect" href="https://hq.sinajs.cn" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://qt.gtimg.cn" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://push2.eastmoney.com" crossOrigin="anonymous" />
         <meta name="application-name" content="全球情报" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
