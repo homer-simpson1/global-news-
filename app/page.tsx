@@ -7,7 +7,8 @@ import FlashBriefing from '@/components/FlashBriefing';
 import OngoingDisasterBanner from '@/components/OngoingDisasterBanner';
 import RegionalTrack from '@/components/RegionalTrack';
 import { FlashBrief, MarketQuote, NewsItem, TrackId, TimeWindow, QuotesVerificationSummary, DisasterTracker } from '@/lib/types';
-import { SEED_FLASH_BRIEFS, SEED_MARKET_QUOTES, SEED_NEWS_ITEMS, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
+import { SEED_FLASH_BRIEFS, SEED_MARKET_QUOTES, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
+import { SEED_LEAD_NEWS_ITEMS } from '@/data/seedLeadNews';
 import { Search, SlidersHorizontal, Calendar, Clock } from 'lucide-react';
 
 const REFRESH_INTERVAL_SECONDS = 30 * 60; // 30分钟 = 1800秒
@@ -17,14 +18,13 @@ type TimeFilterType = 'ALL' | 'TODAY' | 'PAST_24H' | 'HISTORIC';
 export default function Home() {
   const [quotes, setQuotes] = useState<MarketQuote[]>(SEED_MARKET_QUOTES);
   const [flashBriefs, setFlashBriefs] = useState<FlashBrief[]>(SEED_FLASH_BRIEFS);
-  const [news, setNews] = useState<NewsItem[]>(SEED_NEWS_ITEMS);
+  const [news, setNews] = useState<NewsItem[]>(SEED_LEAD_NEWS_ITEMS);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [lastUpdated, setLastUpdated] = useState<string>('刚刚');
   const [selectedTrack, setSelectedTrack] = useState<string>('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilterType>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [onlyLevel1, setOnlyLevel1] = useState<boolean>(false);
-  const [countdownSeconds, setCountdownSeconds] = useState<number>(REFRESH_INTERVAL_SECONDS);
   const [quotesVerification, setQuotesVerification] = useState<QuotesVerificationSummary | null>(null);
   const [isVerifyingQuotes, setIsVerifyingQuotes] = useState<boolean>(false);
 
@@ -79,30 +79,29 @@ export default function Home() {
         }
       }
     } catch (e) {
-      console.warn('网络同步异常，使用内置深度数据库:', e);
+      console.warn('网络同步异常，按需加载内置离线深度数据库:', e);
+      try {
+        const { SEED_NEWS_ITEMS } = await import('@/data/seedNews');
+        setNews(SEED_NEWS_ITEMS);
+      } catch (err) {
+        // silent
+      }
     } finally {
       if (isManual) {
         setTimeout(() => setIsRefreshing(false), 500);
       }
-      setCountdownSeconds(REFRESH_INTERVAL_SECONDS);
     }
   };
 
-  // 30分钟每秒倒计时与自动拉取逻辑
+  // 30分钟静默拉取与初始化
   useEffect(() => {
     loadData();
 
-    const timer = setInterval(() => {
-      setCountdownSeconds((prev) => {
-        if (prev <= 1) {
-          loadData();
-          return REFRESH_INTERVAL_SECONDS;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    const interval = setInterval(() => {
+      loadData();
+    }, REFRESH_INTERVAL_SECONDS * 1000);
 
-    return () => clearInterval(timer);
+    return () => clearInterval(interval);
   }, []);
 
   // 实时全球行情高频静默刷新（每 30 秒自动拉取）
@@ -128,35 +127,37 @@ export default function Home() {
     return () => clearInterval(tickerInterval);
   }, []);
 
-  // 筛选与搜索过滤
-  const filteredNews = news.filter((item) => {
-    if (selectedTrack !== 'all' && item.track !== selectedTrack) {
-      return false;
-    }
-    if (onlyLevel1 && item.impactLevel !== 1) {
-      return false;
-    }
-    // 时效筛选
-    if (timeFilter === 'TODAY') {
-      if (item.timeWindow && item.timeWindow !== 'TODAY') return false;
-    } else if (timeFilter === 'PAST_24H') {
-      if (item.timeWindow && item.timeWindow === 'HISTORIC') return false;
-    } else if (timeFilter === 'HISTORIC') {
-      if (item.timeWindow && item.timeWindow !== 'HISTORIC') return false;
-    }
+  // 筛选与搜索过滤（useMemo 确保只有搜索、专区或数据发生改变时才执行过滤）
+  const filteredNews = React.useMemo(() => {
+    return news.filter((item) => {
+      if (selectedTrack !== 'all' && item.track !== selectedTrack) {
+        return false;
+      }
+      if (onlyLevel1 && item.impactLevel !== 1) {
+        return false;
+      }
+      // 时效筛选
+      if (timeFilter === 'TODAY') {
+        if (item.timeWindow && item.timeWindow !== 'TODAY') return false;
+      } else if (timeFilter === 'PAST_24H') {
+        if (item.timeWindow && item.timeWindow === 'HISTORIC') return false;
+      } else if (timeFilter === 'HISTORIC') {
+        if (item.timeWindow && item.timeWindow !== 'HISTORIC') return false;
+      }
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchTitle = item.title.toLowerCase().includes(q);
-      const matchTakeaway = item.oneLineTakeaway.toLowerCase().includes(q);
-      const matchImpact = item.transmissionImpact.toLowerCase().includes(q);
-      const matchSource = item.source.toLowerCase().includes(q);
-      return matchTitle || matchTakeaway || matchImpact || matchSource;
-    }
-    return true;
-  });
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchTitle = item.title.toLowerCase().includes(q);
+        const matchTakeaway = item.oneLineTakeaway.toLowerCase().includes(q);
+        const matchImpact = item.transmissionImpact.toLowerCase().includes(q);
+        const matchSource = item.source.toLowerCase().includes(q);
+        return matchTitle || matchTakeaway || matchImpact || matchSource;
+      }
+      return true;
+    });
+  }, [news, selectedTrack, onlyLevel1, timeFilter, searchQuery]);
 
-  const tracks: { id: TrackId; items: NewsItem[] }[] = [
+  const tracks: { id: TrackId; items: NewsItem[] }[] = React.useMemo(() => [
     { id: 'us_macro', items: filteredNews.filter((n) => n.track === 'us_macro') },
     { id: 'apac_tech', items: filteredNews.filter((n) => n.track === 'apac_tech') },
     { id: 'commodities_shipping', items: filteredNews.filter((n) => n.track === 'commodities_shipping') },
@@ -164,7 +165,7 @@ export default function Home() {
     { id: 'china_domestic', items: filteredNews.filter((n) => n.track === 'china_domestic') },
     { id: 'china_policy', items: filteredNews.filter((n) => n.track === 'china_policy') },
     { id: 'global_cognition', items: filteredNews.filter((n) => n.track === 'global_cognition') },
-  ];
+  ], [filteredNews]);
 
   const trackTabs = [
     {
@@ -248,7 +249,6 @@ export default function Home() {
         isRefreshing={isRefreshing}
         flashBriefs={flashBriefs}
         lastUpdated={lastUpdated}
-        countdownSeconds={countdownSeconds}
         newsItems={news}
         quotes={quotes}
       />

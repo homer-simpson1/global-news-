@@ -9,7 +9,7 @@ interface OngoingDisasterBannerProps {
   onScrollToCard?: (cardId: string) => void;
 }
 
-export default function OngoingDisasterBanner({ trackers, onScrollToCard }: OngoingDisasterBannerProps) {
+function OngoingDisasterBanner({ trackers, onScrollToCard }: OngoingDisasterBannerProps) {
   if (!trackers || trackers.length === 0) return null;
 
   const handleJump = (trackerId: string) => {
@@ -91,3 +91,6 @@ export default function OngoingDisasterBanner({ trackers, onScrollToCard }: Ongo
     </section>
   );
 }
+
+export default React.memo(OngoingDisasterBanner);
+

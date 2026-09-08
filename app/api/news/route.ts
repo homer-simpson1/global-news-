@@ -13,14 +13,26 @@ export async function GET(request: Request) {
       getFlashBriefs(force),
     ]);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        news,
-        flashBriefs,
-        updatedAt: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+    const cacheControl = force
+      ? 'no-cache, no-store, must-revalidate'
+      : 'public, max-age=45, s-maxage=180, stale-while-revalidate=600';
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          news,
+          flashBriefs,
+          updatedAt: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        },
       },
-    });
+      {
+        headers: {
+          'Cache-Control': cacheControl,
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      }
+    );
   } catch (error) {
     console.error('API /api/news error:', error);
     return NextResponse.json(

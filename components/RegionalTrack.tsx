@@ -12,7 +12,7 @@ interface RegionalTrackProps {
   items: NewsItem[];
 }
 
-export default function RegionalTrack({ trackId, items }: RegionalTrackProps) {
+function RegionalTrack({ trackId, items }: RegionalTrackProps) {
   const [showAll, setShowAll] = useState(false);
   const meta = TRACK_METADATA[trackId];
   const theme = TRACK_THEMES[trackId] || TRACK_THEMES.us_macro;
@@ -126,3 +126,5 @@ export default function RegionalTrack({ trackId, items }: RegionalTrackProps) {
     </section>
   );
 }
+
+export default React.memo(RegionalTrack);

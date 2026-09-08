@@ -17,14 +17,18 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import { FlashBrief, MarketQuote, NewsItem } from '@/lib/types';
-import ShareImageModal from './ShareImageModal';
+import dynamic from 'next/dynamic';
+
+const ShareImageModal = dynamic(() => import('./ShareImageModal'), {
+  ssr: false,
+});
 
 interface HeaderProps {
   onRefresh: () => void;
   isRefreshing: boolean;
   flashBriefs: FlashBrief[];
   lastUpdated: string;
-  countdownSeconds: number;
+  countdownSeconds?: number;
   newsItems?: NewsItem[];
   quotes?: MarketQuote[];
 }
@@ -50,6 +54,51 @@ interface VerifyData {
   unpassedItems: UnpassedVerifyItem[];
 }
 
+// 独立自驱动倒计时胶囊：物理隔离 1 秒重渲染作用域，彻底根除父级组件与全部卡片的高频无效 Diff
+function CountdownBadge({
+  onRefresh,
+  isRefreshing,
+  initialSeconds = 1800,
+}: {
+  onRefresh: () => void;
+  isRefreshing: boolean;
+  initialSeconds?: number;
+}) {
+  const [secs, setSecs] = useState(initialSeconds);
+
+  useEffect(() => {
+    if (isRefreshing) {
+      setSecs(1800);
+    }
+  }, [isRefreshing]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSecs((prev) => {
+        if (prev <= 1) {
+          onRefresh();
+          return 1800;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [onRefresh]);
+
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  const formatted = `${m}分${s < 10 ? '0' : ''}${s}秒`;
+
+  return (
+    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-medium">
+      <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+      <span>
+        自动刷新: <span className="font-mono font-bold text-blue-900 dark:text-blue-200">{formatted}</span>
+      </span>
+    </div>
+  );
+}
+
 export default function Header({
   onRefresh,
   isRefreshing,
@@ -60,7 +109,6 @@ export default function Header({
   quotes = [],
 }: HeaderProps) {
   const [copied, setCopied] = useState(false);
-  const [currentTime, setCurrentTime] = useState('');
   const [verifyData, setVerifyData] = useState<VerifyData | null>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isVerifyingNow, setIsVerifyingNow] = useState(false);
@@ -127,26 +175,11 @@ export default function Header({
   };
 
   useEffect(() => {
-    const update = () => {
-      const now = new Date();
-      setCurrentTime(
-        now.toLocaleTimeString('zh-CN', {
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        })
-      );
-    };
-    update();
-    const interval = setInterval(update, 1000);
-
     // 15分钟自动化核验状态同步
     fetchVerify();
     const verifyInterval = setInterval(() => fetchVerify(false), 60 * 1000); // 每分钟轮询最新核验结果
 
     return () => {
-      clearInterval(interval);
       clearInterval(verifyInterval);
       if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     };
@@ -161,12 +194,6 @@ export default function Header({
     hoverTimeoutRef.current = setTimeout(() => {
       setIsHovered(false);
     }, 250);
-  };
-
-  const formatCountdown = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m}分${s < 10 ? '0' : ''}${s}秒`;
   };
 
   const handleCopyDigest = async () => {
@@ -384,13 +411,8 @@ export default function Header({
               )}
             </div>
 
-            {/* 30分钟倒计时指示器 */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-medium">
-              <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              <span>
-                自动刷新: <span className="font-mono font-bold text-blue-900 dark:text-blue-200">{formatCountdown(countdownSeconds)}</span>
-              </span>
-            </div>
+            {/* 30分钟倒计时指示器（独立自驱动，隔离重渲染） */}
+            <CountdownBadge onRefresh={onRefresh} isRefreshing={isRefreshing} initialSeconds={countdownSeconds || 1800} />
 
             {/* 一键生成早晚报高清长图 */}
             <button

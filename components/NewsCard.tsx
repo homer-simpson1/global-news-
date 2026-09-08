@@ -14,30 +14,29 @@ interface NewsCardProps {
   isLead?: boolean;
 }
 
-export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
+function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
   const [expanded, setExpanded] = useState(false);
   const theme = trackTheme || TRACK_THEMES[item.track] || TRACK_THEMES.us_macro;
 
-  // 分离方括号分类前缀与纯净标题，防止狭窄折行断裂
-  const parseTitle = (rawTitle: string) => {
-    const match = rawTitle.match(/^[【\[]([^】\]]+)[】\]]\s*(.*)$/);
+  // 分离方括号分类前缀与纯净标题，防止狭窄折行断裂（使用 useMemo 避免倒计时每秒触发重算）
+  const { tag, cleanTitle, keywords, bingSearchUrl, googleSearchUrl, baiduSearchUrl } = React.useMemo(() => {
+    let tag = '';
+    let cleanTitle = item.title.trim();
+    const match = item.title.match(/^[【\[]([^】\]]+)[】\]]\s*(.*)$/);
     if (match) {
-      return {
-        tag: match[1].replace(/\/.*$/, '').trim(),
-        cleanTitle: match[2].trim(),
-      };
+      tag = match[1].replace(/\/.*$/, '').trim();
+      cleanTitle = match[2].trim();
     }
+    const keywords = extractSearchKeywords(cleanTitle || item.title, item.source);
     return {
-      tag: '',
-      cleanTitle: rawTitle.trim(),
+      tag,
+      cleanTitle,
+      keywords,
+      bingSearchUrl: getSearchUrl(keywords, 'bing'),
+      googleSearchUrl: getSearchUrl(keywords, 'google'),
+      baiduSearchUrl: getSearchUrl(keywords, 'baidu'),
     };
-  };
-
-  const { tag, cleanTitle } = parseTitle(item.title);
-  const keywords = extractSearchKeywords(cleanTitle || item.title, item.source);
-  const bingSearchUrl = getSearchUrl(keywords, 'bing');
-  const googleSearchUrl = getSearchUrl(keywords, 'google');
-  const baiduSearchUrl = getSearchUrl(keywords, 'baidu');
+  }, [item.id, item.title, item.source]);
 
   return (
     <div
@@ -362,3 +361,5 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
     </div>
   );
 }
+
+export default React.memo(NewsCard);

@@ -11,7 +11,7 @@ interface FlashBriefingProps {
   briefs: FlashBrief[];
 }
 
-export default function FlashBriefing({ briefs }: FlashBriefingProps) {
+function FlashBriefing({ briefs }: FlashBriefingProps) {
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
 
   if (!briefs || briefs.length === 0) return null;
@@ -321,3 +321,5 @@ export default function FlashBriefing({ briefs }: FlashBriefingProps) {
     </section>
   );
 }
+
+export default React.memo(FlashBriefing);

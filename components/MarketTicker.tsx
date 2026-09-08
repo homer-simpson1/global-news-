@@ -22,7 +22,7 @@ interface MarketTickerProps {
   isRefreshingQuotes?: boolean;
 }
 
-export default function MarketTicker({
+function MarketTicker({
   quotes,
   verificationSummary,
   onRefreshQuotes,
@@ -340,3 +340,6 @@ export default function MarketTicker({
     </>
   );
 }
+
+export default React.memo(MarketTicker);
+
