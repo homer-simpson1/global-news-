@@ -74,6 +74,31 @@ export interface FlashBrief {
   bullBearDivergence?: BullBearDivergence;
 }
 
+export interface QuoteVerificationDetail {
+  symbol: string;
+  name: string;
+  primarySource: string;
+  primaryPrice: string;
+  crossSource: string;
+  crossPrice: string;
+  diffPercent: string;
+  diffAbsolute: string;
+  isConsistent: boolean;
+  status: 'PASS' | 'TOLERANCE' | 'WARN';
+  note?: string;
+}
+
+export interface QuotesVerificationSummary {
+  totalCount: number;
+  passedCount: number;
+  passRate: string;
+  maxDiffPercent: string;
+  channels: string[];
+  verifiedAt: string;
+  tokenCost: number;
+  items: QuoteVerificationDetail[];
+}
+
 export interface MarketQuote {
   symbol: string;
   name: string;
@@ -81,6 +106,7 @@ export interface MarketQuote {
   change: string;
   isUp: boolean;
   category: 'US' | 'ASIA' | 'BOND_FX';
+  verification?: QuoteVerificationDetail;
 }
 
 export interface TrackMetadata {

@@ -5,7 +5,7 @@ import MarketTicker from '@/components/MarketTicker';
 import Header from '@/components/Header';
 import FlashBriefing from '@/components/FlashBriefing';
 import RegionalTrack from '@/components/RegionalTrack';
-import { FlashBrief, MarketQuote, NewsItem, TrackId, TimeWindow } from '@/lib/types';
+import { FlashBrief, MarketQuote, NewsItem, TrackId, TimeWindow, QuotesVerificationSummary } from '@/lib/types';
 import { SEED_FLASH_BRIEFS, SEED_MARKET_QUOTES, SEED_NEWS_ITEMS } from '@/data/seedData';
 import { Search, SlidersHorizontal, Calendar, Clock } from 'lucide-react';
 
@@ -24,6 +24,28 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [onlyLevel1, setOnlyLevel1] = useState<boolean>(false);
   const [countdownSeconds, setCountdownSeconds] = useState<number>(REFRESH_INTERVAL_SECONDS);
+  const [quotesVerification, setQuotesVerification] = useState<QuotesVerificationSummary | null>(null);
+  const [isVerifyingQuotes, setIsVerifyingQuotes] = useState<boolean>(false);
+
+  const refreshQuotes = async () => {
+    setIsVerifyingQuotes(true);
+    try {
+      const res = await fetch('/api/ticker?force=true');
+      if (res.ok) {
+        const d = await res.json();
+        if (d?.success && d.data?.quotes) {
+          setQuotes(d.data.quotes);
+          if (d.data.verificationSummary) {
+            setQuotesVerification(d.data.verificationSummary);
+          }
+        }
+      }
+    } catch (e) {
+      // silent fallback
+    } finally {
+      setTimeout(() => setIsVerifyingQuotes(false), 500);
+    }
+  };
 
   // 加载与刷新最新数据
   const loadData = async (isManual = false) => {
@@ -51,6 +73,9 @@ export default function Home() {
 
       if (tickerRes?.success && tickerRes.data?.quotes) {
         setQuotes(tickerRes.data.quotes);
+        if (tickerRes.data.verificationSummary) {
+          setQuotesVerification(tickerRes.data.verificationSummary);
+        }
       }
     } catch (e) {
       console.warn('网络同步异常，使用内置深度数据库:', e);
@@ -88,6 +113,9 @@ export default function Home() {
           const d = await res.json();
           if (d?.success && d.data?.quotes) {
             setQuotes(d.data.quotes);
+            if (d.data.verificationSummary) {
+              setQuotesVerification(d.data.verificationSummary);
+            }
           }
         }
       } catch (err) {
@@ -205,8 +233,13 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
-      {/* 顶部行情跑马灯 */}
-      <MarketTicker quotes={quotes} />
+      {/* 顶部行情跑马灯（集成全网多源0 Token实时交叉验真中心） */}
+      <MarketTicker
+        quotes={quotes}
+        verificationSummary={quotesVerification}
+        onRefreshQuotes={refreshQuotes}
+        isRefreshingQuotes={isVerifyingQuotes}
+      />
 
       {/* 导航头（包含30分钟倒计时、长图生成、暗黑模式与一键复制） */}
       <Header

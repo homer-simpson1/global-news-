@@ -1,16 +1,21 @@
-import { NextResponse } from 'next/server';
-import { getMarketQuotes } from '@/lib/rssFetcher';
+import { NextRequest, NextResponse } from 'next/server';
+import { fetchVerifiedMarketQuotes } from '@/lib/quotesVerifier';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const quotes = await getMarketQuotes();
+    const { searchParams } = new URL(request.url);
+    const force = searchParams.get('force') === 'true';
+
+    const { quotes, verificationSummary } = await fetchVerifiedMarketQuotes(force);
+
     return NextResponse.json({
       success: true,
       data: {
         quotes,
+        verificationSummary,
         updatedAt: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       },
     });

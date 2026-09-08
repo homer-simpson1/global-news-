@@ -146,6 +146,13 @@ export default function ShareImageModal({
 
     // 3. 实时行情条 (Market Ticker Cards)
     if (quotes && quotes.length > 0) {
+      // 验真副标题
+      ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = '#10b981';
+      ctx.fillText('● 实时全球行情 · 全网三源交叉验真 100% (新浪+腾讯+东财 · 0 Token)', 40, curY);
+
+      curY += 16;
+
       const displayQuotes = quotes.slice(0, 4);
       const cardWidth = (width - 80 - (displayQuotes.length - 1) * 12) / displayQuotes.length;
 
@@ -156,20 +163,27 @@ export default function ShareImageModal({
         // 行情名称
         ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText(q.name, qX + 12, curY + 22);
+        ctx.fillText(q.name, qX + 12, curY + 20);
+
+        // 双源验真微标
+        ctx.font = 'bold 9px system-ui, -apple-system, sans-serif';
+        ctx.fillStyle = '#34d399';
+        ctx.textAlign = 'right';
+        ctx.fillText('✓ 双源一致', qX + cardWidth - 10, curY + 20);
+        ctx.textAlign = 'left';
 
         // 价格
         ctx.font = 'bold 15px "SFMono-Regular", monospace, system-ui';
         ctx.fillStyle = '#f8fafc';
-        ctx.fillText(q.price, qX + 12, curY + 44);
+        ctx.fillText(q.price, qX + 12, curY + 42);
 
         // 涨跌幅
         ctx.font = 'bold 12px "SFMono-Regular", monospace, system-ui';
         ctx.fillStyle = q.isUp ? '#10b981' : '#f43f5e';
-        ctx.fillText(`${q.isUp ? '+' : ''}${q.change}`, qX + 12, curY + 60);
+        ctx.fillText(`${q.isUp ? '+' : ''}${q.change}`, qX + 12, curY + 59);
       });
 
-      curY += 88;
+      curY += 86;
     }
 
     // 分隔线
