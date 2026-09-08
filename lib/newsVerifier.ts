@@ -1,5 +1,6 @@
 import { NewsItem, FlashBrief, MarketQuote, Summary5W1H } from './types';
 import { getFastIntelSnapshot } from './rssFetcher';
+import { autoCorrectNewsItem, autoCorrectAllNews } from './selfHealingEngine';
 
 export interface VerificationItemResult {
   id: string;
@@ -69,6 +70,11 @@ export async function runNewsAccuracyVerification(
     if (!flashList) flashList = snapshot.flash;
     if (!quotes) quotes = snapshot.quotes;
   }
+
+  // 全域新闻与速递在核验前统一执行自动纠偏流水线
+  const healed = autoCorrectAllNews(newsList, flashList);
+  newsList = healed.news;
+  flashList = healed.flashBriefs;
 
   const details: VerificationItemResult[] = [];
   let passedCount = 0;

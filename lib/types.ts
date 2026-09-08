@@ -89,6 +89,8 @@ export interface NewsItem {
   isUnilateralClaim?: boolean;           // 是否单方自宣/待验证
   disasterTracker?: DisasterTracker;     // 特大灾害全生命周期持续追踪系统
   isOngoingDisaster?: boolean;           // 是否属于持续追踪特大灾害
+  isAutoCorrected?: boolean;             // 全域自愈引擎是否介入纠偏
+  autoCorrectionDetails?: string[];      // 纠偏日志明细
 }
 
 export interface FlashBrief {
@@ -114,6 +116,8 @@ export interface FlashBrief {
   bullBearDivergence?: BullBearDivergence;
   spilloverCriterion?: string;           // 命中外溢指标名称
   isUnilateralClaim?: boolean;           // 是否单方自宣/待验证
+  isAutoCorrected?: boolean;             // 全域自愈引擎是否介入纠偏
+  autoCorrectionDetails?: string[];      // 纠偏日志明细
 }
 
 export interface QuoteVerificationDetail {

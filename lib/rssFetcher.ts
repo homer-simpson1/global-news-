@@ -2,6 +2,7 @@ import { FlashBrief, MarketQuote, NewsItem, TrackId, Summary5W1H, MarketSentimen
 import { SEED_FLASH_BRIEFS, SEED_NEWS_ITEMS, SEED_MARKET_QUOTES, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
 import { fetchVerifiedMarketQuotes, getCachedVerifiedQuotesSnapshot } from './quotesVerifier';
 import { enforceCountryEntityGuardrails, checkCrossContamination, validateTitleSummaryEntityConsistency, FOREIGN_ENTITIES } from './guardrails';
+import { autoCorrectAllNews, autoCorrectFlashBrief } from './selfHealingEngine';
 
 let cachedNews: NewsItem[] | null = null;
 let cachedFlash: FlashBrief[] | null = null;
@@ -10,15 +11,18 @@ let lastFetchTime = 0;
 let lastQuotesFetchTime = 0;
 let inFlightFetch: Promise<NewsItem[]> | null = null;
 
-// 毫秒级内存瞬时快照（用于自检与即时渲染，0 网络 I/O，杜绝阻塞）
+// 毫秒级内存瞬时快照（用于自检与即时渲染，0 网络 I/O，且经过全域自动纠偏引擎净化）
 export function getFastIntelSnapshot(): {
   news: NewsItem[];
   flash: FlashBrief[];
   quotes: MarketQuote[];
 } {
+  const rawNews = (cachedNews && cachedNews.length > 0) ? cachedNews : SEED_NEWS_ITEMS;
+  const rawFlash = (cachedFlash && cachedFlash.length > 0) ? cachedFlash : SEED_FLASH_BRIEFS;
+  const { news: healedNews, flashBriefs: healedFlash } = autoCorrectAllNews(rawNews, rawFlash);
   return {
-    news: (cachedNews && cachedNews.length > 0) ? cachedNews : SEED_NEWS_ITEMS,
-    flash: (cachedFlash && cachedFlash.length > 0) ? cachedFlash : SEED_FLASH_BRIEFS,
+    news: healedNews,
+    flash: healedFlash,
     quotes: (cachedQuotes && cachedQuotes.length > 0) ? cachedQuotes : getCachedVerifiedQuotesSnapshot(),
   };
 }
@@ -2084,16 +2088,19 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
       ...categorized.global_cognition,
     ];
 
-    cachedNews = allNews;
-    cachedFlash = flashList;
+    // 全站数据出库前执行 100% 自动纠偏流水线
+    const { news: healedNews, flashBriefs: healedFlash } = autoCorrectAllNews(allNews, flashList);
+    cachedNews = healedNews;
+    cachedFlash = healedFlash;
     lastFetchTime = now;
 
     return cachedNews;
   } catch (err) {
     console.error('实时聚合抓取失败:', err);
     if (!cachedNews || cachedNews.length === 0) {
-      cachedNews = SEED_NEWS_ITEMS;
-      cachedFlash = SEED_FLASH_BRIEFS;
+      const { news: healedNews, flashBriefs: healedFlash } = autoCorrectAllNews(SEED_NEWS_ITEMS, SEED_FLASH_BRIEFS);
+      cachedNews = healedNews;
+      cachedFlash = healedFlash;
     }
     return cachedNews;
   }
@@ -2113,7 +2120,8 @@ export async function getFlashBriefs(forceRefresh = false): Promise<FlashBrief[]
   if (forceRefresh || !cachedFlash || cachedFlash.length === 0) {
     await fetchAggregatedNews(forceRefresh);
   }
-  return cachedFlash && cachedFlash.length > 0 ? cachedFlash : SEED_FLASH_BRIEFS;
+  const rawFlash = cachedFlash && cachedFlash.length > 0 ? cachedFlash : SEED_FLASH_BRIEFS;
+  return rawFlash.map(autoCorrectFlashBrief);
 }
 
 export async function checkAllLiveSources() {

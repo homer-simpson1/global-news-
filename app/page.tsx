@@ -11,6 +11,7 @@ import { SEED_FLASH_BRIEFS, SEED_MARKET_QUOTES, GYIRONG_PORT_DISASTER_TRACKER } 
 import { SEED_NEWS_ITEMS } from '@/data/seedNews';
 import { Search, SlidersHorizontal, Calendar, Clock, Sparkles, X } from 'lucide-react';
 import BackToTopButton from '@/components/BackToTopButton';
+import { autoCorrectAllNews } from '@/lib/selfHealingEngine';
 
 const REFRESH_INTERVAL_SECONDS = 30 * 60; // 30分钟 = 1800秒
 
@@ -69,16 +70,20 @@ function TerminalApp() {
       .then((r) => (r.ok ? r.json() : null))
       .then((newsRes) => {
         if (newsRes?.success && newsRes.data) {
-          if (newsRes.data.news && newsRes.data.news.length > 0) {
-            setNews(newsRes.data.news);
+          const rawN = newsRes.data.news || [];
+          const rawB = newsRes.data.flashBriefs || [];
+          const healed = autoCorrectAllNews(rawN, rawB);
+
+          if (healed.news.length > 0) {
+            setNews(healed.news);
             try {
-              localStorage.setItem('git_cached_news', JSON.stringify(newsRes.data.news));
+              localStorage.setItem('git_cached_news', JSON.stringify(healed.news));
             } catch (e) {}
           }
-          if (newsRes.data.flashBriefs && newsRes.data.flashBriefs.length > 0) {
-            setFlashBriefs(newsRes.data.flashBriefs);
+          if (healed.flashBriefs.length > 0) {
+            setFlashBriefs(healed.flashBriefs);
             try {
-              localStorage.setItem('git_cached_briefs', JSON.stringify(newsRes.data.flashBriefs));
+              localStorage.setItem('git_cached_briefs', JSON.stringify(healed.flashBriefs));
             } catch (e) {}
           }
           setLastUpdated(
@@ -118,27 +123,26 @@ function TerminalApp() {
     });
   };
 
-  // 1. 0ms 瞬间秒开：挂载时优先提取最近一次本地缓存数据，彻底终结网络请求带来的等待感与界面跳变
+  // 1. 0ms 瞬间秒开：挂载时优先提取最近一次本地缓存数据，并执行全域自动纠偏引擎净化，终结界面跳变
   useEffect(() => {
     try {
       const cachedNews = localStorage.getItem('git_cached_news');
       const cachedBriefs = localStorage.getItem('git_cached_briefs');
       const cachedQuotes = localStorage.getItem('git_cached_quotes');
-      if (cachedNews) {
-        const parsed = JSON.parse(cachedNews);
-        if (Array.isArray(parsed) && parsed.length >= 16) {
-          setNews(parsed);
-        } else {
-          setNews(SEED_NEWS_ITEMS);
-        }
-      }
-      if (cachedBriefs) {
-        const parsed = JSON.parse(cachedBriefs);
-        if (Array.isArray(parsed) && parsed.length > 0) setFlashBriefs(parsed);
-      }
+
+      let parsedN = cachedNews ? JSON.parse(cachedNews) : null;
+      let parsedB = cachedBriefs ? JSON.parse(cachedBriefs) : null;
+
+      if (!Array.isArray(parsedN) || parsedN.length < 16) parsedN = SEED_NEWS_ITEMS;
+      if (!Array.isArray(parsedB) || parsedB.length === 0) parsedB = SEED_FLASH_BRIEFS;
+
+      const healed = autoCorrectAllNews(parsedN, parsedB);
+      setNews(healed.news);
+      setFlashBriefs(healed.flashBriefs);
+
       if (cachedQuotes) {
-        const parsed = JSON.parse(cachedQuotes);
-        if (Array.isArray(parsed) && parsed.length > 0) setQuotes(parsed);
+        const parsedQ = JSON.parse(cachedQuotes);
+        if (Array.isArray(parsedQ) && parsedQ.length > 0) setQuotes(parsedQ);
       }
     } catch (e) {}
   }, []);

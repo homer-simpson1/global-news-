@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { fetchAggregatedNews, getFlashBriefs } from '@/lib/rssFetcher';
+import { autoCorrectAllNews } from '@/lib/selfHealingEngine';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
@@ -27,8 +28,10 @@ export async function GET(request: Request) {
       }
     }
 
-    const news = await fetchAggregatedNews(force);
-    const flashBriefs = await getFlashBriefs(false);
+    const rawNews = await fetchAggregatedNews(force);
+    const rawFlashBriefs = await getFlashBriefs(false);
+    // API 出口端二次强校验与自愈纠偏
+    const { news, flashBriefs } = autoCorrectAllNews(rawNews, rawFlashBriefs);
 
     const cacheControl = force
       ? 'no-cache, no-store, must-revalidate'
