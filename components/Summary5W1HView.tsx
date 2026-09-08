@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Summary5W1H } from '@/lib/types';
-import { FileText, AlertTriangle } from 'lucide-react';
+import { FileText, AlertTriangle, X } from 'lucide-react';
 
 interface Summary5W1HViewProps {
   summaryParagraph?: string;
@@ -13,6 +13,7 @@ interface Summary5W1HViewProps {
   verificationBadge?: string;
   hasClarification?: boolean;
   clarificationNote?: string;
+  onClose?: () => void;
 }
 
 export default function Summary5W1HView({
@@ -24,6 +25,7 @@ export default function Summary5W1HView({
   verificationBadge,
   hasClarification,
   clarificationNote,
+  onClose,
 }: Summary5W1HViewProps) {
   // 1. 如果已有预生成的 5W1H 一段总结，直接使用
   let paragraph = summaryParagraph;
@@ -51,17 +53,32 @@ export default function Summary5W1HView({
 
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/60 p-4 md:p-5 my-3.5 space-y-3.5">
-      {/* 小结标题栏 */}
-      <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/80 dark:border-slate-800">
+      {/* 小结标题栏（内嵌顶部快捷关闭按钮，避免用户长距离移动鼠标） */}
+      <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/80 dark:border-slate-800 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 tracking-tight">
             事件深度透视 · 核心要务归纳
           </h4>
         </div>
-        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded">
-          叙事性事实提炼
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded hidden sm:inline">
+            叙事性事实提炼
+          </span>
+          {onClose && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition-all shadow-xs cursor-pointer select-none active:scale-95"
+              title="收起此板块详细阅读 (快捷键: Esc)"
+            >
+              <X className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+              <span>关闭 / 收起</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 辟谣与澄清反向警示条 */}

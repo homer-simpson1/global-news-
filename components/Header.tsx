@@ -12,6 +12,8 @@ import {
   CheckCircle2,
   Info,
   ChevronRight,
+  ChevronUp,
+  EyeOff,
   Sun,
   Moon,
   Image as ImageIcon,
@@ -31,6 +33,8 @@ interface HeaderProps {
   countdownSeconds?: number;
   newsItems?: NewsItem[];
   quotes?: MarketQuote[];
+  onToggleHideTopBar?: () => void;
+  isTopBarHidden?: boolean;
 }
 
 interface UnpassedVerifyItem {
@@ -140,6 +144,8 @@ export default function Header({
   countdownSeconds,
   newsItems = [],
   quotes = [],
+  onToggleHideTopBar,
+  isTopBarHidden = false,
 }: HeaderProps) {
   const [copied, setCopied] = useState(false);
   const [verifyData, setVerifyData] = useState<VerifyData | null>(null);
@@ -271,7 +277,7 @@ export default function Header({
 
   return (
     <>
-      <header className="w-full gpu-layer bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 px-4 lg:px-8 py-3.5 shadow-sm transition-colors duration-200">
+      <header className="w-full gpu-layer bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 lg:px-8 py-3.5 shadow-sm transition-colors duration-200">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           {/* 左侧：品牌与定位 */}
           <div className="flex items-center gap-3.5">
@@ -500,6 +506,19 @@ export default function Header({
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
               <span>{isRefreshing ? '获取中...' : '刷新'}</span>
             </button>
+
+            {/* 始终固定在顶部的隐藏/折叠控制按钮 */}
+            {onToggleHideTopBar && (
+              <button
+                type="button"
+                onClick={onToggleHideTopBar}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 border border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-800 text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
+                title="隐藏顶部常驻栏，全屏沉浸阅读（隐藏后顶部保留便捷展开小按钮）"
+              >
+                <ChevronUp className="w-3.5 h-3.5 text-slate-500 hover:text-rose-500" />
+                <span className="hidden sm:inline">隐藏顶部</span>
+              </button>
+            )}
           </div>
         </div>
       </header>

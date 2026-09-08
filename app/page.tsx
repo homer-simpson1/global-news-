@@ -9,7 +9,7 @@ import RegionalTrack from '@/components/RegionalTrack';
 import { FlashBrief, MarketQuote, NewsItem, TrackId, TimeWindow, QuotesVerificationSummary, DisasterTracker } from '@/lib/types';
 import { SEED_FLASH_BRIEFS, SEED_MARKET_QUOTES, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
 import { SEED_NEWS_ITEMS } from '@/data/seedNews';
-import { Search, SlidersHorizontal, Calendar, Clock, Sparkles, X } from 'lucide-react';
+import { Search, SlidersHorizontal, Calendar, Clock, Sparkles, X, ChevronDown } from 'lucide-react';
 import BackToTopButton from '@/components/BackToTopButton';
 import { autoCorrectAllNews } from '@/lib/selfHealingEngine';
 
@@ -40,6 +40,16 @@ function TerminalApp() {
   const [onlyLevel1, setOnlyLevel1] = useState<boolean>(false);
   const [quotesVerification, setQuotesVerification] = useState<QuotesVerificationSummary | null>(null);
   const [isVerifyingQuotes, setIsVerifyingQuotes] = useState<boolean>(false);
+  const [isTopBarHidden, setIsTopBarHidden] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('git_topbar_hidden');
+      if (saved === 'true') {
+        setIsTopBarHidden(true);
+      }
+    } catch (e) {}
+  }, []);
 
   const refreshQuotes = async () => {
     setIsVerifyingQuotes(true);
@@ -398,23 +408,59 @@ function TerminalApp() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
-      {/* 顶部行情跑马灯（集成全网多源0 Token实时交叉验真中心） */}
-      <MarketTicker
-        quotes={quotes}
-        verificationSummary={quotesVerification}
-        onRefreshQuotes={refreshQuotes}
-        isRefreshingQuotes={isVerifyingQuotes}
-      />
+      {/* 顶部常驻固定容器 (Sticky Top Container): 始终固定在页面顶端，不随翻页滚动被挡住，并配有一键隐藏/展开微件 */}
+      <div
+        className={`sticky top-0 z-40 w-full transition-all duration-300 ease-in-out ${
+          isTopBarHidden
+            ? '-translate-y-full opacity-0 pointer-events-none max-h-0 overflow-hidden'
+            : 'translate-y-0 opacity-100 max-h-[300px] shadow-md'
+        }`}
+      >
+        {/* 顶部行情跑马灯（集成全网多源0 Token实时交叉验真中心） */}
+        <MarketTicker
+          quotes={quotes}
+          verificationSummary={quotesVerification}
+          onRefreshQuotes={refreshQuotes}
+          isRefreshingQuotes={isVerifyingQuotes}
+        />
 
-      {/* 导航头（包含30分钟倒计时、长图生成、暗黑模式与一键复制） */}
-      <Header
-        onRefresh={() => loadData(true)}
-        isRefreshing={isRefreshing}
-        flashBriefs={flashBriefs}
-        lastUpdated={lastUpdated}
-        newsItems={news}
-        quotes={quotes}
-      />
+        {/* 导航头（包含30分钟倒计时、长图生成、暗黑模式、一键复制与隐藏顶部控制） */}
+        <Header
+          onRefresh={() => loadData(true)}
+          isRefreshing={isRefreshing}
+          flashBriefs={flashBriefs}
+          lastUpdated={lastUpdated}
+          newsItems={news}
+          quotes={quotes}
+          onToggleHideTopBar={() => {
+            setIsTopBarHidden(true);
+            try {
+              localStorage.setItem('git_topbar_hidden', 'true');
+            } catch (e) {}
+          }}
+          isTopBarHidden={isTopBarHidden}
+        />
+      </div>
+
+      {/* 当顶部栏隐藏时，在页面最上方居中悬浮一个精致小胶囊，点击即可一键展开恢复 */}
+      {isTopBarHidden && (
+        <div className="fixed top-2.5 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+          <button
+            onClick={() => {
+              setIsTopBarHidden(false);
+              try {
+                localStorage.setItem('git_topbar_hidden', 'false');
+              } catch (e) {}
+            }}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-900/90 dark:bg-slate-800/90 hover:bg-slate-900 dark:hover:bg-slate-700 text-white border border-slate-700/50 dark:border-slate-600/50 shadow-xl backdrop-blur-md cursor-pointer select-none transition-all hover:scale-105 active:scale-95"
+            title="点击展开顶部固定导航栏与实时行情条"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>展开顶部栏</span>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-300" />
+          </button>
+        </div>
+      )}
 
       {/* 主体大版面 */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10">

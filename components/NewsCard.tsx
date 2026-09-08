@@ -39,11 +39,22 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
     };
   }, [item.id, item.title, item.source]);
 
+  React.useEffect(() => {
+    if (!expanded) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setExpanded(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [expanded]);
+
   return (
     <div
       id={`news-card-${item.id}`}
       data-disaster-card={item.isOngoingDisaster || item.disasterTracker || item.id === 'GID-JILONG-PORT-DISASTER' ? 'true' : undefined}
-      className={`content-visibility-auto card-layout-isolate relative rounded-2xl transition-[border-color,box-shadow] duration-150 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} dark:bg-slate-900 dark:border-slate-800 border ${theme.cardBorder} ${
+      className={`scroll-mt-32 content-visibility-auto card-layout-isolate relative rounded-2xl transition-[border-color,box-shadow] duration-150 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} dark:bg-slate-900 dark:border-slate-800 border ${theme.cardBorder} ${
         isLead ? 'shadow-md ring-1 ring-black/5 dark:ring-white/10' : 'hover:shadow-md shadow-sm'
       } ${
         expanded
@@ -288,6 +299,7 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
               verificationBadge={item.verificationBadge}
               hasClarification={item.hasClarification}
               clarificationNote={item.clarificationNote}
+              onClose={() => setExpanded(false)}
             />
 
             {/* 事实细节备查 */}
@@ -368,6 +380,23 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               </div>
+            </div>
+
+            {/* 读毕底部一键收起透视按钮 (读至底部直接收起，无需把鼠标滑回顶部，快捷键: Esc) */}
+            <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-center sm:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setExpanded(false);
+                  const el = document.getElementById(`news-card-${item.id}`);
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-2xs transition-all cursor-pointer select-none active:scale-95"
+                title="阅读完毕，收起本篇详细内容并平滑归位 (快捷键: Esc)"
+              >
+                <ChevronUp className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                <span>收起本篇详细阅读 · 完成阅读</span>
+              </button>
             </div>
           </div>
         )}

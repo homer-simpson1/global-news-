@@ -15,6 +15,16 @@ interface FlashBriefingProps {
 function FlashBriefing({ briefs }: FlashBriefingProps) {
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setExpandedMap({});
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   if (!briefs || briefs.length === 0) return null;
 
   const toggleExpand = (id: string) => {
@@ -83,7 +93,8 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
           return (
             <div
               key={brief.id}
-              className={`content-visibility-auto card-layout-isolate rounded-2xl transition-[border-color,box-shadow] duration-150 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} dark:bg-slate-900 dark:border-slate-800 border ${theme.cardBorder} ${
+              id={`flash-card-${brief.id}`}
+              className={`scroll-mt-32 content-visibility-auto card-layout-isolate rounded-2xl transition-[border-color,box-shadow] duration-150 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} dark:bg-slate-900 dark:border-slate-800 border ${theme.cardBorder} ${
                 isExpanded
                   ? `${theme.cardActiveBorder} shadow-xl ring-4 ${theme.cardActiveRing}`
                   : 'hover:shadow-md shadow-sm'
@@ -258,6 +269,7 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                       verificationBadge={brief.verificationBadge}
                       hasClarification={brief.hasClarification}
                       clarificationNote={brief.clarificationNote}
+                      onClose={() => toggleExpand(brief.id)}
                     />
 
                     {/* 交叉查错与权威出处直达 */}
@@ -315,6 +327,23 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                           <ExternalLink className="w-3.5 h-3.5" />
                         </a>
                       )}
+                    </div>
+
+                    {/* 读毕底部一键收起按钮 (位于速递详细小结底部，无需把鼠标滑回顶部，快捷键: Esc) */}
+                    <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-center sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toggleExpand(brief.id);
+                          const el = document.getElementById(`flash-card-${brief.id}`);
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-2xs transition-all cursor-pointer select-none active:scale-95"
+                        title="阅读完毕，收起本条速递详细内容 (快捷键: Esc)"
+                      >
+                        <ChevronUp className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                        <span>收起本条详细阅读 · 完成阅读</span>
+                      </button>
                     </div>
                   </div>
                 )}
