@@ -164,6 +164,72 @@ export function checkCrossContamination(
     }
   }
 
+  // 4. 规则 C：【标题与小结实体一致性校验网关】(嗅探 A股大盘 vs 北美变压器缺电机房 等错位张冠李戴)
+  const entityConsistency = validateTitleSummaryEntityConsistency(title, takeaway, transmission, summary);
+  if (!entityConsistency.isClean) {
+    return entityConsistency;
+  }
+
+  return {
+    isClean: true,
+    contaminationScore: 0,
+  };
+}
+
+// =========================================================================
+// 规则 C：【标题与小结实体一致性校验网关】 (Rule C: Title-Summary Entity Gateway)
+// 提取【标题关键词】与【核心小结关键词】：
+// 如果标题核心词是 A股/创业板/沪指/降息/指数，而小结核心词全是 变压器/核电/GPU/英伟达，二者实体交集为 0；
+// 判定为“数据串味/严重幻觉”，直接拦截并触发报警，拒绝向前端发布展示！
+// =========================================================================
+
+export const STOCK_MARKET_INDEX_REGEX = /a股|创业板|沪指|上证|深成指|北交所|两市|收评|午评|大盘|北向资金|三大指数|股指期货|沪深300|中证500|科创50|港股|恒指/i;
+export const POWER_TRANSFORMER_GPU_REGEX = /变压器|电网卡脖子|核电运营商|独立核电|万卡算力|北美ai机房|通不上电|买显卡|b200/i;
+
+export function validateTitleSummaryEntityConsistency(
+  title: string,
+  takeaway: string,
+  transmission: string,
+  summary: string
+): ConsistencyCheckResult {
+  const titleText = (title || '').toLowerCase();
+  const bodyText = ((takeaway || '') + ' ' + (transmission || '') + ' ' + (summary || '')).toLowerCase();
+
+  // 1. 核心校验：如果标题核心词是 A股/创业板/沪指/降息/指数，而小结核心词是 变压器/核电/GPU/英伟达
+  if (STOCK_MARKET_INDEX_REGEX.test(titleText) || /降息|加息|非农|cpi|美联储/.test(titleText)) {
+    // 检查标题是否具备海外算力/变压器等硬件专业背景
+    const titleHasExplicitHardwareContext = /北美|数据中心|核电|变压器|英伟达|gpu|算力集群/.test(titleText);
+    if (!titleHasExplicitHardwareContext && POWER_TRANSFORMER_GPU_REGEX.test(bodyText)) {
+      return {
+        isClean: false,
+        contaminationScore: 10,
+        reason: '【标题与小结实体严重错位】：标题为A股大盘/沪指指数/宏观利率，但小结/结论出现北美变压器缺电与GPU机房内容，二者实体交集为0，判定为数据串味与严重幻觉，已触发物理熔断拦截！',
+      };
+    }
+  }
+
+  // 2. 特大自然灾害标题 vs 科技/央行小结（防张冠李戴）
+  if (/吉隆口岸|泥石流|冰岩崩|山洪|山体滑坡|搜救|遇难|受灾/.test(titleText)) {
+    if (/美联储|鲍威尔|美债收益率|日元加息|植田和男|2nm|先进制程|变压器排队|买显卡/.test(bodyText)) {
+      return {
+        isClean: false,
+        contaminationScore: 10,
+        reason: '【特大灾害实体严重错位】：标题为地质灾害/抢险，但小结出现海外央行或半导体算力内容，已触发物理熔断拦截！',
+      };
+    }
+  }
+
+  // 3. 战局防务标题 vs 国内财政/医保/反腐小结
+  if (/空袭|导弹|以军|俄军|乌军|加沙|黎巴嫩|五角大楼|前线交火/.test(titleText)) {
+    if (/超长期特别国债|内需循环|地方化债|国家医保局|地方专项债|王建军/.test(bodyText)) {
+      return {
+        isClean: false,
+        contaminationScore: 10,
+        reason: '【战局防务实体严重错位】：标题为前线军事交火，但小结出现国内财政与社会治理词汇，已触发物理熔断拦截！',
+      };
+    }
+  }
+
   return {
     isClean: true,
     contaminationScore: 0,

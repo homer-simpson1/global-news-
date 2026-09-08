@@ -1,7 +1,7 @@
-import { FlashBrief, MarketQuote, NewsItem, TrackId, Summary5W1H } from './types';
+import { FlashBrief, MarketQuote, NewsItem, TrackId, Summary5W1H, MarketSentiment, BullBearDivergence } from './types';
 import { SEED_FLASH_BRIEFS, SEED_NEWS_ITEMS, SEED_MARKET_QUOTES, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
 import { fetchVerifiedMarketQuotes } from './quotesVerifier';
-import { enforceCountryEntityGuardrails, checkCrossContamination, FOREIGN_ENTITIES } from './guardrails';
+import { enforceCountryEntityGuardrails, checkCrossContamination, validateTitleSummaryEntityConsistency, FOREIGN_ENTITIES } from './guardrails';
 
 let cachedNews: NewsItem[] | null = null;
 let cachedFlash: FlashBrief[] | null = null;
@@ -102,6 +102,44 @@ export const DOMESTIC_CLEANING_PROMPT_RULE = `
    - 【真实博弈】：谁在受损失？谁在被追责？对什么行业的行政叫停或禁令已真实落地？
    - 【供应链与产业冲击】：对上下游企业生产、履约有何实质破坏或连锁反应？
    - 【信源审慎定性】：凡属单方面自宣的重大突破或单方面非正式辟谣，卡片必须强制标注“【单方通报·待验证】”，严禁把公关词当客观事实呈现。
+`;
+
+// =========================================================================
+// 【资讯标题与深度小结大模型清洗与生成 Prompt 规范 (含安全物理隔离强约束)】
+// 彻底解决 AI 翻译腔、研报公文黑话、冒号八股、以及固定示范张冠李戴串味问题
+// =========================================================================
+export const HEADLINE_AND_SUMMARY_GENERATION_PROMPT = `
+【资讯标题与深度小结生成规范】
+你是一个顶级宏观情报终端首席分析员。请对输入的实时单篇电讯进行事实抽取、观点提炼与结构化输出：
+
+1. 标题生成规范（严禁通篇冒号体）：
+   - 禁止套路：严禁每条都采用 【事实】：【定性】 的单调冒号结构（如：“台积电2nm代工传涨价：英伟达锁定产能”）。
+   - 写作要求：控制在 22~28 字以内，自然断句，突出主体冲突、关键数字或反差。
+   - 正反范例：
+     ❌ 错误：台积电2nm代工传涨价15%：英伟达与苹果锁定先进制程
+     ✅ 正确：台积电 2nm 传涨价 15%，英伟达与苹果依然排队抢单锁定首批产能
+     ❌ 错误：北美AI算力集群遭遇电网瓶颈：多处数据中心并网延期
+     ✅ 正确：买得起显卡却通不上电！变压器排队 3 年，北美AI机房卡在电网
+
+2. 核心结论与白话透视生成规范：
+   - 严禁机械复述标题与事实，必须写出底层商业逻辑、供需本质与博弈真相。
+   - 强制采用 【硬核观点词】：【一句白话透视】 结构，严禁研报黑话（如“顶层定价特权”、“精准阀门管理”）。
+   - 正反范例：
+     ❌ 错误：【产能锁定】：台积电2nm晶圆代工价格上调15%，显示其具有强大的技术定价权。
+     ✅ 正确：【垄断者的底气】：哪怕台积电涨价 15%，英伟达和苹果也必须全盘吞下，因为全球没有第二家能代工 2nm，尖端制程已进入绝对的卖方市场。
+     ❌ 错误：【电网瓶颈】：数据中心受制于电力基础设施建设周期，变压器采购成为核心制约因素。
+     ✅ 正确：【机房被电网卡脖子】：芯片几个月就能装满机柜，但高压变压器订货要等整整三年，谁能拿到电厂直供专线，谁才能真正把万卡算力点亮变现。
+
+3. 深度小结（5W1H 深度连贯段落）与 决策传导（利益链传导）规范：
+   - 清晰还原：Who(谁)、What(何事)、When(时间)、Where(地点)、Why(归因)、Consequence(后果)。
+   - 传导分析说明谁是直接赢家？谁在承担代价？谁在观望博弈？
+
+================================================================================
+【极其重要 · 安全隔离与防幻觉强警告 (Security Isolation Notice)】：
+“【警告】：上方所有示例仅作为结构与文风参考！你本次的分析必须严格基于下方【当前输入文本】，严禁引用、复用上方示例中的任何实体、事件或原句！”
+严禁将上方“台积电 2nm”、“变压器排队3年”、“北美AI机房”等任何示例中的词汇或结论强加到下方与此无关的当前输入文本上（如A股、国内治理、地质灾害等）！
+若当前输入文本与上方示范领域不符，必须 100% 针对当前输入文本的实体独立分析！
+================================================================================
 `;
 
 // 宣传套话与形式主义修辞过滤正则
@@ -684,9 +722,18 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
   if (/台积电|2nm|先进制程|晶圆/.test(t)) {
     return '代工成本上涨不会压垮英伟达，反而会逼迫英伟达进一步调高 B200 整机售价，最终由下游自研大模型的云计算大厂买单。';
   }
-  // 2. 北美AI电网瓶颈 / 变压器
-  if (/变压器|电网|数据中心.*并网|算力.*电/.test(t)) {
+  // 2. 北美AI电网瓶颈 / 变压器（严格约束：必须属于北美/海外数据中心变压器缺电，严禁匹配A股或国内电网板块）
+  if (
+    (/北美.*(?:变压器|电网|数据中心)|变压器.*(?:排队|订货|交付|缺口)|数据中心.*(?:并网|配电|通电)|万卡.*电网/.test(t) ||
+      (/变压器|电网/.test(t) && /算力|机房|机柜|gpu/.test(t))) &&
+    !/a股|沪指|上证|深成指|创业板|两市|板块|概念|涨停|特高压/.test(t) &&
+    track === 'apac_tech'
+  ) {
     return '重型变压器厂商和独立核电运营商成了最大赢家、订单排到十年后，买了昂贵GPU却通不上电的初创算力公司在白白空转烧钱。';
+  }
+  // 2.1 A股电网设备与特高压板块（避免与北美变压器张冠李戴）
+  if (/电网|特高压|变压器|电力设备/.test(t) && /a股|沪深|两市|板块|创业板|上证|指数|概念|涨停/.test(t)) {
+    return '国内特高压主网与电力智能化龙头企业承接高毛利设备订单，二三线零部件分包商受铜铝原材料波动影响利润承压。';
   }
   // 3. OpenAI 推理架构 / 算法
   if (/openai|gpt|推理架构|思维链|agent/.test(t)) {
@@ -843,7 +890,7 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
   // 4. 特殊常见长难句提炼为 22~28 字高冲突自然标题（正反范例严选，严禁超标）
   if (/台积电.*2nm|2nm.*台积电/.test(title) && /涨价|报价/.test(title)) {
     title = '台积电2nm传涨价15%，苹果英伟达排队抢单锁产能';
-  } else if (/算力.*电网|数据中心.*电网|变压器.*数据中心/.test(title)) {
+  } else if (/北美.*(?:变压器|电网)|算力.*变压器|变压器.*排队3年/.test(title) && !/a股|沪指|创业板|两市|上证/.test(title)) {
     title = '买显卡通不上电！变压器排队3年，北美AI机房卡在电网';
   } else if (/美债.*收益率|两年期美债/.test(title) && /非农|降息/.test(title)) {
     title = '美债收益率飙至4.37%，强劲非农把降息预期打回原形';
@@ -931,8 +978,18 @@ function generateCoreTakeaway(
   if (/台积电|2nm|先进制程|晶圆/.test(t)) {
     return '【垄断者的底气】：哪怕台积电涨价 15%，英伟达和苹果也必须全盘吞下，因为全球没有第二家能代工 2nm，尖端制程已进入绝对的卖方市场。';
   }
-  if (/变压器|电网|数据中心.*并网|算力.*电/.test(t)) {
+  // 2. 北美AI电网瓶颈 / 变压器（严格约束：必须属于北美数据中心变压器缺电，严禁匹配A股或国内电网板块）
+  if (
+    (/北美.*(?:变压器|电网|数据中心)|变压器.*(?:排队|订货|交付|缺口)|数据中心.*(?:并网|配电|通电)|万卡.*电网/.test(t) ||
+      (/变压器|电网/.test(t) && /算力|机房|机柜|gpu/.test(t))) &&
+    !/a股|沪指|上证|深成指|创业板|两市|板块|概念|涨停|特高压/.test(t) &&
+    track === 'apac_tech'
+  ) {
     return '【机房被电网卡脖子】：芯片几个月就能装满机柜，但高压变压器订货要等整整三年，谁能拿到电厂直供专线，谁才能真正把万卡算力点亮变现。';
+  }
+  // 2.1 A股电网设备与特高压板块
+  if (/电网|特高压|变压器|电力设备/.test(t) && /a股|沪深|两市|板块|创业板|上证|指数|概念|涨停/.test(t)) {
+    return '【电网特高压与设备景气】：主网与特高压建设进入密集交付期，核心变电与特高压设备厂商在手订单充沛，受外需出海与国内电网双重驱动。';
   }
   if (/openai|gpt|推理架构|思维链|agent/.test(t)) {
     return '【给思考时间买单】：光堆参数已经摸到天花板，现在模型通过自我多轮推演与纠错消除幻觉，企业终于敢把核心业务系统交给AI智能体代管。';
@@ -1492,16 +1549,32 @@ export function evaluateCrossVerification(
  * 抓取单篇 -> 实体抽取 -> 前置国家互斥门禁 -> 信源物理继承 -> 5W1H/结论提取 -> 后置内容一致性熔断 -> 输出结构化卡片。
  */
 export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveItem[]): NewsItem | null {
-  // 1. 独立赛道初始归类
-  let track = classifyTrack(raw);
+  if (!raw || !raw.title || !raw.content) {
+    return null;
+  }
+
+  // 1. 变量零污染硬性要求：每次进入单篇处理前，全新初始化所有分析变量，严禁复用全局/上一轮循环对象！
+  let track: TrackId = classifyTrack(raw);
+  let cleanRawTitle = '';
+  let cleanRawContent = '';
+  let primary: PrimarySourceInfo | null = null;
+  let enrichedTitle = '';
+  let summary5W1H: Summary5W1H | null = null;
+  let summaryParagraph = '';
+  let coreTakeaway = '';
+  let transmissionImpact = '';
+  let bulletPoints: string[] = [];
+  let sentiment: MarketSentiment = 'NEUTRAL';
+  let nextWatchlist = '';
+  let bullBearDivergence: BullBearDivergence = { bullConsensus: '', bearDivergence: '' };
 
   // 2. 执行【国内重大资讯去伪与去宣传除杂指令】“三剥离、三保留”脱水规范
   const isDomestic = track === 'china_domestic' || track === 'china_policy';
-  const cleanRawTitle = isDomestic ? sanitizeDomesticNewsText(raw.title) : raw.title;
-  const cleanRawContent = isDomestic ? sanitizeDomesticNewsText(raw.content) : raw.content;
+  cleanRawTitle = isDomestic ? sanitizeDomesticNewsText(raw.title) : raw.title;
+  cleanRawContent = isDomestic ? sanitizeDomesticNewsText(raw.content) : raw.content;
 
   // 3. 规则 2：【信源物理继承】严格从爬虫只读字段继承信源，严禁 AI/正则脑补
-  let primary = detectPrimarySource(cleanRawTitle, cleanRawContent, track, raw.source, raw.url);
+  primary = detectPrimarySource(cleanRawTitle, cleanRawContent, track, raw.source, raw.url);
 
   // 4. 规则 3A：【前置实体词互斥硬性门禁】
   // 日本/美联储/五角大楼等主权实体一票否决国内赛道与中国官方信源
@@ -1510,24 +1583,30 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
   primary = guardrailPre.correctedSource;
 
   // 5. 单篇独立标题润色与 5W1H/深度小结推导
-  const enrichedTitle = enrichHeadline(cleanRawTitle, cleanRawContent, track);
-  const summary5W1H = build5W1HSummary(enrichedTitle, cleanRawContent, raw.time, primary.source, track);
-  const summaryParagraph = build5W1HParagraph(summary5W1H, enrichedTitle, cleanRawContent);
-  const coreTakeaway = generateCoreTakeaway(enrichedTitle, cleanRawContent, track, summary5W1H);
-  const transmissionImpact = inferTransmission(track, enrichedTitle, cleanRawContent);
+  enrichedTitle = enrichHeadline(cleanRawTitle, cleanRawContent, track);
+  summary5W1H = build5W1HSummary(enrichedTitle, cleanRawContent, raw.time, primary.source, track);
+  summaryParagraph = build5W1HParagraph(summary5W1H, enrichedTitle, cleanRawContent);
+  coreTakeaway = generateCoreTakeaway(enrichedTitle, cleanRawContent, track, summary5W1H);
+  transmissionImpact = inferTransmission(track, enrichedTitle, cleanRawContent);
 
-  // 6. 规则 3B：【后置内容一致性自检与串味污染熔断器】
-  // 如果标题为日本实体，而小结/结论充斥国内国债/内需/逆周期，直接判定为串味污染，物理拦截打回！
+  // 结构化有效性拦截：若关键分析字段生成失败或为空，严禁借用上一有效值兜底，直接返回 null 物理丢弃！
+  if (!enrichedTitle || !coreTakeaway || !transmissionImpact || !summaryParagraph || !summary5W1H) {
+    console.warn(`[SINGLE ITEM PIPELINE INCOMPLETE] 单篇分析字段缺失，物理丢弃: "${raw.title}"`);
+    return null;
+  }
+
+  // 6. 规则 3B & 3C：【后置内容一致性自检与实体错位校验网关】
+  // 包括：日本实体 vs 国内国债；A股大盘/沪指 vs 北美变压器缺电；战局 vs 国内社会治理 等
   const consistency = checkCrossContamination(enrichedTitle, coreTakeaway, transmissionImpact, summaryParagraph);
   if (!consistency.isClean) {
     console.warn(`[GUARDRAIL CIRCUIT BREAKER] ${consistency.reason} -> 物理拦截并丢弃: "${enrichedTitle}"`);
     return null;
   }
 
-  const bulletPoints = extractBulletPoints(cleanRawContent, primary.source, raw.time);
-  const sentiment = generateSentiment(enrichedTitle, cleanRawContent, track);
-  const nextWatchlist = generateNextWatchlist(enrichedTitle, cleanRawContent, track);
-  const bullBearDivergence = generateBullBearDivergence(enrichedTitle, cleanRawContent, track);
+  bulletPoints = extractBulletPoints(cleanRawContent, primary.source, raw.time);
+  sentiment = generateSentiment(enrichedTitle, cleanRawContent, track);
+  nextWatchlist = generateNextWatchlist(enrichedTitle, cleanRawContent, track);
+  bullBearDivergence = generateBullBearDivergence(enrichedTitle, cleanRawContent, track);
 
   // 【通用重大外溢冲击收录标准】：命中 4 项外溢指标之一者强制为一级重大情报
   const spillover = evaluateSpilloverImpact(cleanRawTitle, cleanRawContent);
@@ -1614,11 +1693,17 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
       global_cognition: [],
     };
 
-
     for (const raw of rawItems) {
-      const processed = processSingleItemIsolated(raw, rawItems);
+      // 每次循环强制完全初始化，严禁复用上一个循环周期的对象或使用上一个有效值作为兜底！
+      let processed: NewsItem | null = null;
+      try {
+        processed = processSingleItemIsolated(raw, rawItems);
+      } catch (err) {
+        console.error(`[SINGLE ITEM PIPELINE ERROR] 处理异常，丢弃整条记录: "${raw?.title}"`, err);
+        processed = null;
+      }
       if (!processed) {
-        continue;
+        continue; // 宁可丢弃整条记录重试/跳过，绝不能让脏数据混搭入库！
       }
       categorizedCandidates[processed.track].push(processed);
     }
