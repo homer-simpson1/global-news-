@@ -56,7 +56,7 @@ export default function Summary5W1HView({
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-            事件深度小结（5W1H 全要素归纳）
+            事件深度透视 · 核心要务归纳
           </h4>
         </div>
         <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded">

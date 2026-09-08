@@ -9,9 +9,20 @@ import RegionalTrack from '@/components/RegionalTrack';
 import { FlashBrief, MarketQuote, NewsItem, TrackId, TimeWindow, QuotesVerificationSummary, DisasterTracker } from '@/lib/types';
 import { SEED_FLASH_BRIEFS, SEED_MARKET_QUOTES, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
 import { SEED_NEWS_ITEMS } from '@/data/seedNews';
-import { Search, SlidersHorizontal, Calendar, Clock } from 'lucide-react';
+import { Search, SlidersHorizontal, Calendar, Clock, Sparkles } from 'lucide-react';
 
 const REFRESH_INTERVAL_SECONDS = 30 * 60; // 30分钟 = 1800秒
+
+const HOT_TAGS = [
+  { label: '#美债收益率', keyword: '美债' },
+  { label: '#台积电2nm', keyword: '台积电' },
+  { label: '#红海集运', keyword: '红海' },
+  { label: '#五角大楼测谎', keyword: '五角大楼' },
+  { label: '#吉隆口岸抢通', keyword: '吉隆口岸' },
+  { label: '#王建军案', keyword: '王建军' },
+  { label: '#特别国债', keyword: '特别国债' },
+  { label: '#芯片管制', keyword: '商务部' },
+];
 
 type TimeFilterType = 'ALL' | 'TODAY' | 'PAST_24H' | 'HISTORIC';
 
@@ -110,7 +121,11 @@ export default function Home() {
       const cachedQuotes = localStorage.getItem('git_cached_quotes');
       if (cachedNews) {
         const parsed = JSON.parse(cachedNews);
-        if (Array.isArray(parsed) && parsed.length > 0) setNews(parsed);
+        if (Array.isArray(parsed) && parsed.length >= 16) {
+          setNews(parsed);
+        } else {
+          setNews(SEED_NEWS_ITEMS);
+        }
       }
       if (cachedBriefs) {
         const parsed = JSON.parse(cachedBriefs);
@@ -202,6 +217,21 @@ export default function Home() {
       return true;
     });
   }, [news, flashBriefs, selectedTrack, onlyLevel1, timeFilter, searchQuery]);
+
+  const handleScrollToDisasterCard = React.useCallback((cardId?: string) => {
+    if (selectedTrack !== 'all' && selectedTrack !== 'china_domestic') {
+      setSelectedTrack('china_domestic');
+    }
+    setTimeout(() => {
+      const targetId = cardId ? `news-card-${cardId}` : 'news-card-GID-JILONG-PORT-DISASTER';
+      const el = document.getElementById(targetId) || document.getElementById('news-card-GID-JILONG-PORT-DISASTER') || document.querySelector('[id^="news-card-"]');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-4', 'ring-rose-500');
+        setTimeout(() => el.classList.remove('ring-4', 'ring-rose-500'), 2500);
+      }
+    }, 80);
+  }, [selectedTrack]);
 
   const tracks: { id: TrackId; items: NewsItem[] }[] = React.useMemo(() => [
     { id: 'us_macro', items: filteredNews.filter((n) => n.track === 'us_macro') },
@@ -308,6 +338,7 @@ export default function Home() {
               ? news.filter((n) => n.disasterTracker && n.disasterTracker.status === 'ONGOING').map((n) => n.disasterTracker!)
               : [GYIRONG_PORT_DISASTER_TRACKER]
           }
+          onScrollToCard={handleScrollToDisasterCard}
         />
 
         {/* 顶部：今日决策速递核心事件 */}
@@ -388,17 +419,7 @@ export default function Home() {
               {/* 持续追踪特大灾害直达按钮 */}
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedTrack('china_domestic');
-                  setTimeout(() => {
-                    const el = document.getElementById('news-card-GID-JILONG-PORT-DISASTER') || document.querySelector('[id^="news-card-"]');
-                    if (el) {
-                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      el.classList.add('ring-4', 'ring-rose-500');
-                      setTimeout(() => el.classList.remove('ring-4', 'ring-rose-500'), 2500);
-                    }
-                  }, 60);
-                }}
+                onClick={() => handleScrollToDisasterCard('GID-JILONG-PORT-DISASTER')}
                 className="h-9 inline-flex items-center gap-1.5 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap shadow-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700"
                 title="直达正在全生命周期持续追踪的吉隆口岸特大跨境地质灾害看板"
               >
@@ -417,6 +438,51 @@ export default function Home() {
                 placeholder="搜索实体词 / 股票 / 战局..."
                 className="h-9 w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-slate-800 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 transition-all shadow-xs"
               />
+            </div>
+          </div>
+
+          {/* 第三层：热点实体快速检索胶囊 Tag（避免空搜挫败） */}
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-3 flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 flex-shrink-0">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span>热搜实体:</span>
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {HOT_TAGS.map((tag) => {
+                const isActive = searchQuery === tag.keyword;
+                return (
+                  <button
+                    key={tag.keyword}
+                    type="button"
+                    onClick={() => {
+                      if (isActive) {
+                        setSearchQuery('');
+                      } else {
+                        setSearchQuery(tag.keyword);
+                        if (selectedTrack !== 'all') {
+                          setSelectedTrack('all');
+                        }
+                      }
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border select-none ${
+                      isActive
+                        ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 border-slate-900 dark:border-white shadow-xs scale-105'
+                        : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    {tag.label}
+                  </button>
+                );
+              })}
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="px-2 py-0.5 rounded text-xs text-rose-500 hover:text-rose-600 font-bold ml-1 transition-colors cursor-pointer"
+                >
+                  清空筛选 ×
+                </button>
+              )}
             </div>
           </div>
         </div>

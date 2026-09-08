@@ -1958,11 +1958,11 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
         return true;
       });
 
-      // 如果剔除后该赛道内容少于 3 条，从候选池与深度优质备用库中补充非重复条目
-      if (categorized[trk].length < 3) {
+      // 如果剔除后该赛道内容少于 4 条，从候选池与深度优质备用库中补充非重复条目，确保各专区保持 3~5 篇核心深度追踪
+      if (categorized[trk].length < 4) {
         const candidates = categorizedCandidates[trk] || [];
         for (const c of candidates) {
-          if (categorized[trk].length >= 6) break;
+          if (categorized[trk].length >= 5) break;
           const cleanC = c.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
           let isDup = usedNewsIds.includes(c.id) || usedNewsTitles.includes(cleanC) || categorized[trk].some((e) => e.id === c.id || e.title === c.title);
           if (!isDup) {
@@ -1977,10 +1977,10 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
           if (!isDup) categorized[trk].push(c);
         }
 
-        if (categorized[trk].length < 3) {
+        if (categorized[trk].length < 4) {
           const seeds = SEED_NEWS_ITEMS.filter((s) => s.track === trk);
           for (const s of seeds) {
-            if (categorized[trk].length >= 6) break;
+            if (categorized[trk].length >= 5) break;
             const cleanS = s.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
             let isDup = usedNewsIds.includes(s.id) || usedNewsTitles.includes(cleanS) || categorized[trk].some((e) => e.id === s.id || e.title === s.title);
             if (!isDup) {

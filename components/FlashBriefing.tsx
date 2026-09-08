@@ -6,6 +6,7 @@ import { TRACK_THEMES } from '@/lib/trackThemes';
 import { Zap, ChevronDown, ChevronUp, ExternalLink, Sparkles, Search, AlertTriangle, ShieldAlert } from 'lucide-react';
 import Summary5W1HView from './Summary5W1HView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
+import { isWithin24Hours } from '@/lib/timeUtils';
 
 interface FlashBriefingProps {
   briefs: FlashBrief[];
@@ -152,9 +153,13 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                       <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800" title={`已在 ${brief.crossSourceCount || 2} 个独立电讯渠道交叉印证`}>
                         ✓ 多源印证 ({brief.crossSourceCount || 2}源)
                       </span>
-                    ) : (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                    ) : isWithin24Hours(brief.time) ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-black px-2 py-0.5 rounded bg-amber-400 text-slate-950 border border-amber-500 shadow-xs" title="24小时内一手电讯直发">
                         ⚡ 一手速递
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700" title="超过24小时发布窗口，持续重点追踪">
+                        {brief.impactLevel === 1 ? '🔍 重点追踪' : '📌 持续发酵'}
                       </span>
                     )}
 
@@ -190,7 +195,7 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                         isExpanded ? theme.buttonActive : theme.buttonIdle
                       }`}
                     >
-                      <span>{isExpanded ? '收起深度小结' : '展开 5W1H 深度小结'}</span>
+                      <span>{isExpanded ? '收起深度透视' : '展开深度透视'}</span>
                       {isExpanded ? (
                         <ChevronUp className="w-3.5 h-3.5" />
                       ) : (

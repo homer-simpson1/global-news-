@@ -7,6 +7,7 @@ import { ExternalLink, BookOpen, Sparkles, ChevronDown, ChevronUp, Award, Search
 import Summary5W1HView from './Summary5W1HView';
 import DisasterTrackerView from './DisasterTrackerView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
+import { isWithin24Hours } from '@/lib/timeUtils';
 
 interface NewsCardProps {
   item: NewsItem;
@@ -93,9 +94,13 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
               <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1" title={`已在 ${item.crossSourceCount || 2} 个独立电讯渠道交叉印证`}>
                 ✓ 多源印证 ({item.crossSourceCount || 2}源)
               </span>
-            ) : (
-              <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 border border-slate-200" title="实时一手电讯直发">
+            ) : isWithin24Hours(item.publishedAt, item.timeWindow) ? (
+              <span className="inline-flex items-center gap-1 text-xs font-black px-2 py-0.5 rounded-md bg-amber-400 text-slate-950 border border-amber-500 shadow-xs" title="24小时内一手电讯直发">
                 ⚡ 一手速递
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700" title="超过24小时发布窗口，持续重点追踪">
+                {item.impactLevel === 1 ? '🔍 重点追踪' : '📌 持续发酵'}
               </span>
             )}
 
@@ -166,7 +171,7 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
                 expanded ? theme.buttonActive : theme.buttonIdle
               }`}
             >
-              <span>{expanded ? '收起研报细节' : '展开投研视角'}</span>
+              <span>{expanded ? '收起深度透视' : '展开深度透视'}</span>
               {expanded ? (
                 <ChevronUp className="w-3.5 h-3.5" />
               ) : (

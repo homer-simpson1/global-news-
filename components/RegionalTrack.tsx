@@ -39,8 +39,8 @@ function RegionalTrack({ trackId, items }: RegionalTrackProps) {
     }
   };
 
-  // 默认展示前3条核心报道，其余按需展开，消除冗长滚动疲劳
-  const visibleItems = showAll ? items : items.slice(0, 3);
+  // 默认直接呈现前 5 条核心报道，充分保障各板块情报厚度，消除单篇空置感
+  const visibleItems = showAll ? items : items.slice(0, 5);
 
   return (
     <section className="flex flex-col gap-5 mb-14">
@@ -98,8 +98,8 @@ function RegionalTrack({ trackId, items }: RegionalTrackProps) {
           </div>
         )}
 
-        {/* 专区内容展开/收起按钮：让读者自由把控信息量，不再被迫看无穷长列表 */}
-        {items.length > 3 && (
+        {/* 专区内容展开/收起按钮：仅在文章数大于 5 篇时提供按需折叠 */}
+        {items.length > 5 && (
           <div className="flex justify-center pt-2">
             <button
               onClick={() => setShowAll(!showAll)}
@@ -112,7 +112,7 @@ function RegionalTrack({ trackId, items }: RegionalTrackProps) {
               <span>
                 {showAll
                   ? `收起精选视角（已展开全部 ${items.length} 篇）`
-                  : `展开查看本专区全部 ${items.length} 篇深度追踪（还有 ${items.length - 3} 篇）`}
+                  : `展开查看本专区全部 ${items.length} 篇深度追踪（还有 ${items.length - 5} 篇）`}
               </span>
               {showAll ? (
                 <ChevronUp className="w-4 h-4" />
