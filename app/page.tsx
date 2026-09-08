@@ -41,7 +41,6 @@ function TerminalApp() {
   const [quotesVerification, setQuotesVerification] = useState<QuotesVerificationSummary | null>(null);
   const [isVerifyingQuotes, setIsVerifyingQuotes] = useState<boolean>(false);
   const [isTopBarHidden, setIsTopBarHidden] = useState<boolean>(false);
-  const [isHeaderHidden, setIsHeaderHidden] = useState<boolean>(false);
 
   useEffect(() => {
     try {
@@ -50,49 +49,6 @@ function TerminalApp() {
         setIsTopBarHidden(true);
       }
     } catch (e) {}
-  }, []);
-
-  // 页面滚动监听：下滑时顶栏自动平滑滑入股市栏后方隐藏；上滑或处于顶部时自动平滑浮现
-  useEffect(() => {
-    let lastScrollY = typeof window !== 'undefined' ? window.scrollY : 0;
-    let ticking = false;
-
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-
-      // 1. 顶部安全区（距离顶部 <= 60px 时始终保持完整显现）
-      if (currentScrollY <= 60) {
-        setIsHeaderHidden(false);
-        lastScrollY = currentScrollY;
-        ticking = false;
-        return;
-      }
-
-      const delta = currentScrollY - lastScrollY;
-
-      // 2. 迟滞死区 (Hysteresis Deadband)：只有向下滚动超过 20px 且位置 > 90px 才触发隐藏
-      if (delta > 20 && currentScrollY > 90) {
-        setIsHeaderHidden(true);
-        lastScrollY = currentScrollY;
-      }
-      // 3. 只有向上滚动超过 15px 才触发重新显示
-      else if (delta < -15) {
-        setIsHeaderHidden(false);
-        lastScrollY = currentScrollY;
-      }
-
-      ticking = false;
-    };
-
-    const onScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(handleScroll);
-        ticking = true;
-      }
-    };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   const refreshQuotes = async () => {
@@ -453,7 +409,7 @@ function TerminalApp() {
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
       {/* 1. 股市行情跑马灯：永久固定在屏幕最顶端 (top-0)，下滑时永不隐藏，高度恒定为 38px */}
-      <div className="sticky top-0 z-40 w-full h-[38px] bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs select-none">
+      <div className="sticky top-0 z-40 w-full select-none">
         <MarketTicker
           quotes={quotes}
           verificationSummary={quotesVerification}
@@ -462,40 +418,26 @@ function TerminalApp() {
         />
       </div>
 
-      {/* 2. 顶栏 (Header)：位于股市栏正下方，下滑时自动向上滑入股市栏后方隐藏，上滑时平滑呼出 */}
-      <div
-        className={`sticky top-[38px] z-30 w-full will-change-transform ${
-          isTopBarHidden
-            ? 'hidden'
-            : isHeaderHidden
-            ? '-translate-y-full opacity-0 pointer-events-none'
-            : 'translate-y-0 opacity-100 pointer-events-auto shadow-md'
-        }`}
-        style={{
-          transitionProperty: 'transform, opacity',
-          transitionDuration: '280ms',
-          transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
-        }}
-      >
-        <Header
-          onRefresh={() => loadData(true)}
-          isRefreshing={isRefreshing}
-          flashBriefs={flashBriefs}
-          lastUpdated={lastUpdated}
-          newsItems={news}
-          quotes={quotes}
-          onToggleHideTopBar={() => {
-            setIsTopBarHidden(true);
-            try {
-              localStorage.setItem('git_topbar_hidden', 'true');
-            } catch (e) {}
-          }}
-          isTopBarHidden={isTopBarHidden}
-        />
-
-        {/* 底部柔和羽化阴影 */}
-        <div className="h-1.5 w-full bg-gradient-to-b from-black/5 via-black/[0.02] to-transparent dark:from-white/5 dark:via-white/[0.02] pointer-events-none" />
-      </div>
+      {/* 2. 顶栏 (Header)：位于股市栏正下方。页面下滑时自然随内容滚入股市栏下方隐藏；彻底杜绝浮动图层堆叠冲突与抖动 */}
+      {!isTopBarHidden && (
+        <div className="w-full relative z-30 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs">
+          <Header
+            onRefresh={() => loadData(true)}
+            isRefreshing={isRefreshing}
+            flashBriefs={flashBriefs}
+            lastUpdated={lastUpdated}
+            newsItems={news}
+            quotes={quotes}
+            onToggleHideTopBar={() => {
+              setIsTopBarHidden(true);
+              try {
+                localStorage.setItem('git_topbar_hidden', 'true');
+              } catch (e) {}
+            }}
+            isTopBarHidden={isTopBarHidden}
+          />
+        </div>
+      )}
 
       {/* 当用户手动隐藏顶栏时，在股市栏下方居中悬浮一个精致小胶囊，点击即可一键展开恢复 */}
       {isTopBarHidden && (
@@ -503,7 +445,6 @@ function TerminalApp() {
           <button
             onClick={() => {
               setIsTopBarHidden(false);
-              setIsHeaderHidden(false);
               try {
                 localStorage.setItem('git_topbar_hidden', 'false');
               } catch (e) {}

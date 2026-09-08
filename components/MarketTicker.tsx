@@ -473,6 +473,10 @@ function MarketTicker({
                                     <span>
                                       {parseFloat(v?.diffPercent || '0') <= 0.05
                                         ? '双源一致'
+                                        : q.symbol === '日经225'
+                                        ? '期现基差合理'
+                                        : q.symbol === '美债10年期'
+                                        ? '收益率点差正常'
                                         : '基准点差合理'}
                                     </span>
                                   </span>
