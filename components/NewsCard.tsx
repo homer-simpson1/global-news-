@@ -42,7 +42,8 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
   return (
     <div
       id={`news-card-${item.id}`}
-      className={`content-visibility-auto card-layout-isolate rounded-2xl transition-[border-color,box-shadow] duration-150 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} dark:bg-slate-900 dark:border-slate-800 border ${theme.cardBorder} ${
+      data-disaster-card={item.isOngoingDisaster || item.disasterTracker || item.id === 'GID-JILONG-PORT-DISASTER' ? 'true' : undefined}
+      className={`content-visibility-auto card-layout-isolate relative rounded-2xl transition-[border-color,box-shadow] duration-150 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} dark:bg-slate-900 dark:border-slate-800 border ${theme.cardBorder} ${
         isLead ? 'shadow-md ring-1 ring-black/5 dark:ring-white/10' : 'hover:shadow-md shadow-sm'
       } ${
         expanded
@@ -50,6 +51,14 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
           : ''
       }`}
     >
+      {/* 特大灾害全生命周期绝对锚点，保证任何渠道跳转均精准命中此卡片 */}
+      {(item.isOngoingDisaster || item.disasterTracker || item.id === 'GID-JILONG-PORT-DISASTER') && (
+        <>
+          <span id="disaster-full-lifecycle-card" className="absolute -top-28 pointer-events-none" />
+          <span id="news-card-GID-JILONG-PORT-DISASTER" className="absolute -top-28 pointer-events-none" />
+          <span id="news-card-TRK-GYIRONG-PORT-2026" className="absolute -top-28 pointer-events-none" />
+        </>
+      )}
       <div className="p-5 md:p-6">
         {/* 顶部元数据行：分类标签、信源、时间、头条徽章、右侧一键查错与展开按钮 */}
         <div className="flex items-center justify-between gap-4 mb-3.5 flex-wrap">

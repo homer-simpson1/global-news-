@@ -233,20 +233,32 @@ export default function Home() {
     if (searchQuery) setSearchQuery('');
     if (onlyLevel1) setOnlyLevel1(false);
     if (timeFilter !== 'ALL') setTimeFilter('ALL');
-    if (selectedTrack !== 'all' && selectedTrack !== 'china_domestic') {
-      setSelectedTrack('china_domestic');
-    }
-    // 2. 延迟等待 DOM 状态就绪后执行平滑居中滚动与高亮
-    setTimeout(() => {
-      const targetId = cardId ? `news-card-${cardId}` : 'news-card-GID-JILONG-PORT-DISASTER';
-      const el = document.getElementById(targetId) || document.getElementById('news-card-GID-JILONG-PORT-DISASTER') || document.querySelector('[id^="news-card-"]');
+    // 2. 强制切换至【国内重大要闻与治理】专区，确保正文专区首篇即为该特大灾害详实档案
+    setSelectedTrack('china_domestic');
+
+    // 3. 轮询等待 DOM 渲染完成，精准锚定特大灾害卡片，绝对排除误选其他板块卡片
+    let attempts = 0;
+    const pollAndScroll = () => {
+      attempts++;
+      const el =
+        document.getElementById('disaster-full-lifecycle-card') ||
+        document.getElementById('news-card-GID-JILONG-PORT-DISASTER') ||
+        document.getElementById('news-card-TRK-GYIRONG-PORT-2026') ||
+        document.querySelector('[data-disaster-card="true"]');
+
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('ring-4', 'ring-rose-500', 'transition-all');
-        setTimeout(() => el.classList.remove('ring-4', 'ring-rose-500'), 2500);
+        const cardContainer = (el.closest('[data-disaster-card="true"]') || el.closest('[id^="news-card-"]') || el) as HTMLElement;
+        cardContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        cardContainer.classList.add('ring-4', 'ring-rose-500', 'shadow-2xl', 'transition-all', 'duration-300');
+        setTimeout(() => {
+          cardContainer.classList.remove('ring-4', 'ring-rose-500', 'shadow-2xl');
+        }, 3000);
+      } else if (attempts < 15) {
+        setTimeout(pollAndScroll, 50);
       }
-    }, 120);
-  }, [searchQuery, onlyLevel1, timeFilter, selectedTrack]);
+    };
+    setTimeout(pollAndScroll, 40);
+  }, [searchQuery, onlyLevel1, timeFilter]);
 
   const tracks: { id: TrackId; items: NewsItem[] }[] = React.useMemo(() => [
     { id: 'us_macro', items: filteredNews.filter((n) => n.track === 'us_macro') },
