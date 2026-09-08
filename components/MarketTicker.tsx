@@ -181,10 +181,18 @@ function MarketTicker({
 
                     {/* 极简核验通过微标 */}
                     <span
-                      className="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/70 dark:border-emerald-800/50"
-                      title="双源印证一致"
+                      className={`text-[9px] font-mono px-1 py-0.2 rounded border ${
+                        !hasVerify || q.verification?.isConsistent
+                          ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/70 dark:border-emerald-800/50'
+                          : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200/70 dark:border-rose-800/50 font-bold'
+                      }`}
+                      title={
+                        !hasVerify || q.verification?.isConsistent
+                          ? '多源印证一致'
+                          : '多源比对存在超限偏差'
+                      }
                     >
-                      ✓
+                      {!hasVerify || q.verification?.isConsistent ? '✓' : '!'}
                     </span>
                   </div>
                 );
@@ -376,7 +384,9 @@ function MarketTicker({
                               <td className="py-3 px-3 text-right font-mono font-bold">
                                 <span
                                   className={
-                                    v?.diffPercent === '0.000%'
+                                    v && !v.isConsistent
+                                      ? 'text-rose-600 dark:text-rose-400 font-black'
+                                      : v?.diffPercent === '0.000%'
                                       ? 'text-emerald-600 dark:text-emerald-400'
                                       : 'text-blue-600 dark:text-blue-400'
                                   }
@@ -387,10 +397,21 @@ function MarketTicker({
 
                               {/* 验真定性 */}
                               <td className="py-3 px-4 text-center">
-                                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                                  <span>双源一致</span>
-                                </span>
+                                {(!v || v.isConsistent) ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                    <span>
+                                      {parseFloat(v?.diffPercent || '0') <= 0.05
+                                        ? '双源一致'
+                                        : '基准点差合理'}
+                                    </span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                                    <AlertTriangle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+                                    <span>偏差超限</span>
+                                  </span>
+                                )}
                               </td>
                             </tr>
                           );

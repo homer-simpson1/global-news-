@@ -59,7 +59,7 @@ export const SEED_MARKET_QUOTES: MarketQuote[] = [
   { symbol: '费城半导体', name: '费城半导体指数', price: '11,735.26', change: '+3.37%', isUp: true, category: 'US' },
   { symbol: '道琼斯', name: '道琼斯工业指数', price: '53,414.25', change: '-0.51%', isUp: false, category: 'US' },
   { symbol: '美债10年期', name: '美国10年期国债收益率', price: '4.790%', change: '+0.08%', isUp: true, category: 'BOND_FX' },
-  { symbol: '日经225', name: '日本日经225指数', price: '66,399.84', change: '+2.12%', isUp: true, category: 'ASIA' },
+  { symbol: '日经225', name: '日本日经225指数', price: '65,269.33', change: '-1.70%', isUp: false, category: 'ASIA' },
   { symbol: '恒生指数', name: '香港恒生指数', price: '25,413.12', change: '-0.93%', isUp: false, category: 'ASIA' },
   { symbol: '国际原油', name: 'WTI原油连续', price: '$92.67/桶', change: '+1.26%', isUp: true, category: 'BOND_FX' },
   { symbol: '国际黄金', name: 'COMEX期金', price: '$4,450.8/盎司', change: '-0.49%', isUp: false, category: 'BOND_FX' },

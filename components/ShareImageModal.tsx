@@ -184,10 +184,11 @@ export default function ShareImageModal({
         ctx.fillText(q.name, qX + 12, curY + 20);
 
         // 双源验真微标
+        const isConsistent = !q.verification || q.verification.isConsistent;
         ctx.font = 'bold 9px system-ui, -apple-system, sans-serif';
-        ctx.fillStyle = '#34d399';
+        ctx.fillStyle = isConsistent ? '#34d399' : '#f43f5e';
         ctx.textAlign = 'right';
-        ctx.fillText('✓ 双源一致', qX + cardWidth - 10, curY + 20);
+        ctx.fillText(isConsistent ? '✓ 双源一致' : '⚠ 偏差警示', qX + cardWidth - 10, curY + 20);
         ctx.textAlign = 'left';
 
         // 价格

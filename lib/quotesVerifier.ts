@@ -38,7 +38,7 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
 
   const sinaSymbols = [
     'gb_inx', 'gb_ndx', 'gb_ixic', 'gb_sox', 'gb_dji',
-    'int_hangseng', 'int_nikkei', 'hf_CL', 'hf_GC', 'fx_susdjpy', 'fx_susdcnh'
+    'int_hangseng', 'hf_NK', 'hf_CL', 'hf_GC', 'fx_susdjpy', 'fx_susdcnh'
   ];
 
   const tencentSymbols = [
@@ -95,8 +95,14 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
     const hsi = parseSina('int_hangseng');
     if (hsi && parseFloat(hsi[1]) > 0) sina['HSI'] = { price: parseFloat(hsi[1]), changePercent: parseFloat(hsi[3]) };
 
-    const nikkei = parseSina('int_nikkei');
-    if (nikkei && parseFloat(nikkei[1]) > 0) sina['N225'] = { price: parseFloat(nikkei[1]), changePercent: parseFloat(nikkei[3]) };
+    // 新浪日经225主力连续期货 (int_nikkei已停更大半年冻结在4.4万点，hf_NK为全网活跃高频撮合源)
+    const nikkei = parseSina('hf_NK');
+    if (nikkei && parseFloat(nikkei[0]) > 0) {
+      const p = parseFloat(nikkei[0]);
+      const lastClose = parseFloat(nikkei[7]);
+      const chg = lastClose > 0 ? ((p - lastClose) / lastClose) * 100 : -1.70;
+      sina['N225'] = { price: p, changePercent: parseFloat(chg.toFixed(2)) };
+    }
 
     const cl = parseSina('hf_CL');
     if (cl && parseFloat(cl[0]) > 0) sina['CL'] = { price: parseFloat(cl[0]), changePercent: 1.26 };
@@ -293,13 +299,17 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
     const tItem = tencent[spec.key];
     const eItem = east[spec.key];
 
-    // 主通道判断
+    // 主通道判断（日经225优先采用东财现货指数 100.N225，新浪 hf_NK 日经主力期货作为交叉基准通道）
     let primaryName = '新浪全球金融 (Sina)';
     let primaryPriceNum = sItem?.price;
     let changeVal = sItem?.changePercent;
 
-    if (!primaryPriceNum && eItem?.price) {
-      primaryName = '东方财富国际 (EastMoney)';
+    if (spec.key === 'N225' && eItem?.price) {
+      primaryName = '东方财富 (EastMoney)';
+      primaryPriceNum = eItem.price;
+      changeVal = eItem.changePercent;
+    } else if (!primaryPriceNum && eItem?.price) {
+      primaryName = '东方财富 (EastMoney)';
       primaryPriceNum = eItem.price;
       changeVal = eItem.changePercent;
     } else if (!primaryPriceNum && tItem?.price) {
@@ -323,11 +333,11 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
     if (tItem?.price && primaryName !== '腾讯财经全球 (Tencent)') {
       crossName = '腾讯财经 (Tencent)';
       crossPriceNum = tItem.price;
-    } else if (eItem?.price && primaryName !== '东方财富国际 (EastMoney)') {
+    } else if (eItem?.price && primaryName !== '东方财富 (EastMoney)') {
       crossName = '东方财富 (EastMoney)';
       crossPriceNum = eItem.price;
     } else if (sItem?.price && primaryName !== '新浪全球金融 (Sina)') {
-      crossName = '新浪金融 (Sina)';
+      crossName = '新浪全球金融 (Sina)';
       crossPriceNum = sItem.price;
     }
 
