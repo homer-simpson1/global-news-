@@ -925,7 +925,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
   {
     id: "GID-2DE608F2",
     track: "global_cognition",
-    title: "禽流感逼近南美农牧圈！乌拉圭宣布紧急状态，多国拉响警报",
+    title: "禽流感逼近南美农牧产业带，乌拉圭进入国家卫生紧急状态且邻国收紧检疫",
     source: "经济学人 (The Economist)",
     sourceUrl: "https://www.economist.com",
     publishedAt: "9月5日 09:22",
@@ -941,11 +941,11 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     timeWindow: "HISTORIC",
     bulletPoints: [
       "乌拉圭农业部签署国家紧急令，全境暂停所有禽类展销活动并对重点候鸟湿地实施军警封锁。",
-      "周边邻国海关相应提升南美洲农牧产品进口检疫级别，防范病毒跨境传播。",
+      "阿根廷、巴西等周边邻国海关相应提升南美洲农牧产品进口检疫级别，防范病毒跨境传播。",
       "信源通道：经济学人 (The Economist) 全球公共卫生与宏观农业专电（记录时间：9月5日 09:22）。"
     ],
     summary5W1H: {
-      who: "乌拉圭农牧渔业部、国家卫生防疫指挥部及世界动物卫生组织",
+      who: "乌拉圭农牧渔业部、阿根廷与巴西边境动植物检疫局及世界动物卫生组织（WOAH）",
       what: "全境正式进入卫生紧急状态，对农牧养殖与候鸟迁徙栖息地实施最严格隔离管控。",
       when: "9月5日 09:22（电讯直报）",
       where: "南美洲乌拉圭全境农牧主产区与沿海检疫港口",
