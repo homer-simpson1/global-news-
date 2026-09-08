@@ -34,14 +34,13 @@ export interface VerificationAuditReport {
   details: VerificationItemResult[];
 }
 
-// 权威合法信源白名单基线
+// 权威合法信源白名单基线（接入严肃中立华文雷达：联合早报、财新网、路透中文、彭博中国）
 const KNOWN_AUTHORITIES = [
   '彭博', 'bloomberg', '路透', 'reuters', '华尔街日报', 'wsj', '日经', 'nikkei',
-  '财新', 'caixin', '第一财经', 'yicai', '经济学人', 'economist', '金融时报', 'ft',
-  '新华社', 'xinhua', '央视', '人民日报', '美联社', 'ap', '标普', 's&p',
-  '半岛电视台', 'al jazeera', '塔斯社', 'tass', '交通运输部', '财政部', '发改委',
-  '住建部', '民政部', '应急管理部', '人民银行', '央行', '美联储', 'fomc', '国防部', 'dod', '国资委',
-  '国家部委', '部委', '公报', '政府', '统计局', '商务部', '港交所'
+  '财新', 'caixin', '联合早报', 'zaobao', '第一财经', 'yicai', '经济学人', 'economist', '金融时报', 'ft',
+  '美联社', 'ap', '标普', 's&p', '半岛电视台', 'al jazeera', '塔斯社', 'tass',
+  '交通运输部', '财政部', '发改委', '住建部', '民政部', '应急管理部', '人民银行', '央行',
+  '美联储', 'fomc', '国防部', 'dod', '国资委', '国家部委', '部委', '公报', '政府', '统计局', '商务部', '港交所'
 ];
 
 export async function runNewsAccuracyVerification(): Promise<VerificationAuditReport> {
@@ -63,10 +62,19 @@ export async function runNewsAccuracyVerification(): Promise<VerificationAuditRe
     let summary5W1HOk = true;
     let hasDomainQualifier = true;
 
-    // 1. 标题完整性与语法连贯性核验
+    // 1. 标题完整性、字数与去宣传除杂核验（严禁通篇冒号体，控制在22~28字）
     if (!item.title || item.title.length < 8) {
       titleOk = false;
       reasons.push('标题过短或为空');
+    }
+    if (/[：:]/.test(item.title)) {
+      titleOk = false;
+      reasons.push('标题违规包含冒号体');
+    }
+    // 严禁未经脱水的政治口号与形式主义修辞
+    if (/领导高度重视|迅速启动预案|众志成城|坚决贯彻|牢牢把握|深入推进|统一思想|遥遥领先|彻底打破垄断|世界首创/.test(item.title + ' ' + (item.summaryParagraph || ''))) {
+      titleOk = false;
+      reasons.push('发现未经脱水的内宣套话或吹牛公关词汇');
     }
     // 检测是否以不完整连词/断句残缺结尾（例如 “并通过...”、“与...”、“等...”）
     if (/([并与等及但而或者]|通过|进行|以及)\s*\.{2,3}$/.test(item.title)) {

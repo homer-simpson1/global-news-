@@ -41,7 +41,7 @@ export interface NewsItem {
   bulletPoints: string[];
   summaryParagraph?: string; // 遵守 5W1H 原则的一段连贯深度小结
   summary5W1H?: Summary5W1H;
-  verificationLevel?: 'CROSS_VERIFIED' | 'OFFICIAL_DECREE' | 'SINGLE_SOURCE_FAST';
+  verificationLevel?: 'CROSS_VERIFIED' | 'OFFICIAL_DECREE' | 'SINGLE_SOURCE_FAST' | 'UNILATERAL_CLAIM';
   verificationBadge?: string;
   crossSourceCount?: number;
   hasClarification?: boolean;
@@ -50,6 +50,8 @@ export interface NewsItem {
   nextWatchlist?: string;                // 【后续观察哨】：关键时间窗口与待验证指标
   bullBearDivergence?: BullBearDivergence; // 市场多空博弈分歧焦点
   timeWindow?: 'TODAY' | 'PAST_24H' | 'HISTORIC'; // 归档时间轴
+  spilloverCriterion?: string;           // 命中外溢指标名称（监管铁拳/供应链断裂/涉外擦枪/系统性事故）
+  isUnilateralClaim?: boolean;           // 是否单方自宣/待验证
 }
 
 export interface FlashBrief {
@@ -65,7 +67,7 @@ export interface FlashBrief {
   sourceUrl?: string;
   summaryParagraph?: string; // 遵守 5W1H 原则的一段连贯深度小结
   summary5W1H?: Summary5W1H;
-  verificationLevel?: 'CROSS_VERIFIED' | 'OFFICIAL_DECREE' | 'SINGLE_SOURCE_FAST';
+  verificationLevel?: 'CROSS_VERIFIED' | 'OFFICIAL_DECREE' | 'SINGLE_SOURCE_FAST' | 'UNILATERAL_CLAIM';
   verificationBadge?: string;
   crossSourceCount?: number;
   hasClarification?: boolean;
@@ -73,6 +75,8 @@ export interface FlashBrief {
   sentiment?: MarketSentiment;
   nextWatchlist?: string;
   bullBearDivergence?: BullBearDivergence;
+  spilloverCriterion?: string;           // 命中外溢指标名称
+  isUnilateralClaim?: boolean;           // 是否单方自宣/待验证
 }
 
 export interface QuoteVerificationDetail {

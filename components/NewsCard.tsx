@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { NewsItem } from '@/lib/types';
 import { TrackVisualTheme, TRACK_THEMES } from '@/lib/trackThemes';
-import { ExternalLink, BookOpen, Sparkles, ChevronDown, ChevronUp, Award, Search } from 'lucide-react';
+import { ExternalLink, BookOpen, Sparkles, ChevronDown, ChevronUp, Award, Search, AlertTriangle, ShieldAlert } from 'lucide-react';
 import Summary5W1HView from './Summary5W1HView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
 
@@ -75,8 +75,13 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
               {item.source}
             </span>
 
-            {/* 多源交叉印证 / 官方通报 / 辟谣警示 徽章 */}
-            {item.hasClarification ? (
+            {/* 多源交叉印证 / 官方通报 / 辟谣警示 / 单方通报·待验证 徽章 */}
+            {item.verificationLevel === 'UNILATERAL_CLAIM' || item.isUnilateralClaim ? (
+              <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700" title="凡属单方面自宣的重大突破或单方面非正式辟谣，卡片强制标注【单方通报·待验证】">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>单方通报 · 待验证</span>
+              </span>
+            ) : item.hasClarification ? (
               <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
                 ⚠️ 官方澄清
               </span>
@@ -91,6 +96,14 @@ export default function NewsCard({ item, trackTheme, isLead = false }: NewsCardP
             ) : (
               <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 border border-slate-200" title="实时一手电讯直发">
                 ⚡ 一手速递
+              </span>
+            )}
+
+            {/* 命中通用重大外溢冲击收录标准徽章 */}
+            {item.spilloverCriterion && (
+              <span className="inline-flex items-center gap-1 text-xs font-extrabold px-2.5 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950 text-rose-900 dark:text-rose-300 border border-rose-300 dark:border-rose-700" title={`命中通用重大外溢冲击指标：${item.spilloverCriterion}，强制收录`}>
+                <ShieldAlert className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                <span>{item.spilloverCriterion}</span>
               </span>
             )}
 

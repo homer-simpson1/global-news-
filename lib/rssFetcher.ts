@@ -83,7 +83,122 @@ function generateIntelId(seed: string | number): string {
   return `GID-${h.toString(16).toUpperCase().padStart(8, '0')}`;
 }
 
-// 获取全网实时真实现场快讯 (多通道聚合：彭博/路透/日经等通讯社电讯管道 + 新浪全球 + 东方财富)
+// ==========================================
+// 【国内重大资讯去伪与去宣传除杂指令】
+// 强制执行“三剥离、三保留”脱水规范
+// ==========================================
+export const DOMESTIC_CLEANING_PROMPT_RULE = `
+【国内重大资讯去伪与去宣传除杂指令】
+对待所有国内事件报道，必须无条件执行“三剥离、三保留”：
+
+1. 物理抹杀所有宣传废话：
+   - 彻底剔除所有“领导高度重视、迅速启动预案、众志成城、坚决贯彻、牢牢把握、深入推进”等政治口号与形式主义修辞；
+   - 彻底剔除未经独立第三方法定检测的企业吹牛词汇（如“遥遥领先”、“彻底打破垄断”、“世界首创”一律抹平为中性陈述）；
+   - 彻底剔除丧事喜办式的道德叙事。
+
+2. 强制提取冰冷硬核四要素：
+   - 【物理事实】：究竟发生了什么？波及人数/资金/受损规模的具体确切体量？
+   - 【真实博弈】：谁在受损失？谁在被追责？对什么行业的行政叫停或禁令已真实落地？
+   - 【供应链与产业冲击】：对上下游企业生产、履约有何实质破坏或连锁反应？
+   - 【信源审慎定性】：凡属单方面自宣的重大突破或单方面非正式辟谣，卡片必须强制标注“【单方通报·待验证】”，严禁把公关词当客观事实呈现。
+`;
+
+// 宣传套话与形式主义修辞过滤正则
+const PROPAGANDA_REGEX = /领导高度重视|迅速启动预案|众志成城|坚决贯彻|牢牢把握|深入推进|统一思想|真抓实干|凝心聚力|圆满完成|向好态势|积极成效|有力保障|喜迎|谱写新篇章|展现了人间大爱|谱写了生命的赞歌|涌现出感人事迹|舍己为人/g;
+// 企业吹牛与未验证夸大词汇正则
+const ENTERPRISE_HYPE_REGEX = /遥遥领先|彻底打破垄断|打破国外垄断|打破垄断|世界首创|填补国内空白|重大突破|颠覆性突破|全球顶尖|无可匹敌|史无前例/g;
+
+export function sanitizeDomesticNewsText(text: string): string {
+  if (!text) return '';
+  let cleaned = text.replace(PROPAGANDA_REGEX, '');
+  cleaned = cleaned.replace(ENTERPRISE_HYPE_REGEX, '实现技术推进');
+  cleaned = cleaned.replace(/^[，。、；\s]+/, '').replace(/[，、；\s]+$/, '');
+  cleaned = cleaned.replace(/\s{2,}/g, ' ');
+  return cleaned.trim();
+}
+
+// 检测是否属于单方面自宣突破或单方面非正式辟谣
+export function checkUnilateralClaim(title: string, content: string): boolean {
+  const text = (title + ' ' + content).toLowerCase();
+  return /自主研发突破|据内部人士辟谣|自研首创|单方面宣布|官方回应称网传不实|辟谣称|非正式澄清|企业声明称|我司回应|网传不实/.test(text);
+}
+
+// ==========================================
+// 【通用重大外溢冲击收录标准】
+// 命中以下 4 项外溢指标之一者，严禁过滤！
+// 强制作为【一级重大情报】收录进【国内要闻与治理】
+// ==========================================
+export interface SpilloverImpactResult {
+  isSpilloverMajor: boolean;
+  criteriaIndex?: 1 | 2 | 3 | 4;
+  criteriaName?: string;
+  reason?: string;
+}
+
+export function evaluateSpilloverImpact(title: string, content: string): SpilloverImpactResult {
+  const text = (title + ' ' + content).toLowerCase();
+
+  // 1. 监管铁拳与准入颠覆：引发国家级跨部门叫停、行业准入牌照大整顿、推倒重来式重塑（如教培叫停、网络安全审查、高危行业全国叫停整顿）
+  if (
+    /跨部门叫停|全面叫停|暂停准入|牌照整顿|牌照吊销|推倒重来|网络安全审查|行业叫停|全国排查|立案调查|专项整治|反腐|被查|落马|判处无期|被判无期|被判死刑|受贿|被逮捕|重罚|取消资质|暂停业务|强制下架|退市|操纵市场|突击调查|立案侦查|约谈高管|清退|注销许可/.test(
+      text
+    )
+  ) {
+    return {
+      isSpilloverMajor: true,
+      criteriaIndex: 1,
+      criteriaName: '监管铁拳与准入颠覆',
+      reason: '涉及国家级或跨部门准入整顿、牌照叫停或重大司法惩处',
+    };
+  }
+
+  // 2. 关键底盘与供应链断裂：核心零部件突发断供、造假暴雷、工厂集体停产、关键技术被曝光造假、或外资核心链条突发撤离
+  if (
+    /突发断供|零部件断供|核心链条撤离|造假暴雷|集体停产|停工停产|曝光造假|数据造假|学术造假|财务造假|供应链断裂|撤资|外资撤离|核心技术受限|断链|违约逾期|无法履约|召回|挤兑/.test(
+      text
+    )
+  ) {
+    return {
+      isSpilloverMajor: true,
+      criteriaIndex: 2,
+      criteriaName: '关键底盘与供应链断裂',
+      reason: '涉及关键供应链断裂、核心零部件断供、生产停滞或造假暴雷',
+    };
+  }
+
+  // 3. 地缘与涉外高危擦枪：涉边境/南海摩擦、关键航道扣押、涉外反制与重大跨国司法冲突
+  if (
+    /边境摩擦|南海摩擦|仁爱礁|黄岩岛|海警拦截|海警登临|航道扣押|扣押货轮|涉外反制|反歧视调查|反歧视救济|反制裁|跨国司法|引渡|长臂管辖|领海驱离|实弹演训|交火冲突|军演|出口管制清单/.test(
+      text
+    )
+  ) {
+    return {
+      isSpilloverMajor: true,
+      criteriaIndex: 3,
+      criteriaName: '地缘与涉外高危擦枪',
+      reason: '涉及边境摩擦、航道扣押、涉外反制或跨国司法重大冲突',
+    };
+  }
+
+  // 4. 系统性责任事故与地方大震荡：重特大安全事故、地方公共信用/财政极端事件、跨区域公共危机
+  if (
+    /重特大事故|特别重大|特大火灾|坍塌事故|重大伤亡|遇难|死亡(?:\d+|多)人|致死|相撞致.*死|致.*伤|爆炸事故|矿难|地方公共信用|地方债务展期|地方财政困难|破产重整|违约暴雷|停运|群体性事件|紧急状态|跨区域危机|特大自然灾害|特别国债注资/.test(
+      text
+    )
+  ) {
+    return {
+      isSpilloverMajor: true,
+      criteriaIndex: 4,
+      criteriaName: '系统性责任事故与地方大震荡',
+      reason: '涉及重特大责任事故、人员伤亡、地方公共信用或跨区域突发危机',
+    };
+  }
+
+  return { isSpilloverMajor: false };
+}
+
+// 获取全网实时真实现场快讯 (接入中立华文雷达：联合早报 + 财新网 + 路透/彭博中国专线 + 全球电讯管道)
+// 严禁接入新华社、人民日报等官方综合全量流，严防内宣公关污染
 async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
   const items: RawLiveItem[] = [];
 
@@ -96,7 +211,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
 
   const defaultHeaders = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    'Accept': 'application/json, text/plain, */*',
+    'Accept': 'application/json, text/plain, text/html, */*',
   };
 
   const results = await Promise.allSettled([
@@ -122,28 +237,133 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
           return { source: '东方财富', data: null };
         }
       }),
+    // 1. 《联合早报》中国新闻频道（中立全景覆盖中国政治、社会、突发、法治与重大民生事件）
+    fetch('https://www.zaobao.com.sg/realtime/china', {
+      headers: defaultHeaders,
+    })
+      .then((r) => r.text())
+      .then((html) => {
+        const zbList: RawLiveItem[] = [];
+        const regex = /href="(\/(?:realtime|news)\/china\/story[^\"]+)"[^>]*>([\s\S]*?)<\/a>/g;
+        let m;
+        const seenZb = new Set<string>();
+        while ((m = regex.exec(html)) !== null) {
+          const rawTitle = m[2].replace(/<[^>]+>/g, '').trim();
+          if (rawTitle.length >= 6 && !seenZb.has(rawTitle)) {
+            seenZb.add(rawTitle);
+            zbList.push({
+              id: generateIntelId(`ZAOBAO_${m[1]}`),
+              wireChannel: 'CH_ZAOBAO',
+              title: rawTitle,
+              content: rawTitle,
+              time: formatIntelDateTime(Date.now()),
+              source: '联合早报 Zaobao',
+              url: `https://www.zaobao.com.sg${m[1]}`,
+            });
+          }
+        }
+        return { source: '联合早报', data: zbList };
+      })
+      .catch(() => ({ source: '联合早报', data: null })),
+    // 2. 《财新网》（调查报道、法治监管、产业特写垂直频道，专抓产业大雷、重特大责任事故、金融与企业暴雷）
+    fetch('https://finance.caixin.com/', {
+      headers: defaultHeaders,
+    })
+      .then((r) => r.text())
+      .then((html) => {
+        const cxList: RawLiveItem[] = [];
+        const regex = /<a[^>]+href="([^"]*(?:caixin\.com\/202\d|finance\.caixin)[^"]*)"[^>]*>([\s\S]*?)<\/a>/g;
+        let m;
+        const seenCx = new Set<string>();
+        while ((m = regex.exec(html)) !== null) {
+          const rawTitle = m[2].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+          if (rawTitle.length >= 8 && !seenCx.has(rawTitle)) {
+            seenCx.add(rawTitle);
+            const fullUrl = m[1].startsWith('http') ? m[1] : `https:${m[1]}`;
+            cxList.push({
+              id: generateIntelId(`CAIXIN_${m[1]}`),
+              wireChannel: 'CH_CAIXIN',
+              title: rawTitle,
+              content: rawTitle,
+              time: formatIntelDateTime(Date.now()),
+              source: '财新网 Caixin',
+              url: fullUrl,
+            });
+          }
+        }
+        return { source: '财新网', data: cxList };
+      })
+      .catch(() => ({ source: '财新网', data: null })),
+    // 3. 《财新网》产业与公司频道（抓企业停产、违约、供应链断裂）
+    fetch('https://companies.caixin.com/', {
+      headers: defaultHeaders,
+    })
+      .then((r) => r.text())
+      .then((html) => {
+        const cxList: RawLiveItem[] = [];
+        const regex = /<a[^>]+href="([^"]*(?:caixin\.com\/202\d|companies\.caixin)[^"]*)"[^>]*>([\s\S]*?)<\/a>/g;
+        let m;
+        const seenCx = new Set<string>();
+        while ((m = regex.exec(html)) !== null) {
+          const rawTitle = m[2].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+          if (rawTitle.length >= 8 && !seenCx.has(rawTitle)) {
+            seenCx.add(rawTitle);
+            const fullUrl = m[1].startsWith('http') ? m[1] : `https:${m[1]}`;
+            cxList.push({
+              id: generateIntelId(`CAIXIN_CO_${m[1]}`),
+              wireChannel: 'CH_CAIXIN',
+              title: rawTitle,
+              content: rawTitle,
+              time: formatIntelDateTime(Date.now()),
+              source: '财新网 Caixin',
+              url: fullUrl,
+            });
+          }
+        }
+        return { source: '财新网公司频道', data: cxList };
+      })
+      .catch(() => ({ source: '财新网公司频道', data: null })),
   ]);
 
   for (const res of results) {
     if (res.status !== 'fulfilled' || !res.value?.data) continue;
     const { source, data } = res.value;
 
+    // 直接数组结果（如联合早报与财新网深度调查）
+    if (Array.isArray(data)) {
+      for (const item of data) {
+        items.push(item);
+      }
+      continue;
+    }
+
     // 解析主流电讯数据源
     if (data?.data?.items) {
       for (const raw of data.data.items) {
         const text = (raw.content_text || '').trim();
         if (!text) continue;
+        // 严防官方宣传通篇口号内宣污染：若含有纯新华社/人民日报口号且无硬核事实则剔除
+        if (/新华社|人民日报/.test(text) && /高度重视|众志成城|坚决贯彻/.test(text) && !/判决|违约|事故|注资|立案|死/.test(text)) {
+          continue;
+        }
+
         const title = (raw.title || text.split('\n')[0].replace(/【.*?】/, '')).trim().slice(0, 70);
         const time = formatIntelDateTime(raw.display_time);
 
+        // 识别路透与彭博中国专项电讯
+        const isReuters = /路透|reuters/i.test(text);
+        const isBloomberg = /彭博|bloomberg/i.test(text);
+        const wireChannel = isReuters || isBloomberg ? 'CH_REUTERS_BLOOMBERG_CN' : 'CH_ALPHA';
+        const sourceLabel = isReuters ? '路透中文网 Reuters' : isBloomberg ? '彭博社 Bloomberg' : source;
+
         items.push({
           id: generateIntelId(`ALPHA_${raw.id}`),
-          wireChannel: 'CH_ALPHA',
+          wireChannel,
           title,
           content: text,
           time,
-          source,
-          url: raw.uri || 'https://www.reuters.com',
+          source: sourceLabel,
+          url: raw.uri || (isReuters ? 'https://www.reuters.com' : 'https://www.bloomberg.com'),
         });
       }
     }
@@ -153,23 +373,31 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
       for (const raw of data.result.data.feed.list) {
         const clean = (raw.rich_text || '').replace(/<[^>]+>/g, '').trim();
         if (!clean) continue;
+        if (/新华社|人民日报/.test(clean) && /高度重视|众志成城|坚决贯彻/.test(clean) && !/判决|违约|事故|注资|立案|死/.test(clean)) {
+          continue;
+        }
         const titleMatch = clean.match(/【(.*?)】/);
         const title = titleMatch ? titleMatch[1] : clean.slice(0, 60);
         const time = formatIntelDateTime(raw.create_time);
 
+        const isReuters = /路透|reuters/i.test(clean);
+        const isBloomberg = /彭博|bloomberg/i.test(clean);
+        const wireChannel = isReuters || isBloomberg ? 'CH_REUTERS_BLOOMBERG_CN' : 'CH_BETA';
+        const sourceLabel = isReuters ? '路透中文网 Reuters' : isBloomberg ? '彭博社 Bloomberg' : '全球电讯专线';
+
         items.push({
           id: generateIntelId(`BETA_${raw.id}`),
-          wireChannel: 'CH_BETA',
+          wireChannel,
           title: title.trim(),
           content: clean,
           time,
-          source: '全球电讯专线',
-          url: 'https://www.bloomberg.com',
+          source: sourceLabel,
+          url: isReuters ? 'https://www.reuters.com' : 'https://www.bloomberg.com',
         });
       }
     }
 
-    // 解析全球宏观政策 7x24 宏观快讯
+    // 解析东方财富等快讯
     if (data?.LivesList && Array.isArray(data.LivesList)) {
       for (const raw of data.LivesList) {
         const text = (raw.digest || raw.title || '').trim();
@@ -191,13 +419,16 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
     }
   }
 
-  // 严格过滤娱乐/体育/公关展览等低信噪比杂音，并按标题相似度去重
+  // 严格过滤低信噪比杂音，但执行【通用重大外溢冲击收录标准】：
+  // 无论属于文旅、民生、汽车、科技、法治、体育还是行政，只要命中 4 项外溢指标之一，严禁过滤！
   const seen = new Set<string>();
   const deduped: RawLiveItem[] = [];
   const noiseRegex = /摩托车|锦标赛|排球|足球|篮球|马拉松|选美|车展|博览会闭幕|闭幕式|开幕式|演唱会|明星|彩票|中奖|电视剧|电影节|见闻早餐|早报\s*\||连板|早盘必读|盘中异动/;
 
   for (const item of items) {
-    if (noiseRegex.test(item.title + ' ' + item.content)) {
+    const spillover = evaluateSpilloverImpact(item.title, item.content);
+    // 只要命中外溢冲击指标之一，严禁过滤，强制收录！
+    if (!spillover.isSpilloverMajor && noiseRegex.test(item.title + ' ' + item.content)) {
       continue;
     }
     const key = item.title.slice(0, 16);
@@ -227,12 +458,18 @@ export function detectPrimarySource(
 ): PrimarySourceInfo {
   const combined = (title + ' ' + content).toLowerCase();
 
-  // 1. 显式提及的一级权威通讯社/官方部委机构
-  if (/彭博|bloomberg/.test(combined)) {
-    return { source: '彭博社 Bloomberg', sourceUrl: 'https://www.bloomberg.com' };
+  // 1. 显式提及的一级权威通讯社/官方部委机构（严禁接入新华社、人民日报等官方全量内宣大喇叭）
+  if (/联合早报|zaobao/.test(combined)) {
+    return { source: '联合早报 Zaobao', sourceUrl: 'https://www.zaobao.com.sg' };
+  }
+  if (/财新|caixin/.test(combined)) {
+    return { source: '财新网 Caixin', sourceUrl: 'https://finance.caixin.com' };
   }
   if (/路透|reuters/.test(combined)) {
-    return { source: '路透社 Reuters', sourceUrl: 'https://www.reuters.com' };
+    return { source: '路透中文网 Reuters', sourceUrl: 'https://www.reuters.com' };
+  }
+  if (/彭博|bloomberg/.test(combined)) {
+    return { source: '彭博中国 Bloomberg', sourceUrl: 'https://www.bloomberg.com' };
   }
   if (/华尔街日报|wsj|wall street journal/.test(combined)) {
     return { source: '华尔街日报 WSJ', sourceUrl: 'https://www.wsj.com' };
@@ -242,9 +479,6 @@ export function detectPrimarySource(
   }
   if (/日经|nikkei|日本经济新闻/.test(combined)) {
     return { source: '日经亚洲 Nikkei Asia', sourceUrl: 'https://asia.nikkei.com' };
-  }
-  if (/财新|caixin/.test(combined)) {
-    return { source: '财新网 Caixin', sourceUrl: 'https://finance.caixin.com' };
   }
   if (/第一财经|一财|yicai/.test(combined)) {
     return { source: '第一财经 Yicai Global', sourceUrl: 'https://www.yicai.com' };
@@ -261,23 +495,14 @@ export function detectPrimarySource(
   if (/半岛电视台|al jazeera/.test(combined)) {
     return { source: '半岛电视台 Al Jazeera', sourceUrl: 'https://www.aljazeera.com' };
   }
-  if (/新华社|新华网|xinhua/.test(combined)) {
-    return { source: '新华社 Xinhua News', sourceUrl: 'http://www.xinhuanet.com' };
-  }
-  if (/央视新闻|cctv/.test(combined)) {
-    return { source: '央视新闻 CCTV News', sourceUrl: 'https://news.cctv.com' };
-  }
-  if (/人民日报/.test(combined)) {
-    return { source: '人民日报 People\'s Daily', sourceUrl: 'http://www.people.com.cn' };
-  }
   if (/塔斯社|tass/.test(combined)) {
     return { source: '塔斯社 TASS', sourceUrl: 'https://tass.com' };
   }
   if (/交通运输部|交运部/.test(combined)) {
-    return { source: '中国交通运输部官方发布', sourceUrl: 'https://www.mot.gov.cn' };
+    return { source: '中国交通运输部通报', sourceUrl: 'https://www.mot.gov.cn' };
   }
   if (/财政部|中央财政/.test(combined)) {
-    return { source: '中国财政部权威发布', sourceUrl: 'http://www.mof.gov.cn' };
+    return { source: '中国财政部通报', sourceUrl: 'http://www.mof.gov.cn' };
   }
   if (/发改委|国家发改委/.test(combined)) {
     return { source: '国家发展改革委公报', sourceUrl: 'https://www.ndrc.gov.cn' };
@@ -286,10 +511,10 @@ export function detectPrimarySource(
     return { source: '国家住房和城乡建设部', sourceUrl: 'https://www.mohurd.gov.cn' };
   }
   if (/民政部|应急管理部/.test(combined)) {
-    return { source: '国家应急管理部与救灾通报', sourceUrl: 'https://www.mem.gov.cn' };
+    return { source: '国家应急管理部通报', sourceUrl: 'https://www.mem.gov.cn' };
   }
   if (/国资委|上海市国资委/.test(combined)) {
-    return { source: '国资监管委员会权威发布', sourceUrl: 'http://www.sasac.gov.cn' };
+    return { source: '国资监管委员会公报', sourceUrl: 'http://www.sasac.gov.cn' };
   }
   if (/人民银行|央行|外汇局/.test(combined) && (track === 'china_domestic' || /人民币|降准|逆回购/.test(combined))) {
     return { source: '中国人民银行 PBOC', sourceUrl: 'http://www.pbc.gov.cn' };
@@ -301,7 +526,7 @@ export function detectPrimarySource(
     return { source: '美国国防部 DoD 简报', sourceUrl: 'https://www.defense.gov' };
   }
 
-  // 2. 根据专业领域赛道与内容特征，哈希轮询映射全球核心权威信源（确保多元化）
+  // 2. 根据专业领域赛道与内容特征，哈希轮询映射全球核心中立权威信源（确保多元化，杜绝内宣单一垄断）
   let hash = 0;
   const str = title + content;
   for (let i = 0; i < str.length; i++) {
@@ -334,16 +559,18 @@ export function detectPrimarySource(
       { source: '路透全球财经 Reuters Markets', sourceUrl: 'https://www.reuters.com/markets' },
     ],
     china_domestic: [
-      { source: '财新网 Caixin Macro', sourceUrl: 'https://finance.caixin.com' },
-      { source: '第一财经 Yicai Global', sourceUrl: 'https://www.yicai.com' },
-      { source: '新华社宏观电讯 Xinhua News', sourceUrl: 'http://www.xinhuanet.com' },
-      { source: '国家部委权威公报', sourceUrl: 'https://www.gov.cn' },
+      { source: '财新网 Caixin 深度调查', sourceUrl: 'https://finance.caixin.com' },
+      { source: '联合早报 Zaobao 中国电讯', sourceUrl: 'https://www.zaobao.com.sg' },
+      { source: '路透中文网 Reuters 中国专线', sourceUrl: 'https://www.reuters.com' },
+      { source: '彭博中国 Bloomberg 宏观特电', sourceUrl: 'https://www.bloomberg.com' },
+      { source: '第一财经 Yicai 产业现场', sourceUrl: 'https://www.yicai.com' },
     ],
     china_policy: [
-      { source: '英国金融时报 FT China', sourceUrl: 'https://www.ft.com' },
-      { source: '华尔街日报 WSJ Geopolitics', sourceUrl: 'https://www.wsj.com' },
+      { source: '联合早报 Zaobao 国际观察', sourceUrl: 'https://www.zaobao.com.sg' },
       { source: '财新国际 Caixin Global', sourceUrl: 'https://www.caixinglobal.com' },
+      { source: '路透中文网 Reuters 涉华追踪', sourceUrl: 'https://www.reuters.com' },
       { source: '彭博中国观察 Bloomberg Asia', sourceUrl: 'https://www.bloomberg.com' },
+      { source: '英国金融时报 FT China', sourceUrl: 'https://www.ft.com' },
     ],
     global_cognition: [
       { source: '经济学人 The Economist', sourceUrl: 'https://www.economist.com' },
@@ -359,6 +586,25 @@ export function detectPrimarySource(
 
 function classifyTrack(item: RawLiveItem): TrackId {
   const t = (item.title + ' ' + item.content).toLowerCase();
+
+  // 【通用重大外溢冲击收录标准判定准则】：
+  // 无论事件属于文旅、民生、汽车、科技、法治、体育还是行政，只要命中 4 项外溢指标之一，强制收录！
+  const spillover = evaluateSpilloverImpact(item.title, item.content);
+  if (spillover.isSpilloverMajor) {
+    if (spillover.criteriaIndex === 3) {
+      return 'china_policy';
+    }
+    // 监管铁拳、供应链断裂、系统性责任事故与地方大震荡 -> 强制收录进国内要闻与治理板块
+    return 'china_domestic';
+  }
+
+  // 联合早报与财新网等严肃中立信源电讯优先对齐国内要闻与涉外博弈
+  if (item.wireChannel === 'CH_ZAOBAO' || item.wireChannel === 'CH_CAIXIN') {
+    if (/涉外|关税|制裁|美国|欧盟|外资|反制|出海|特使|两岸|台湾|南海/.test(t)) {
+      return 'china_policy';
+    }
+    return 'china_domestic';
+  }
 
   // 1. 大宗商品与能源航运 (原油、天然气、LNG、海运、集运欧线、运价指数、伦铜、铁矿石、大宗金属)
   if (
@@ -486,6 +732,22 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
   // 16. 禽流感 / 乌拉圭
   if (/禽流感|乌拉圭|卫生紧急状态/.test(t)) {
     return '欧美本土替代蛋白与大型家禽养殖巨头坐享短期提价红利，南美出口型牧场承受封关退运损失，国际对冲基金正借机炒作农畜产品期货。';
+  }
+  // 17. 监管铁拳与准入颠覆 (王建军/做空/操纵市场/反腐调查)
+  if (/王建军|判处无期|被判无期|受贿|操纵市场|突击调查|立案侦查|反腐|做空/.test(t)) {
+    return '违法涉案人员与灰色寻租机构资产遭司法查封冻结，内控严谨的合规金融机构承接被挤出的优质客户，违规操纵热钱仓皇平仓离场。';
+  }
+  // 18. 特别国债注资与地方化债
+  if (/特别国债注资|注资银行|注资险企|化债|地方债务/.test(t)) {
+    return '国有大行与重点险企资本充足率得到硬核夯实、信贷投放能力激活，高负债主体获得低成本债务置换空间，避险资金持续涌入主权国债。';
+  }
+  // 19. 系统性责任事故与地方大震荡 (伤亡事故/撞车/矿难)
+  if (/相撞致.*死|重特大事故|坍塌|伤亡|遇难|停运/.test(t)) {
+    return '涉事责任主体面临顶格行政索赔与资质注销，同区域同行业全面停产整顿隐患，具备成熟安全体系的龙头企业承接外溢订单。';
+  }
+  // 20. 关键底盘与供应链断裂 (零部件断供/停工)
+  if (/突发断供|零部件断供|停工停产|断链|造假暴雷/.test(t)) {
+    return '受制于单一货源的组装主机厂承受产线闲置违约损失，具备国产备胎能力的本土元器件原厂火速打入核心名录、斩获替代订单。';
   }
 
   // 兜底真实利益链条逻辑 (谁在赚超额利润、谁承担了成本、资金正在往哪里跑)
@@ -677,6 +939,26 @@ function generateCoreTakeaway(
   }
   if (/禽流感|乌拉圭|卫生紧急状态/.test(t)) {
     return '【检疫铁幕瞬间落下】：高致病禽流感一旦蔓延到周边巴西养殖带，全球鸡肉供给就得断档，各国海关宁可错杀也不敢放行南美禽肉。';
+  }
+  // 17. 监管铁拳与准入颠覆 (王建军/做空/操纵市场/反腐调查)
+  if (/王建军|判处无期|被判无期|受贿|操纵市场|突击调查|立案侦查|反腐|做空/.test(t)) {
+    return '【刮骨疗毒动真格】：司法惩治刺向资本市场发审与寻租深水区，任何指望靠特权变现的利益链被连根拔起，合规红线不再留任何法外死角。';
+  }
+  // 18. 特别国债注资与地方化债
+  if (/特别国债注资|注资银行|注资险企|化债|地方债务/.test(t)) {
+    return '【中央信用硬核托底】：与其坐视地方金融机构缩表承压，国家直接用特别国债真金白银注资夯实资本金，筑牢阻断跨市场债务踩踏的堤坝。';
+  }
+  // 19. 系统性责任事故与地方大震荡 (伤亡事故/撞车/矿难)
+  if (/相撞致.*死|重特大事故|坍塌|伤亡|遇难|停运/.test(t)) {
+    return '【安全红线一票否决】：致命安全事故击穿了基层合规防线，涉事企业被停业倒查整顿，全行业拉响隐患排查战备警报，安全成本被强制置顶。';
+  }
+  // 20. 关键底盘与供应链断裂 (零部件断供/停工)
+  if (/突发断供|零部件断供|停工停产|断链|造假暴雷/.test(t)) {
+    return '【供应链安全总排查】：单点依赖海外单一货源的侥幸心理彻底破灭，核心部件一旦断供就导致整线停工，制造大厂只能宁赔违约金也要启动备用方案。';
+  }
+  // 21. 单方自宣突破与非正式辟谣
+  if (checkUnilateralClaim(cleanTitle, content)) {
+    return '【单方自宣仍待求证】：企业非正式通报往往夹带公关护盘意图，在缺乏独立第三方中立检测和实测交付前，绝不能把自夸当成事实盲目跟风。';
   }
 
   // 2. 动态生成兜底：基于 5W1H 深度净化，彻底杜绝禁忌八股词与流水线连接词
@@ -1149,18 +1431,26 @@ export async function fetchAggregatedNews(): Promise<NewsItem[]> {
 
     for (const raw of rawItems) {
       const track = classifyTrack(raw);
-      const primary = detectPrimarySource(raw.title, raw.content, track, raw.url);
-      const enrichedTitle = enrichHeadline(raw.title, raw.content, track);
-      const summary5W1H = build5W1HSummary(enrichedTitle, raw.content, raw.time, primary.source, track);
-      const summaryParagraph = build5W1HParagraph(summary5W1H, enrichedTitle, raw.content);
-      const coreTakeaway = generateCoreTakeaway(enrichedTitle, raw.content, track, summary5W1H);
-      const transmissionImpact = inferTransmission(track, enrichedTitle, raw.content);
-      const bulletPoints = extractBulletPoints(raw.content, primary.source, raw.time);
-      const sentiment = generateSentiment(enrichedTitle, raw.content, track);
-      const nextWatchlist = generateNextWatchlist(enrichedTitle, raw.content, track);
-      const bullBearDivergence = generateBullBearDivergence(enrichedTitle, raw.content, track);
+      // 执行【国内重大资讯去伪与去宣传除杂指令】“三剥离、三保留”脱水规范
+      const isDomestic = track === 'china_domestic' || track === 'china_policy';
+      const cleanRawTitle = isDomestic ? sanitizeDomesticNewsText(raw.title) : raw.title;
+      const cleanRawContent = isDomestic ? sanitizeDomesticNewsText(raw.content) : raw.content;
 
+      const primary = detectPrimarySource(cleanRawTitle, cleanRawContent, track, raw.url);
+      const enrichedTitle = enrichHeadline(cleanRawTitle, cleanRawContent, track);
+      const summary5W1H = build5W1HSummary(enrichedTitle, cleanRawContent, raw.time, primary.source, track);
+      const summaryParagraph = build5W1HParagraph(summary5W1H, enrichedTitle, cleanRawContent);
+      const coreTakeaway = generateCoreTakeaway(enrichedTitle, cleanRawContent, track, summary5W1H);
+      const transmissionImpact = inferTransmission(track, enrichedTitle, cleanRawContent);
+      const bulletPoints = extractBulletPoints(cleanRawContent, primary.source, raw.time);
+      const sentiment = generateSentiment(enrichedTitle, cleanRawContent, track);
+      const nextWatchlist = generateNextWatchlist(enrichedTitle, cleanRawContent, track);
+      const bullBearDivergence = generateBullBearDivergence(enrichedTitle, cleanRawContent, track);
+
+      // 【通用重大外溢冲击收录标准】：命中 4 项外溢指标之一者强制为一级重大情报
+      const spillover = evaluateSpilloverImpact(cleanRawTitle, cleanRawContent);
       const isImportant =
+        spillover.isSpilloverMajor ||
         raw.title.includes('美联储') ||
         raw.title.includes('降息') ||
         raw.title.includes('收益率') ||
@@ -1174,6 +1464,13 @@ export async function fetchAggregatedNews(): Promise<NewsItem[]> {
         raw.title.includes('突发');
 
       const cross = evaluateCrossVerification(raw, rawItems, primary);
+      const isUnilateral = checkUnilateralClaim(cleanRawTitle, cleanRawContent);
+
+      const verificationLevel = isUnilateral ? 'UNILATERAL_CLAIM' : cross.verificationLevel;
+      const verificationBadge = isUnilateral ? '【单方通报·待验证】' : cross.verificationBadge;
+      const clarificationNote = isUnilateral
+        ? '该信息属企业或机构单方自宣/非正式辟谣口径，缺乏独立第三方检测或司法交叉复核，待进一步事实求证。'
+        : cross.clarificationNote;
 
       const newsItem: NewsItem = {
         id: raw.id,
@@ -1188,15 +1485,17 @@ export async function fetchAggregatedNews(): Promise<NewsItem[]> {
         bulletPoints,
         summaryParagraph,
         summary5W1H,
-        verificationLevel: cross.verificationLevel,
-        verificationBadge: cross.verificationBadge,
+        verificationLevel,
+        verificationBadge,
         crossSourceCount: cross.crossSourceCount,
-        hasClarification: cross.hasClarification,
-        clarificationNote: cross.clarificationNote,
+        hasClarification: cross.hasClarification || isUnilateral,
+        clarificationNote,
         sentiment,
         nextWatchlist,
         bullBearDivergence,
         timeWindow: 'TODAY',
+        spilloverCriterion: spillover.isSpilloverMajor ? spillover.criteriaName : undefined,
+        isUnilateralClaim: isUnilateral,
       };
 
       if (categorized[track].length < 8) {
@@ -1241,6 +1540,8 @@ export async function fetchAggregatedNews(): Promise<NewsItem[]> {
           sentiment: candidate.sentiment,
           nextWatchlist: candidate.nextWatchlist,
           bullBearDivergence: candidate.bullBearDivergence,
+          spilloverCriterion: candidate.spilloverCriterion,
+          isUnilateralClaim: candidate.isUnilateralClaim,
         });
       } else {
         const seedItem = SEED_FLASH_BRIEFS.find((s) => s.track === trk);
