@@ -8,6 +8,25 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const force = searchParams.get('refresh') === 'true' || searchParams.get('force') === 'true';
+
+    // Cloudflare Edge Cache API: 极速边缘机房毫秒级响应 (5-20ms)
+    // @ts-ignore
+    const edgeCache = typeof caches !== 'undefined' ? (caches.default || null) : null;
+    const cacheUrl = new URL(request.url);
+    cacheUrl.search = '';
+    const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
+
+    if (!force && edgeCache) {
+      try {
+        const cachedRes = await edgeCache.match(cacheKey);
+        if (cachedRes) {
+          return cachedRes;
+        }
+      } catch (err) {
+        // silent
+      }
+    }
+
     const [news, flashBriefs] = await Promise.all([
       fetchAggregatedNews(force),
       getFlashBriefs(force),
@@ -17,7 +36,7 @@ export async function GET(request: Request) {
       ? 'no-cache, no-store, must-revalidate'
       : 'public, max-age=45, s-maxage=180, stale-while-revalidate=600';
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         success: true,
         data: {
@@ -33,6 +52,16 @@ export async function GET(request: Request) {
         },
       }
     );
+
+    if (!force && edgeCache) {
+      try {
+        await edgeCache.put(cacheKey, response.clone());
+      } catch (err) {
+        // silent
+      }
+    }
+
+    return response;
   } catch (error) {
     console.error('API /api/news error:', error);
     return NextResponse.json(
