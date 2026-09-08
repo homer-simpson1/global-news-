@@ -43,7 +43,7 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
 
   const tencentSymbols = [
     'usINX', 'usNDX', 'usIXIC', 'usDJI', 'hkHSI',
-    'whUSDJPY', 'hf_CL', 'hf_GC'
+    'whUSDJPY', 'whUSDCNY', 'hf_CL', 'hf_GC'
   ];
 
   const eastSecids = '171.US10Y,100.N225,100.HSI,100.DJIA,100.SPX,102.CL00Y,119.USDJPY,133.USDCNH';
@@ -105,10 +105,26 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
     if (gc && parseFloat(gc[0]) > 0) sina['GC'] = { price: parseFloat(gc[0]), changePercent: -0.49 };
 
     const jpy = parseSina('fx_susdjpy');
-    if (jpy && parseFloat(jpy[1]) > 0) sina['USDJPY'] = { price: parseFloat(jpy[1]), changePercent: parseFloat(jpy[10]) };
+    if (jpy) {
+      const p = parseFloat(jpy[8]) > 0 ? parseFloat(jpy[8]) : parseFloat(jpy[1]);
+      if (p > 0) sina['USDJPY'] = { price: p, changePercent: parseFloat(jpy[10]) };
+    }
 
     const cnh = parseSina('fx_susdcnh');
-    if (cnh && parseFloat(cnh[1]) > 0) sina['USDCNH'] = { price: parseFloat(cnh[1]), changePercent: parseFloat(cnh[10]) };
+    if (cnh) {
+      // 新浪外汇即期字段严格校对：
+      // cnh[8] 为即期最新现价/中间成交价，cnh[1]为买入价(Bid)，cnh[2]为卖出价(Ask)，cnh[3]为昨收价(Close)
+      // 优先锁定即期现价 cnh[8]，若为 0 则回退至买卖中间均价
+      let p = parseFloat(cnh[8]);
+      if (isNaN(p) || p <= 0) {
+        const bid = parseFloat(cnh[1]);
+        const ask = parseFloat(cnh[2]);
+        p = (bid > 0 && ask > 0) ? (bid + ask) / 2 : bid;
+      }
+      if (p > 0) {
+        sina['USDCNH'] = { price: p, changePercent: parseFloat(cnh[10]) };
+      }
+    }
   }
 
   // 2. 解析通道 B：腾讯财经
@@ -126,6 +142,7 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
       if (key === 'v_usDJI' && parseFloat(fields[3]) > 0) tencent['DJI'] = { price: parseFloat(fields[3]), changePercent: parseFloat(fields[32]) };
       if (key === 'v_hkHSI' && parseFloat(fields[3]) > 0) tencent['HSI'] = { price: parseFloat(fields[3]), changePercent: parseFloat(fields[32]) };
       if (key === 'v_whUSDJPY' && parseFloat(fields[3]) > 0) tencent['USDJPY'] = { price: parseFloat(fields[3]), changePercent: parseFloat(fields[13]) };
+      if (key === 'v_whUSDCNY' && parseFloat(fields[3]) > 0) tencent['USDCNH'] = { price: parseFloat(fields[3]), changePercent: parseFloat(fields[13]) };
       if (key === 'v_hf_CL') {
         const p = parseFloat(parts[1].split(',')[0]);
         if (!isNaN(p) && p > 0) tencent['CL'] = { price: p, changePercent: parseFloat(parts[1].split(',')[1]) };

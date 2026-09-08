@@ -6,14 +6,26 @@ import { ShieldAlert, ArrowDown, Activity } from 'lucide-react';
 
 interface OngoingDisasterBannerProps {
   trackers: DisasterTracker[];
+  selectedTrack?: string;
   onScrollToCard?: (cardId: string) => void;
 }
 
-function OngoingDisasterBanner({ trackers, onScrollToCard }: OngoingDisasterBannerProps) {
+function OngoingDisasterBanner({ trackers, selectedTrack = 'all', onScrollToCard }: OngoingDisasterBannerProps) {
+  const [isManuallyExpanded, setIsManuallyExpanded] = React.useState(false);
+
+  // 专区切换时重置手动展开状态
+  React.useEffect(() => {
+    setIsManuallyExpanded(false);
+  }, [selectedTrack]);
+
   if (!trackers || trackers.length === 0) return null;
 
   const tracker = trackers[0];
   const progress = tracker.currentProgressPercent || 75;
+
+  // 在「全部核心专区」或「国内要闻与社会治理」时常驻完整展开态；在美股、算力、大宗、战局等细分专区时默认收缩为精简胶囊
+  const isNativeTrack = selectedTrack === 'all' || selectedTrack === 'china_domestic';
+  const showFullBanner = isNativeTrack || isManuallyExpanded;
 
   const handleJump = () => {
     if (onScrollToCard) {
@@ -29,6 +41,43 @@ function OngoingDisasterBanner({ trackers, onScrollToCard }: OngoingDisasterBann
       }, 2500);
     }
   };
+
+  // 细分专区精简胶囊状态：保障细分专区阅读纯粹性
+  if (!showFullBanner) {
+    return (
+      <section className="mb-5 rounded-xl border border-rose-500/40 bg-gradient-to-r from-rose-950/80 via-slate-900/90 to-slate-950/80 text-white shadow-xs px-3.5 py-2 transition-all flex items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse flex-shrink-0" />
+          <span className="font-bold text-rose-400 flex-shrink-0 flex items-center gap-1">
+            <ShieldAlert className="w-3.5 h-3.5" />
+            <span>特大灾害</span>
+          </span>
+          <span className="text-slate-300 font-medium truncate max-w-[220px] sm:max-w-md">
+            {tracker.disasterName} · <span className="text-amber-300 font-mono font-semibold">{tracker.stageLabel} ({progress}%)</span>
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsManuallyExpanded(true)}
+            className="text-[11px] font-bold text-rose-300 hover:text-rose-100 underline cursor-pointer"
+          >
+            展开横幅
+          </button>
+          <button
+            type="button"
+            onClick={handleJump}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-600 active:scale-95 text-white text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
+            title="平滑滚动至正文详实全生命周期档案"
+          >
+            <span>正文档案</span>
+            <ArrowDown className="w-3 h-3" />
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="mb-6 rounded-xl border border-rose-500/60 bg-gradient-to-r from-rose-950 via-slate-900 to-slate-950 text-white shadow-md overflow-hidden transition-all">
@@ -89,6 +138,16 @@ function OngoingDisasterBanner({ trackers, onScrollToCard }: OngoingDisasterBann
             <span>正文详实档案</span>
             <ArrowDown className="w-3.5 h-3.5 animate-bounce" />
           </button>
+
+          {!isNativeTrack && isManuallyExpanded && (
+            <button
+              type="button"
+              onClick={() => setIsManuallyExpanded(false)}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer border border-slate-700 flex-shrink-0"
+            >
+              <span>收起</span>
+            </button>
+          )}
         </div>
       </div>
     </section>

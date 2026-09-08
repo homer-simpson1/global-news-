@@ -24,6 +24,7 @@ export default function ShareImageModal({
   const [imageUrl, setImageUrl] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
   const [generating, setGenerating] = useState<boolean>(false);
+  const [exportMode, setExportMode] = useState<'brief' | 'full'>('brief');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -31,10 +32,10 @@ export default function ShareImageModal({
     // 延迟渲染以确保 DOM 挂载
     const timer = setTimeout(() => {
       renderCanvas();
-    }, 100);
+    }, 80);
 
     return () => clearTimeout(timer);
-  }, [isOpen, flashBriefs, newsItems, quotes]);
+  }, [isOpen, exportMode, flashBriefs, newsItems, quotes]);
 
   const renderCanvas = () => {
     const canvas = canvasRef.current;
@@ -44,7 +45,9 @@ export default function ShareImageModal({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // 选择要展示的 5 条精要资讯
+    // 根据模式选取资讯条目：
+    // 模式一 (brief)：「今日决策速递精要」（仅大盘行情 + 5~6条决策速递，适合社群高画质极速分享）
+    // 模式二 (full)：「全景深度情报底稿」（全站全量深度卡片导出）
     const selectedNews: {
       tag: string;
       track: TrackId;
@@ -56,8 +59,9 @@ export default function ShareImageModal({
       source: string;
     }[] = [];
 
-    if (flashBriefs && flashBriefs.length > 0) {
-      flashBriefs.slice(0, 5).forEach((b) => {
+    if (exportMode === 'brief') {
+      const sourceList = (flashBriefs && flashBriefs.length > 0) ? flashBriefs : [];
+      sourceList.slice(0, 6).forEach((b) => {
         selectedNews.push({
           tag: b.tag,
           track: b.track,
@@ -69,8 +73,9 @@ export default function ShareImageModal({
           source: b.source,
         });
       });
-    } else if (newsItems && newsItems.length > 0) {
-      newsItems.slice(0, 5).forEach((n) => {
+    } else {
+      const sourceList = (newsItems && newsItems.length > 0) ? newsItems : [];
+      sourceList.forEach((n) => {
         selectedNews.push({
           tag: n.track,
           track: n.track,
@@ -87,7 +92,8 @@ export default function ShareImageModal({
     // 绘图尺寸设定 (Retina 2x 超高清渲染)
     const width = 800;
     // 预估高度
-    const estimatedHeight = 360 + selectedNews.length * 280 + 160;
+    const cardHeight = exportMode === 'brief' ? 280 : 255;
+    const estimatedHeight = 360 + selectedNews.length * cardHeight + 160;
     canvas.width = width * 2;
     canvas.height = estimatedHeight * 2;
     ctx.scale(2, 2);
@@ -135,12 +141,24 @@ export default function ShareImageModal({
     // 主标题
     ctx.font = '900 28px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#ffffff';
-    ctx.fillText('全球宏观与核心决策 · 晨晚精萃', 40, curY);
+    ctx.fillText(
+      exportMode === 'brief'
+        ? '全球宏观与核心决策 · 晨晚速递'
+        : '全球决策情报终端 · 全景深度底稿',
+      40,
+      curY
+    );
 
     curY += 28;
     ctx.font = '13px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#64748b';
-    ctx.fillText('高信噪比决策内参 · 剔除水分电讯 · 聚焦底层逻辑与多空分歧', 40, curY);
+    ctx.fillText(
+      exportMode === 'brief'
+        ? '今日决策速递精萃 · 剔除杂音干扰 · 穿透利益链传导与多空博弈'
+        : '全站全专区深度底稿 · 涵盖美股算力/大宗航运/地缘战局/治理追踪',
+      40,
+      curY
+    );
 
     curY += 25;
 
@@ -477,6 +495,43 @@ export default function ShareImageModal({
               <X className="w-5 h-5" />
             </button>
           </div>
+        </div>
+
+        {/* 双模式选择切换条（精要速递长图 vs 全景深度底稿） */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-2.5 bg-slate-900/90 border-b border-slate-800 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-slate-400 flex-shrink-0">导出版式:</span>
+            <div className="inline-flex p-1 rounded-xl bg-slate-950 border border-slate-800 gap-1">
+              <button
+                type="button"
+                onClick={() => setExportMode('brief')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  exportMode === 'brief'
+                    ? 'bg-blue-600 text-white shadow-xs ring-1 ring-blue-400'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                ⚡ 今日决策速递精要（推荐 · 微信/社群分享）
+              </button>
+              <button
+                type="button"
+                onClick={() => setExportMode('full')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  exportMode === 'full'
+                    ? 'bg-blue-600 text-white shadow-xs ring-1 ring-blue-400'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                📑 全景深度情报底稿（全站全量卡片）
+              </button>
+            </div>
+          </div>
+
+          <span className="text-[11px] text-slate-400 font-medium hidden md:inline">
+            {exportMode === 'brief'
+              ? '包含大盘行情 + 6 条今日速递 · 图幅精致轻便 · 杜绝渲染超限'
+              : `包含全站 ${newsItems?.length || 31} 篇全部专区深度卡片 · 详实存档`}
+          </span>
         </div>
 
         {/* 隐藏离屏 Canvas */}

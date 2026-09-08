@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import MarketTicker from '@/components/MarketTicker';
 import Header from '@/components/Header';
 import FlashBriefing from '@/components/FlashBriefing';
@@ -9,7 +9,7 @@ import RegionalTrack from '@/components/RegionalTrack';
 import { FlashBrief, MarketQuote, NewsItem, TrackId, TimeWindow, QuotesVerificationSummary, DisasterTracker } from '@/lib/types';
 import { SEED_FLASH_BRIEFS, SEED_MARKET_QUOTES, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
 import { SEED_NEWS_ITEMS } from '@/data/seedNews';
-import { Search, SlidersHorizontal, Calendar, Clock, Sparkles } from 'lucide-react';
+import { Search, SlidersHorizontal, Calendar, Clock, Sparkles, X } from 'lucide-react';
 import BackToTopButton from '@/components/BackToTopButton';
 
 const REFRESH_INTERVAL_SECONDS = 30 * 60; // 30分钟 = 1800秒
@@ -27,7 +27,7 @@ const HOT_TAGS = [
 
 type TimeFilterType = 'ALL' | 'TODAY' | 'PAST_24H' | 'HISTORIC';
 
-export default function Home() {
+function TerminalApp() {
   const [quotes, setQuotes] = useState<MarketQuote[]>(SEED_MARKET_QUOTES);
   const [flashBriefs, setFlashBriefs] = useState<FlashBrief[]>(SEED_FLASH_BRIEFS);
   const [news, setNews] = useState<NewsItem[]>(SEED_NEWS_ITEMS);
@@ -143,25 +143,19 @@ export default function Home() {
     } catch (e) {}
   }, []);
 
-  // 2. 30分钟静默拉取与初始化（首屏延迟 60ms 释放浏览器主线程，优先保障首屏 FCP/LCP 秒开）
+  // 统一的可见性与刷新时间戳记录，防止后台切换与休眠时的重复或失效调用
+  const lastNewsFetchTimeRef = useRef<number>(Date.now());
+  const lastTickerFetchTimeRef = useRef<number>(Date.now());
+
+  // 2. 资讯更新与高频行情轮询：集成页面可见性休眠与即时唤醒机制 (Page Visibility Throttling)
+  // 当用户切到其他标签页或锁屏时 (document.hidden) 主动休眠定时器，避免后台耗电与发热；切回前台时即时唤醒并精准对齐
   useEffect(() => {
-    const timer = setTimeout(() => {
-      loadData();
-    }, 60);
+    let newsTimer: NodeJS.Timeout | null = null;
+    let newsInterval: NodeJS.Timeout | null = null;
+    let tickerInterval: NodeJS.Timeout | null = null;
 
-    const interval = setInterval(() => {
-      loadData();
-    }, REFRESH_INTERVAL_SECONDS * 1000);
-
-    return () => {
-      clearTimeout(timer);
-      clearInterval(interval);
-    };
-  }, []);
-
-  // 实时全球行情高频静默刷新（每 30 秒自动拉取）
-  useEffect(() => {
-    const updateTicker = async () => {
+    const updateTickerSilently = async () => {
+      lastTickerFetchTimeRef.current = Date.now();
       try {
         const res = await fetch('/api/ticker');
         if (res.ok) {
@@ -178,8 +172,65 @@ export default function Home() {
       }
     };
 
-    const tickerInterval = setInterval(updateTicker, 30 * 1000);
-    return () => clearInterval(tickerInterval);
+    const runNewsUpdate = (isManual = false) => {
+      lastNewsFetchTimeRef.current = Date.now();
+      loadData(isManual);
+    };
+
+    const startIntervals = () => {
+      if (!newsInterval) {
+        newsInterval = setInterval(() => {
+          runNewsUpdate();
+        }, REFRESH_INTERVAL_SECONDS * 1000);
+      }
+      if (!tickerInterval) {
+        tickerInterval = setInterval(() => {
+          updateTickerSilently();
+        }, 30 * 1000);
+      }
+    };
+
+    const stopIntervals = () => {
+      if (newsInterval) {
+        clearInterval(newsInterval);
+        newsInterval = null;
+      }
+      if (tickerInterval) {
+        clearInterval(tickerInterval);
+        tickerInterval = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopIntervals();
+      } else {
+        const now = Date.now();
+        // 若切回前台时距离上次行情已超过 30 秒，立即触发一次静默拉取
+        if (now - lastTickerFetchTimeRef.current >= 30 * 1000) {
+          updateTickerSilently();
+        }
+        // 若切回前台时距离上次资讯已超过 30 分钟，立即触发全量更新
+        if (now - lastNewsFetchTimeRef.current >= REFRESH_INTERVAL_SECONDS * 1000) {
+          runNewsUpdate();
+        }
+        startIntervals();
+      }
+    };
+
+    // 首屏挂载后延迟 60ms 释放浏览器主线程，优先保障首屏秒开渲染
+    newsTimer = setTimeout(() => {
+      runNewsUpdate();
+      startIntervals();
+    }, 60);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      if (newsTimer) clearTimeout(newsTimer);
+      stopIntervals();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // 筛选与搜索过滤（useMemo 确保只有搜索、专区或数据发生改变时才执行过滤）
@@ -363,13 +414,14 @@ export default function Home() {
 
       {/* 主体大版面 */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* 全球特大突发灾害 · 全生命周期持续追踪看板（常驻置顶，直到正式恢复通关结案） */}
+        {/* 全球特大突发灾害 · 全生命周期持续追踪看板（智能情境感知折叠：全部/国内常驻，细分专区精简胶囊） */}
         <OngoingDisasterBanner
           trackers={
             news.some((n) => n.disasterTracker && n.disasterTracker.status === 'ONGOING')
               ? news.filter((n) => n.disasterTracker && n.disasterTracker.status === 'ONGOING').map((n) => n.disasterTracker!)
               : [GYIRONG_PORT_DISASTER_TRACKER]
           }
+          selectedTrack={selectedTrack}
           onScrollToCard={handleScrollToDisasterCard}
         />
 
@@ -460,7 +512,7 @@ export default function Home() {
               </button>
             </div>
 
-            {/* 搜索框 */}
+            {/* 搜索框（常驻清空按钮 ✕ 实现交互闭环） */}
             <div className="relative w-full lg:w-72 h-9">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -468,12 +520,22 @@ export default function Home() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索实体词 / 股票 / 战局..."
-                className="h-9 w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-slate-800 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 transition-all shadow-xs"
+                className="h-9 w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-9 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-slate-800 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 transition-all shadow-xs"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                  title="清空搜索与实体标签"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </div>
           </div>
 
-          {/* 第三层：热点实体快速检索胶囊 Tag（避免空搜挫败） */}
+          {/* 第三层：热点实体快速检索胶囊 Tag（点击切换 Active Pill 高亮态） */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-3 flex items-center gap-2 flex-wrap">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 flex-shrink-0">
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -481,7 +543,7 @@ export default function Home() {
             </span>
             <div className="flex items-center gap-1.5 flex-wrap">
               {HOT_TAGS.map((tag) => {
-                const isActive = searchQuery === tag.keyword;
+                const isActive = searchQuery === tag.keyword || searchQuery.trim() === tag.label.replace(/^#/, '');
                 return (
                   <button
                     key={tag.keyword}
@@ -498,7 +560,7 @@ export default function Home() {
                     }}
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border select-none ${
                       isActive
-                        ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 border-slate-900 dark:border-white shadow-xs scale-105'
+                        ? 'bg-blue-600 dark:bg-blue-500 text-white border-blue-600 dark:border-blue-500 shadow-sm ring-2 ring-blue-400/40 scale-105 font-bold'
                         : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                     }`}
                   >
@@ -510,9 +572,10 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="px-2 py-0.5 rounded text-xs text-rose-500 hover:text-rose-600 font-bold ml-1 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold ml-1 transition-colors cursor-pointer border border-rose-200 dark:border-rose-900"
                 >
-                  清空筛选 ×
+                  <X className="w-3 h-3" />
+                  <span>重置筛选</span>
                 </button>
               )}
             </div>
@@ -554,5 +617,21 @@ export default function Home() {
       {/* 一键回到页面顶端浮动按钮 */}
       <BackToTopButton />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 flex items-center justify-center">
+          <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-sm font-medium animate-pulse">
+            <span>全球决策情报终端正在加载...</span>
+          </div>
+        </div>
+      }
+    >
+      <TerminalApp />
+    </Suspense>
   );
 }

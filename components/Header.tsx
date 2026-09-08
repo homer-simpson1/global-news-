@@ -54,7 +54,7 @@ interface VerifyData {
   unpassedItems: UnpassedVerifyItem[];
 }
 
-// 独立自驱动倒计时胶囊：物理隔离 1 秒重渲染作用域，彻底根除父级组件与全部卡片的高频无效 Diff
+// 独立自驱动倒计时胶囊：物理隔离 1 秒重渲染作用域，且支持页面可见性休眠 (Page Visibility Throttling)
 function CountdownBadge({
   onRefresh,
   isRefreshing,
@@ -65,24 +65,57 @@ function CountdownBadge({
   initialSeconds?: number;
 }) {
   const [secs, setSecs] = useState(initialSeconds);
+  const targetTimeRef = useRef<number>(Date.now() + initialSeconds * 1000);
 
   useEffect(() => {
     if (isRefreshing) {
+      targetTimeRef.current = Date.now() + 1800 * 1000;
       setSecs(1800);
     }
   }, [isRefreshing]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setSecs((prev) => {
-        if (prev <= 1) {
-          onRefresh();
-          return 1800;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
+    let timer: NodeJS.Timeout | null = null;
+
+    const checkCountdown = () => {
+      const remaining = Math.max(0, Math.round((targetTimeRef.current - Date.now()) / 1000));
+      setSecs(remaining);
+      if (remaining <= 0) {
+        targetTimeRef.current = Date.now() + 1800 * 1000;
+        onRefresh();
+      }
+    };
+
+    const startTimer = () => {
+      if (!timer) {
+        checkCountdown();
+        timer = setInterval(checkCountdown, 1000);
+      }
+    };
+
+    const stopTimer = () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopTimer();
+      } else {
+        checkCountdown();
+        startTimer();
+      }
+    };
+
+    startTimer();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stopTimer();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [onRefresh]);
 
   const m = Math.floor(secs / 60);

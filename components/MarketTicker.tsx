@@ -22,6 +22,60 @@ interface MarketTickerProps {
   isRefreshingQuotes?: boolean;
 }
 
+function getGlobalMarketTradingStatus(): {
+  isTrading: boolean;
+  statusText: string;
+  detail: string;
+} {
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const beijingDate = new Date(utc + 3600000 * 8);
+  const day = beijingDate.getDay(); // 0 = 周日, 6 = 周六
+  const hours = beijingDate.getHours();
+  const mins = beijingDate.getMinutes();
+  const timeNum = hours * 60 + mins;
+
+  // 1. 周末判断
+  if (day === 0 || day === 6) {
+    return {
+      isTrading: false,
+      statusText: '周末休市',
+      detail: '全球主流交易所闭市 · 数据为最近收盘价',
+    };
+  }
+
+  // 2. 工作日时段判断
+  if (timeNum >= 21 * 60 + 30 || timeNum < 4 * 60) {
+    return {
+      isTrading: true,
+      statusText: '实时交易',
+      detail: '美股盘中与外盘大宗活跃交易中',
+    };
+  }
+
+  if (timeNum >= 9 * 60 + 30 && timeNum < 16 * 60) {
+    return {
+      isTrading: true,
+      statusText: '实时交易',
+      detail: '亚太/港股与外汇交易时段',
+    };
+  }
+
+  if (timeNum >= 16 * 60 && timeNum < 21 * 60 + 30) {
+    return {
+      isTrading: true,
+      statusText: '盘前交易',
+      detail: '美股盘前与欧盘大宗活跃撮合中',
+    };
+  }
+
+  return {
+    isTrading: false,
+    statusText: '盘后/休市',
+    detail: '主要股市处于休市阶段 · 数据为最近收盘价',
+  };
+}
+
 function MarketTicker({
   quotes,
   verificationSummary,
@@ -30,6 +84,8 @@ function MarketTicker({
 }: MarketTickerProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+
+  const marketStatus = React.useMemo(() => getGlobalMarketTradingStatus(), []);
 
   const displayQuotes = [...quotes, ...quotes];
   const passedCount = verificationSummary?.passedCount ?? quotes.length;
@@ -41,12 +97,34 @@ function MarketTicker({
     <>
       <div className="w-full bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 py-1.5 overflow-hidden select-none transition-colors duration-200">
         <div className="flex items-center">
-          {/* 左侧固定控制锚区：品牌标识与多源联网交叉验真徽章 */}
+          {/* 左侧固定控制锚区：品牌标识、多源联网交叉验真徽章与交易时段状态 */}
           <div className="flex-shrink-0 z-10 bg-slate-100 dark:bg-slate-900 px-3 sm:px-4 py-0.5 border-r border-slate-300 dark:border-slate-700 flex items-center gap-2 shadow-sm">
             <div className="flex items-center gap-1.5 text-xs font-black tracking-wider text-slate-900 dark:text-slate-100">
               <span className="inline-block w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse" />
               <span className="hidden sm:inline">实时全球行情</span>
               <span className="sm:hidden">行情</span>
+            </div>
+
+            {/* 交易状态胶囊（盘中实时交易 vs 盘后/休市提示，杜绝用户误认卡死） */}
+            <div
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors select-none ${
+                marketStatus.isTrading
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800'
+                  : 'bg-slate-200/70 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+              }`}
+              title={`${marketStatus.detail}（点击可查看多源交叉比对）`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  marketStatus.isTrading ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                }`}
+              />
+              <span>{marketStatus.statusText}</span>
+              {!marketStatus.isTrading && (
+                <span className="hidden lg:inline text-[9px] text-slate-400 font-normal">
+                  (最近收盘价)
+                </span>
+              )}
             </div>
 
             {/* 联网多源交叉验真交互胶囊 (0 Token，支持点击展开全量比对中心) */}
