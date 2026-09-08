@@ -1,5 +1,5 @@
-﻿// 全球决策情报终端 - 生产级 Service Worker (PWA)
-const CACHE_VERSION = 'git-pwa-v1.3';
+// 全球决策情报终端 - 生产级 Service Worker (PWA)
+const CACHE_VERSION = 'git-pwa-v1.4';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 
@@ -46,32 +46,34 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 策略 A: API 动态数据 (/api/news, /api/ticker 等) -> Network-First 优先保鲜，离线保底回退
+  // 策略 A: API 动态数据 (/api/news, /api/ticker 等) -> Stale-While-Revalidate 毫秒级秒开 + 后台静默保鲜
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
-      fetch(req)
-        .then((networkRes) => {
-          if (networkRes && networkRes.status === 200) {
-            const resClone = networkRes.clone();
-            caches.open(DYNAMIC_CACHE).then((cache) => {
-              cache.put(req, resClone);
+      caches.open(DYNAMIC_CACHE).then((cache) => {
+        return cache.match(req).then((cachedRes) => {
+          const fetchPromise = fetch(req)
+            .then((networkRes) => {
+              if (networkRes && networkRes.status === 200) {
+                cache.put(req, networkRes.clone());
+              }
+              return networkRes;
+            })
+            .catch(() => {
+              if (cachedRes) return cachedRes;
+              return new Response(
+                JSON.stringify({
+                  success: false,
+                  offline: true,
+                  message: '当前处于离线模式，正在展示本地离线情报。',
+                }),
+                { headers: { 'Content-Type': 'application/json; charset=utf-8' } }
+              );
             });
-          }
-          return networkRes;
-        })
-        .catch(() => {
-          return caches.match(req).then((cachedRes) => {
-            if (cachedRes) return cachedRes;
-            return new Response(
-              JSON.stringify({
-                success: false,
-                offline: true,
-                message: '当前处于离线模式，正在展示本地离线情报。'
-              }),
-              { headers: { 'Content-Type': 'application/json; charset=utf-8' } }
-            );
-          });
-        })
+
+          // 核心优化：若本地已有缓存，0ms 立即瞬时返回展示；网络静默更新缓存
+          return cachedRes || fetchPromise;
+        });
+      })
     );
     return;
   }

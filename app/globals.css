@@ -20,6 +20,11 @@
   --border-color: #262f40;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
 body {
   color: var(--text-primary);
   background-color: var(--bg-primary);
@@ -27,9 +32,35 @@ body {
   overflow-x: hidden;
   font-size: 16px;
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  text-rendering: optimizeLegibility;
 }
 
-/* 跑马灯平滑滚动动画 */
+/* 消除移动端点击 300ms 延迟与灰色闪烁框，提升跟手感 */
+button,
+a,
+input,
+select,
+[role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 移动端长列表虚拟渲染优化：脱离视口的卡片跳过渲染计算，维持恒定 60fps/120fps 高刷 */
+.content-visibility-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 180px;
+}
+
+/* 独立卡片布局隔离，内部折叠展开不触发整页重排 */
+.card-layout-isolate {
+  contain: layout style;
+}
+
+/* 跑马灯平滑滚动硬件加速动画 */
 @keyframes ticker {
   0% {
     transform: translate3d(0, 0, 0);
@@ -43,16 +74,25 @@ body {
   display: inline-flex;
   white-space: nowrap;
   animation: ticker 45s linear infinite;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .animate-ticker:hover {
   animation-play-state: paused;
 }
 
-/* 优雅滚动条 */
+/* GPU 硬件加速图层 */
+.gpu-layer {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* 优雅极细滚动条 */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {

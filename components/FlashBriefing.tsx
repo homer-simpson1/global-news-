@@ -82,7 +82,7 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
           return (
             <div
               key={brief.id}
-              className={`rounded-2xl transition-all duration-200 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} dark:bg-slate-900 dark:border-slate-800 border ${theme.cardBorder} ${
+              className={`content-visibility-auto card-layout-isolate rounded-2xl transition-[border-color,box-shadow] duration-150 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} dark:bg-slate-900 dark:border-slate-800 border ${theme.cardBorder} ${
                 isExpanded
                   ? `${theme.cardActiveBorder} shadow-xl ring-4 ${theme.cardActiveRing}`
                   : 'hover:shadow-md shadow-sm'

@@ -237,7 +237,7 @@ export default function Header({
 
   return (
     <>
-      <header className="w-full bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 px-4 lg:px-8 py-3.5 shadow-sm transition-colors duration-200">
+      <header className="w-full gpu-layer bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 px-4 lg:px-8 py-3.5 shadow-sm transition-colors duration-200">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           {/* 左侧：品牌与定位 */}
           <div className="flex items-center gap-3.5">

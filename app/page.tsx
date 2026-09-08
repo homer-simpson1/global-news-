@@ -60,9 +60,15 @@ export default function Home() {
       if (newsRes?.success && newsRes.data) {
         if (newsRes.data.news && newsRes.data.news.length > 0) {
           setNews(newsRes.data.news);
+          try {
+            localStorage.setItem('git_cached_news', JSON.stringify(newsRes.data.news));
+          } catch (e) {}
         }
         if (newsRes.data.flashBriefs && newsRes.data.flashBriefs.length > 0) {
           setFlashBriefs(newsRes.data.flashBriefs);
+          try {
+            localStorage.setItem('git_cached_briefs', JSON.stringify(newsRes.data.flashBriefs));
+          } catch (e) {}
         }
         setLastUpdated(
           new Date().toLocaleTimeString('zh-CN', {
@@ -74,6 +80,9 @@ export default function Home() {
 
       if (tickerRes?.success && tickerRes.data?.quotes) {
         setQuotes(tickerRes.data.quotes);
+        try {
+          localStorage.setItem('git_cached_quotes', JSON.stringify(tickerRes.data.quotes));
+        } catch (e) {}
         if (tickerRes.data.verificationSummary) {
           setQuotesVerification(tickerRes.data.verificationSummary);
         }
@@ -93,7 +102,28 @@ export default function Home() {
     }
   };
 
-  // 30分钟静默拉取与初始化
+  // 1. 0ms 瞬间秒开：挂载时优先提取最近一次本地缓存数据，彻底终结网络请求带来的等待感与界面跳变
+  useEffect(() => {
+    try {
+      const cachedNews = localStorage.getItem('git_cached_news');
+      const cachedBriefs = localStorage.getItem('git_cached_briefs');
+      const cachedQuotes = localStorage.getItem('git_cached_quotes');
+      if (cachedNews) {
+        const parsed = JSON.parse(cachedNews);
+        if (Array.isArray(parsed) && parsed.length > 0) setNews(parsed);
+      }
+      if (cachedBriefs) {
+        const parsed = JSON.parse(cachedBriefs);
+        if (Array.isArray(parsed) && parsed.length > 0) setFlashBriefs(parsed);
+      }
+      if (cachedQuotes) {
+        const parsed = JSON.parse(cachedQuotes);
+        if (Array.isArray(parsed) && parsed.length > 0) setQuotes(parsed);
+      }
+    } catch (e) {}
+  }, []);
+
+  // 2. 30分钟静默拉取与初始化
   useEffect(() => {
     loadData();
 

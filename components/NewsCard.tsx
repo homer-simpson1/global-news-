@@ -41,7 +41,7 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
   return (
     <div
       id={`news-card-${item.id}`}
-      className={`rounded-2xl transition-all duration-200 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} dark:bg-slate-900 dark:border-slate-800 border ${theme.cardBorder} ${
+      className={`content-visibility-auto card-layout-isolate rounded-2xl transition-[border-color,box-shadow] duration-150 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} dark:bg-slate-900 dark:border-slate-800 border ${theme.cardBorder} ${
         isLead ? 'shadow-md ring-1 ring-black/5 dark:ring-white/10' : 'hover:shadow-md shadow-sm'
       } ${
         expanded
