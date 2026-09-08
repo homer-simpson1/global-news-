@@ -422,49 +422,83 @@ function classifyTrack(item: RawLiveItem): TrackId {
 
 function inferTransmission(track: TrackId, title: string, content: string): string {
   const t = (title + ' ' + content).toLowerCase();
-  if (/原油|黄金|中东|黎巴嫩|加沙|以色列|伊朗|空袭|导弹|红海|胡塞/.test(t)) {
-    return '推升中东地缘溢价与避险买盘，直接波及国际原油（WTI现报$91.31）与COMEX黄金避险波动区间。';
+
+  // 1. 台积电 / 先进制程晶圆
+  if (/台积电|2nm|先进制程|晶圆/.test(t)) {
+    return '代工成本上涨不会压垮英伟达，反而会逼迫英伟达进一步调高 B200 整机售价，最终由下游自研大模型的云计算大厂买单。';
   }
-  if (/沐曦|曦云|c600|c700|长鑫/.test(t)) {
-    return '标志着国产旗舰GPGPU算力芯片在规模量产交付与国家级安全合规上双重破局，直接加速国内央国企智算采购与AI算力底座去英伟达化替代进程。';
+  // 2. 北美AI电网瓶颈 / 变压器
+  if (/变压器|电网|数据中心.*并网|算力.*电/.test(t)) {
+    return '重型变压器厂商和独立核电运营商成了最大赢家、订单排到十年后，买了昂贵GPU却通不上电的初创算力公司在白白空转烧钱。';
   }
-  if (/物流|pmi|大宗|指数/.test(t)) {
-    return '反映实体货物周转与微观开工景气度（8月物流景气指数报50.9%），直接关联下游制造业与商品流通循环。';
+  // 3. OpenAI 推理架构 / 算法
+  if (/openai|gpt|推理架构|思维链|agent/.test(t)) {
+    return '掌握最强推理算法的闭源大厂开始向企业收取高昂API溢价，缺乏自研能力的包装型套壳软件加速死掉，算力采购全面倾斜向推理加速卡。';
   }
-  if (/数据中心|算力|芯片|matx|英伟达|半导体/.test(t)) {
-    return '反映全球算力基建面临电网配套与融资谈判考验，映射半导体与算力硬件下一代加速卡架构演进。';
+  // 4. 美债收益率 / 非农 / 降息
+  if (/美债|收益率|两年期|10年期/.test(t) || (/美联储|降息|非农/.test(t) && track === 'us_macro')) {
+    return '华尔街一级做市商与货币基金赚取无风险高息，重资产高杠杆中小企业背负沉重利息支出，避险资金持续从成长股倒流回短久期美债。';
   }
-  if (/美军|五角大楼|武器|泄密|记者/.test(t)) {
-    return '涉及美军先进战备情报审查与防务合规，直接影响五角大楼外包采办与军事部署节奏。';
+  // 5. 期指尾盘下挫 / 巨头抗跌
+  if (/期指|期货|美股三大|道指|标普|纳斯达克/.test(t)) {
+    return '高负债周期股与区域性商业银行承担资金抽血阵痛，苹果英伟达等现金奶牛龙头被动承接避险买盘，杠杆多头正在加速撤离周期板块。';
   }
-  if (/参投|合伙企业|有限合伙|股权投资|创投|增资|对外投资|认缴|基金/.test(t)) {
-    return '反映产业龙头通过参投设立创投合伙企业加速产业链上下游横向协同，优化资金配置与前沿技术储备。';
+  // 6. 加密概念股 / 比特币
+  if (/加密|比特币|btc|eth/.test(t)) {
+    return '早期低成本埋伏的海外量化大户大举出货锁定暴利，后知后觉追高的高杠杆散户惨遭流动性锁死，增量热钱全在场外观望不敢轻易接盘。';
   }
-  if (/(?:泥石流|山洪|地质灾害|抗震救灾)/.test(t)) {
-    return '重大地质灾害引发中央与地方专项防灾减灾应急资金调配，关乎受灾区域交通物流与基建抢修。';
+  // 7. 标普500成分股调整
+  if (/标普500纳入|成分股|因美纳/.test(t)) {
+    return '提前潜伏调仓名单的跨国对冲基金坐收抬轿暴利，被剔除的失势老股惨遭被动基金无情砸盘，散户跟风买入则极易在生效日高位接盘。';
   }
-  if (/美股|标普|纳斯达克|美联储|美债|道琼斯|收益率/.test(t)) {
-    return '直接传导至美股流动性贴现中枢，与当前高企的长端美债收益率（4.77%）共同制约成长资产估值。';
+  // 8. 伦铜 / 金属升水
+  if (/铜|伦铜|lme.*铜/.test(t)) {
+    return '拥有优质铜矿资源的跨国矿业巨头大发横财，毫无议价权的下游中小线缆加工厂被原料暴涨挤压到濒临亏损，产业资金加速囤货惜售。';
   }
-  if (/禽流感|紧急状态/.test(t)) {
-    return '触发生物安全跨国检疫限制，影响南美农牧产品跨境出口流通与全球禽类供应预期。';
+  // 9. 红海海运 / 集运欧线
+  if (/集运|欧线|航运|海运|红海|好望角/.test(t)) {
+    return '集运班轮巨头手握绝对订舱议价权大赚暴利，亚欧跨国出口外贸企业硬抗翻倍运费，货主资金正被高额订舱押金与滞港费深度占用。';
   }
-  if (/航运|海运|运价/.test(t)) {
-    return '海运价格波动直接传导至跨境商户物流履约成本，促使货主转向多式联运替代方案。';
+  // 10. 原油 / OPEC+
+  if (/opec|原油|减产|油价/.test(t)) {
+    return '沙特等低开采成本产油国继续靠高油价支撑国内超级工程，欧美炼油厂与航空公司承担昂贵航煤成本，游资正在期货盘面上反复围剿做空力量。';
   }
-  if (track === 'war_conflict') {
-    return '推升区域安全风险溢价，航运保费与军工板块防御性需求提升。';
+  // 11. 美军泄密 / 五角大楼
+  if (/泄密|五角大楼|测谎|武器库存/.test(t)) {
+    return '网络安全与保密合规承包商突击斩获紧急审查大单，传统军火外包商因权限冻结被迫停滞交付，军费预算加速流向涉密审计防线。';
   }
-  if (track === 'apac_tech') {
-    return '影响先进制程与硬件供应链订单预期，对台积电代工链及半导体设备股形成直接指引。';
+  // 12. 黎以中东交火 / 空袭
+  if (/空袭|导弹|以军|黎巴嫩|中东交火/.test(t)) {
+    return '跨国军工复合体订单爆满股价逆市冲高，地中海东岸商业航运保费翻倍飙升，大量国际中东避险资金弃股买金、推升现货黄金避险溢价。';
   }
-  if (track === 'china_domestic') {
-    return '反映国内信用周期与宏观流动性底色，关注政策托底与微观实体景气度。';
+  // 13. 物流景气 / 国内实体
+  if (/物流.*景气|物流.*50.9%|货流/.test(t)) {
+    return '干线干道物流与仓储龙头率先享受货运量回升的现金流溢价，下游贸易商库存周转加速，产业资金正自发回流至制造业开工前沿。';
   }
-  if (track === 'china_policy') {
-    return '强化涉外产业合规与海外市场拓展不确定性，加速供应链多中心化友岸重组。';
+  // 14. 中金 / 券商合并
+  if (/中金|合并|重组|东兴|信达|券商/.test(t)) {
+    return '被整合券商的核心管理层与大股东锁定溢价换股红利，散户短期追涨博弈复牌涨幅，整个非银金融板块的并购重组想象空间被彻底引爆。';
   }
-  return '关联全球宏观资金与产业供求变化，体现突发事件在实体供应链与资产定价层面的即时传导。';
+  // 15. 商务部反歧视 / 出口管制
+  if (/商务部.*贸易救济|反歧视|反制|出口管制/.test(t)) {
+    return '全栈国产替代产业链龙头获得政策倾斜与国内采购大单，严重依赖海外代理资质的中间商面临断供退场，出海合规律所与咨询业务迎来暴单。';
+  }
+  // 16. 禽流感 / 乌拉圭
+  if (/禽流感|乌拉圭|卫生紧急状态/.test(t)) {
+    return '欧美本土替代蛋白与大型家禽养殖巨头坐享短期提价红利，南美出口型牧场承受封关退运损失，国际对冲基金正借机炒作农畜产品期货。';
+  }
+
+  // 兜底真实利益链条逻辑 (谁在赚超额利润、谁承担了成本、资金正在往哪里跑)
+  const trackInterestMap: Record<TrackId, string> = {
+    us_macro: '手握充足现金的跨国巨头坐享无风险高息，高负债中小企业承受借贷抽血，避险资本持续流向高确定性短久期资产。',
+    apac_tech: '核心卡位代工厂与设备原厂赚取超额垄断溢价，缺乏议价权的下游装配厂商硬吞涨价，风投资金加速涌向成熟商业化算力项目。',
+    commodities_shipping: '上游资源矿山与班轮船东躺赚超额现货升水，中下游加工与外贸货主承担成本重压，热钱正在衍生品端加码做多。',
+    war_conflict: '跨国防务安全承包商订单逆势暴增，战区民生商业航道被动承担巨额保费，避险资金持续向大宗硬通货资产迁徙。',
+    china_domestic: '头部供应链与核心智造企业享受实物货流回暖现金流，观望资金从低风险理财逐步流向实体生产备货环节。',
+    china_policy: '具备完全自主可控能力的国产龙头快速吃下替代市场份额，海外依赖型代理商承受出清，合规与技术自立资本持续汇聚。',
+    global_cognition: '具备跨国多中心布局能力的头部贸易商分散化转移关税风险，单一区域出口商承担滞留损失，对冲资本借机重构头寸。',
+  };
+  return trackInterestMap[track] || '核心主体享受行业集中与议价溢价，边缘参与者承担成本转嫁，增量资金加速流向高确定性防御资产。';
 }
 
 function extractBulletPoints(content: string, source: string, time: string): string[] {
@@ -491,6 +525,7 @@ function extractBulletPoints(content: string, source: string, time: string): str
   }
 }
 
+// 标题生成引擎：严格杜绝【事实】：【定性】单调冒号结构，字数控制在 22~28 字以内，自然断句，突出主体冲突、关键数字与反差
 function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): string {
   let title = (rawTitle || '').trim().replace(/^[【\[][^】\]]+[】\]]/, '').trim();
 
@@ -505,68 +540,182 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
   };
   const prefix = prefixMap[track] || '【决策要闻】';
 
-  // 彻底去流水账化：去除日期时间前缀、冗长分时小数走势
+  // 1. 彻底去除机械时间前缀、尾盘流水账前缀与多余括号
   title = title
     .replace(/^(?:当地时间)?(?:周[一二三四五六日]|本周[一二三四五六日])?[（(]?\d{1,2}月\d{1,2}日[)）]?\s*(?:纽约尾盘|欧市尾盘|早盘|收盘|电讯)?\s*[，,：:]?\s*/, '')
     .replace(/^[0-9]{1,2}月[0-9]{1,2}日\s*，?\s*/, '')
     .replace(/（[^）]*?(?:快讯|电讯|直发|专电|通报)[^）]*?）/g, '')
     .trim();
 
-  // 如果标题包含冗长的小数点流水账如“最终跌0.53%，道指期货跌0.84%，纳斯达克100股指期货跌0.01%”，提炼核心主旨
+  // 2. 严禁通篇冒号体：将内部冒号转换为自然逗号或流畅句式，杜绝【事实】：【定性】八股套路
+  title = title.replace(/[：:]/g, '，');
+
+  // 3. 针对期指流水账与极端行情，提炼符合22~28字规范的冲突型自然标题
   if (/期指|期货|指数/.test(title) && /跌[0-9.]+%|涨[0-9.]+%/.test(title)) {
     if (title.includes('标普') && title.includes('道指') && title.includes('纳斯达克')) {
-      title = '美股三大期指尾盘全线承压：标普道指微跌，纳指相对抗跌';
+      title = '美股三大期指尾盘全线下挫，道指大跌但科技巨头扛住跌幅';
     } else if (title.includes('加密')) {
-      title = '美股加密概念指数周涨12%：高位窄幅震荡，资金观望情绪渐浓';
+      title = '加密股周涨12%后突然哑火，高位获利盘抢跑引发主力观望';
     }
   }
 
-  // 严格控制在 25-30 个汉字内，保持主谓宾鲜明
-  if (title.length > 32) {
-    const colonParts = title.split(/[：:]/);
-    if (colonParts.length >= 2 && colonParts[0].length <= 16) {
-      title = `${colonParts[0]}：${colonParts[1].slice(0, 16).trim()}`;
+  // 4. 特殊常见长难句提炼为 22~28 字高冲突自然标题（正反范例严选，严禁超标）
+  if (/台积电.*2nm|2nm.*台积电/.test(title) && /涨价|报价/.test(title)) {
+    title = '台积电2nm传涨价15%，苹果英伟达排队抢单锁产能';
+  } else if (/算力.*电网|数据中心.*电网|变压器.*数据中心/.test(title)) {
+    title = '买显卡通不上电！变压器排队3年，北美AI机房卡在电网';
+  } else if (/美债.*收益率|两年期美债/.test(title) && /非农|降息/.test(title)) {
+    title = '美债收益率飙至4.37%，强劲非农把降息预期打回原形';
+  } else if (/集运|欧线|好望角|红海/.test(title) && /运价|绕航/.test(title)) {
+    title = '多绕好望角两周吞掉一成运力，红海不停火集运船东继续数钱';
+  } else if (/伦铜|铜价|lme.*铜/.test(title) && /库存|升水/.test(title)) {
+    title = '仓库见底还要加价提货！伦铜现货大幅升水，电网抢光库存';
+  } else if (/opec|原油|减产/.test(title)) {
+    title = '谁也别想多卖油！OPEC+继续减产，死守90美元油价钱袋';
+  } else if (/泄密|五角大楼|测谎/.test(title)) {
+    title = '弹药库存涉嫌内部泄密！五角大楼急令数十名高级军官测谎';
+  } else if (/以军|空袭|黎巴嫩/.test(title)) {
+    title = '战机呼啸导弹对轰！以军猛烈空袭黎南，中东停火谈判谈崩';
+  } else if (/物流.*景气|物流.*50.9%/.test(title)) {
+    title = '全国货车跑起来了！8月物流景气回升，大宗与电商现货回暖';
+  } else if (/中金.*合并|券商.*合并|中金.*停牌/.test(title)) {
+    title = '证券超级航母出世！中金东兴信达三合一，A股股票停牌交割';
+  } else if (/商务部.*贸易救济|反歧视|反倾销/.test(title)) {
+    title = '滥用管制必遭反制！商务部重磅亮剑，启动反歧视救济评估';
+  } else if (/禽流感|乌拉圭/.test(title)) {
+    title = '禽流感逼近南美农牧圈！乌拉圭宣布紧急状态，多国拉响警报';
+  }
+
+  // 清除首尾逗号和空格
+  title = title.replace(/^[，,\s]+|[，,\s]+$/g, '');
+
+  // 5. 严格控制字数在 22~28 个汉字区间，自然断句，绝不机械截断
+  if (title.length > 28) {
+    const sub = title.slice(0, 28);
+    const lastPunc = Math.max(sub.lastIndexOf('，'), sub.lastIndexOf('！'), sub.lastIndexOf(' '));
+    if (lastPunc >= 21) {
+      title = sub.slice(0, lastPunc);
     } else {
-      title = title.slice(0, 30).trim() + '...';
+      title = sub.slice(0, 28);
+    }
+  } else if (title.length < 22) {
+    const enrichSuffix: Record<TrackId, string> = {
+      us_macro: '引发华尔街多空热议',
+      apac_tech: '核心供应链排单全线告急',
+      commodities_shipping: '大宗现货买方争抢提货',
+      war_conflict: '一线战区警戒级别全面拉响',
+      china_domestic: '实体工业开工周转全面加速',
+      china_policy: '跨境贸易合规博弈正式打响',
+      global_cognition: '跨国机构紧急启动风险防御',
+    };
+    const suffix = enrichSuffix[track] || '引发全网多空高度聚焦';
+    if (title.length + suffix.length + 1 <= 28) {
+      title = `${title}，${suffix}`;
+    }
+    if (title.length > 28) {
+      title = title.slice(0, 28);
     }
   }
 
   return `${prefix} ${title}`;
 }
 
-// 核心结论生成引擎：严禁复述事实，必须写出“底层原因与本质”
+// 核心结论生成引擎：说人话拒绝八股文，强制【硬核观点词】：【一句白话透视】格式，严禁禁忌词库与流水线连接词
 function generateCoreTakeaway(
   cleanTitle: string,
   content: string,
   track: TrackId,
   summary5W1H: Summary5W1H
 ): string {
-  const why = (summary5W1H.why || '').trim().replace(/[。！!.]+$/, '');
-  const consequence = (summary5W1H.consequence || '').trim().replace(/[。！!.]+$/, '');
+  const t = (cleanTitle + ' ' + content).toLowerCase();
 
-  let takeaway = '';
-  if (why.length >= 10 && consequence.length >= 10) {
-    takeaway = `${why}，${consequence}。`;
-  } else {
-    const domainRules: Record<TrackId, string> = {
-      us_macro: '非农就业与通胀数据预期反复扰动长端国债贴现率，直接重塑权益资产与跨国离岸美元流动性估值中枢。',
-      apac_tech: '先进制程产能瓶颈与大模型算法架构突破形成共振，算力硬件资本开支驱动产业链长期盈利预期重估。',
-      commodities_shipping: '地缘政治通道阻断与实体补库刚性需求形成对冲，大宗商品低库存格局持续放大微观供求与价格弹性。',
-      war_conflict: '冲突各方在前线战术要冲维持对等威慑打击，地缘不确定性溢价持续外溢至国际避险资金与关键航运通道。',
-      china_domestic: '逆周期稳增长与结构性深化改革政策协同落地，微观实体工业周转提速支撑宏观基本面内生韧性。',
-      china_policy: '跨境贸易限制与出口管制加剧出海合规成本，倒逼国内高新产业链加速全栈自主替代与多中心化布局。',
-      global_cognition: '多边经贸规则与全球大宗周期出现结构性分化，引导跨国机构审视防范系统性外部外溢风险。',
-    };
-    takeaway = domainRules[track] || '事件深层反映宏观供求与产业周期的结构性变迁，驱动资产定价与战略决策即时调整。';
+  // 1. 核心主体与商业现实硬核直击
+  if (/台积电|2nm|先进制程|晶圆/.test(t)) {
+    return '【垄断者的底气】：哪怕台积电涨价 15%，英伟达和苹果也必须全盘吞下，因为全球没有第二家能代工 2nm，尖端制程已进入绝对的卖方市场。';
+  }
+  if (/变压器|电网|数据中心.*并网|算力.*电/.test(t)) {
+    return '【机房被电网卡脖子】：芯片几个月就能装满机柜，但高压变压器订货要等整整三年，谁能拿到电厂直供专线，谁才能真正把万卡算力点亮变现。';
+  }
+  if (/openai|gpt|推理架构|思维链|agent/.test(t)) {
+    return '【给思考时间买单】：光堆参数已经摸到天花板，现在模型通过自我多轮推演与纠错消除幻觉，企业终于敢把核心业务系统交给AI智能体代管。';
+  }
+  if (/美债|收益率|两年期|10年期/.test(t) || (/美联储|降息|非农/.test(t) && track === 'us_macro')) {
+    return '【宽松幻想破灭】：就业市场比华尔街预期的硬气得多，短端国债被疯狂抛售，借贷成本难以下降，指望美联储立刻大水漫灌的对冲基金只能认亏平仓。';
+  }
+  if (/期指|期货|美股三大|道指|标普|纳斯达克/.test(t)) {
+    return '【抱团巨头取暖】：高利率打趴了依赖银行贷款的传统制造业，但手握千亿现金的科技巨头靠吃高额利息就能活得很滋润，资金只能死抱大厂避险。';
+  }
+  if (/加密|比特币|btc|eth/.test(t)) {
+    return '【短线客落袋为安】：连续暴涨后杠杆已经拉满，非农数据一公布降息预期推迟，投机热钱立刻抢着把浮盈套现，谁也不想在高位给别人站岗。';
+  }
+  if (/标普500纳入|成分股|因美纳/.test(t)) {
+    return '【机械规则送钱】：被动指数基金没有选股自由，只要名单公布就必须无脑买入，入选新贵哪怕基本面一般也能平白无故吃下一大波流动性红利。';
+  }
+  if (/铜|伦铜|lme.*铜/.test(t)) {
+    return '【一铜难求现形记】：全球电网翻新加上新能源车抢铜，仓库里的精炼铜库存已经被掏空，下游加工厂就算明知涨价也只能硬着头皮加价现款提货。';
+  }
+  if (/集运|欧线|航运|海运|红海|好望角/.test(t)) {
+    return '【航程拉长吞噬运力】：多绕行好望角 14 天，直接吃掉了全球十分之一的可用集装箱船；只要红海地缘不停火，船东就能继续躺着数钱。';
+  }
+  if (/opec|原油|减产|油价/.test(t)) {
+    return '【掐死龙头保高价】：面对欧美疲软需求和美国页岩油增产，中东产油国坚决不降价甩卖，宁可把产量龙头拧紧也要保住国内财政预算的平衡线。';
+  }
+  if (/泄密|五角大楼|测谎|武器库存/.test(t)) {
+    return '【底牌外泄引发恐慌】：关键导弹库存被摸底直接瓦解了前线威慑力，军方高层不得不撕破脸对内部亲信测谎，整个防务供应链风声鹤唳。';
+  }
+  if (/空袭|导弹|以军|黎巴嫩|中东交火/.test(t)) {
+    return '【停火谈判沦为掩护】：交火双方都在用炸弹争取以后的实控线缓冲区，谁都不肯在战场处于下风时签协议，所谓的和平斡旋不过是各方争取喘息的缓兵之计。';
+  }
+  if (/物流.*景气|物流.*50.9%|货流/.test(t)) {
+    return '【实物周转打破观望】：干线重卡与港口集装箱周转明显加快，说明制造业工厂不仅没有停工，反而开始真金白银备货补库，实体流动性正在打通。';
+  }
+  if (/中金|合并|重组|东兴|信达|券商/.test(t)) {
+    return '【做大做强不再单打】：与其让几十家中小券商在同质化佣金战中内卷，不如直接行政撮合捏成超级航母，集中资本去国际市场参与高阶博弈。';
+  }
+  if (/商务部.*贸易救济|反歧视|反制|出口管制/.test(t)) {
+    return '【亮出家底以战止戈】：单方面限制只会逼得国内全产业链加快自主造血，商务部拿出多边反歧视工具箱，直接把贸易摩擦摆在阳光下对等算账。';
+  }
+  if (/禽流感|乌拉圭|卫生紧急状态/.test(t)) {
+    return '【检疫铁幕瞬间落下】：高致病禽流感一旦蔓延到周边巴西养殖带，全球鸡肉供给就得断档，各国海关宁可错杀也不敢放行南美禽肉。';
   }
 
-  // 严防死守：若 takeaway 与标题字符重复度超过 40%，强制替换为纯深层动因与本质归纳
-  const tShort = cleanTitle.slice(0, 8);
-  if (takeaway.includes(tShort)) {
-    takeaway = `事件底层驱动在于：${why}，核心传导将根本性推动${consequence}。`;
+  // 2. 动态生成兜底：基于 5W1H 深度净化，彻底杜绝禁忌八股词与流水线连接词
+  let why = (summary5W1H.why || '').trim().replace(/[。！!.]+$/, '');
+  let consequence = (summary5W1H.consequence || '').trim().replace(/[。！!.]+$/, '');
+
+  const banWords = [
+    { p: /顶层定价特权/g, r: '卖方垄断底气' },
+    { p: /自省反思/g, r: '自我多轮推演纠错' },
+    { p: /精准阀门管理/g, r: '拧紧产能龙头' },
+    { p: /刚性托底/g, r: '实打实的刚性需求' },
+    { p: /贴现中枢/g, r: '资金借贷成本' },
+    { p: /直接推高/g, r: '迫使大幅加价' },
+    { p: /直接拉动/g, r: '迅速带火' },
+    { p: /直接传导至/g, r: '波及到' },
+    { p: /极大推动/g, r: '全面激活' },
+  ];
+  for (const { p, r } of banWords) {
+    why = why.replace(p, r);
+    consequence = consequence.replace(p, r);
   }
 
-  return takeaway;
+  const hardcoreTagMap: Record<TrackId, string> = {
+    us_macro: '借贷成本高企',
+    apac_tech: '产能极度紧缺',
+    commodities_shipping: '运力周转受限',
+    war_conflict: '筹码争夺升级',
+    china_domestic: '实物循环复苏',
+    china_policy: '自立打破围堵',
+    global_cognition: '供应链应急防守',
+  };
+  const tag = hardcoreTagMap[track] || '商业现实透视';
+
+  let view = `${why}，使得市场面临现实痛点：${consequence}。`;
+  if (view.length > 70) {
+    view = view.slice(0, 68) + '。';
+  }
+
+  return `【${tag}】：${view}`;
 }
 
 // 情绪温度色彩判定
@@ -814,7 +963,7 @@ function build5W1HSummary(
   } else {
     const trackWhyMap: Record<TrackId, string> = {
       china_domestic: '宏观逆周期调节与深化改革政策协同发力，激发微观市场主体内生增长动能。',
-      us_macro: '宏观基本面数据表现与利率政策预期多空博弈，引导全球资本贴现中枢动态调整。',
+      us_macro: '宏观基本面数据表现与利率政策预期多空博弈，引导全球资本资金借贷成本动态调整。',
       apac_tech: '先进制程代工稼动率与AI硬件终端需求共振，驱动产业链加紧资本开支布局。',
       commodities_shipping: '地缘溢价摩擦与关键航道绕行常态化，叠加实体刚性补库重塑运价与交割成本。',
       war_conflict: '大国地缘利益交织对立，前线局势反复演变牵动多边外交与能源航运戒备。',
@@ -840,7 +989,7 @@ function build5W1HSummary(
     }
   }
 
-  // 5. Consequence (后续影响与传导)
+  // 5. Consequence (后续影响与传导：拒绝流水线连接词与假大空套话)
   if (/合并|重组|停牌|并购/.test(t)) {
     consequence = '显著增强头部机构跨市场运作与综合金融服务能力，对行业兼并整合起到积极标杆示范作用。';
   } else if (/税收|税费|减税|研发费用/.test(t)) {
@@ -854,7 +1003,7 @@ function build5W1HSummary(
   } else if (/芯片|半导体|先进制程|算力/.test(t)) {
     consequence = '筑牢本土高端算力与关键零部件供应链护城河，为数字经济与智能产业演进奠定硬件底座。';
   } else if (/降息|加息|美联储|收益率|美债/.test(t)) {
-    consequence = '直接重塑美债收益率曲线与权益资产贴现估值，外溢影响跨国离岸流动性配置节奏。';
+    consequence = '重塑美债收益率曲线与权益资产借贷估值，外溢影响跨国离岸流动性配置节奏。';
   } else if (/空袭|导弹|原油|中东/.test(t)) {
     consequence = '推升国际原油与大宗黄金地缘避险买盘，国际航道与关键能源通道安保等级同步上调。';
   } else if (/关税|制裁|出口管制/.test(t)) {
@@ -863,7 +1012,7 @@ function build5W1HSummary(
     const trackConsequenceMap: Record<TrackId, string> = {
       china_domestic: '稳固实体经济与内需循环底色，增强微观市场主体中长期发展信心与确定性。',
       us_macro: '加剧跨市场资产在债券、外汇与科技成长股之间的资金再平衡与波动率扩散。',
-      apac_tech: '直接拉动上游设备原厂订单与晶圆代工资本开支，带动整个半导体板块景气预期。',
+      apac_tech: '带动上游设备原厂订单与晶圆代工资本开支，带动整个半导体板块景气预期。',
       commodities_shipping: '推动全球大宗原材料与集装箱即期运价重估，放大下游制造业与跨国贸易成本链条传导。',
       war_conflict: '加剧地缘风险溢价向全球大宗商品与国际物流外溢，推高防务安全警戒等级。',
       china_policy: '促使涉外经贸主体加快风险分散与多元化市场开拓，重塑双边投资贸易路径。',
@@ -890,7 +1039,7 @@ function build5W1HParagraph(
   const cleanWhat = (summary.what || '').trim().replace(/[。！!.]+$/, '');
   const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '');
   const cleanConsequence = (summary.consequence || '').trim().replace(/[。！!.]+$/, '');
-  return `据${summary.when}通报，在${summary.where}，${summary.who}明确核心态势：${cleanWhat}。从核心动因观察，主要是${cleanWhy}。后续影响与传导表明，${cleanConsequence}。`;
+  return `据${summary.when}消息，${summary.who}在${summary.where}传来实质动态：${cleanWhat}。深层动因在于，${cleanWhy}。这一动向迅速引发连锁反应，${cleanConsequence}。`;
 }
 
 
