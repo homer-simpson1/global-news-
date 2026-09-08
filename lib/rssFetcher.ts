@@ -1,6 +1,7 @@
 import { FlashBrief, MarketQuote, NewsItem, TrackId, Summary5W1H } from './types';
 import { SEED_FLASH_BRIEFS, SEED_NEWS_ITEMS, SEED_MARKET_QUOTES, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
 import { fetchVerifiedMarketQuotes } from './quotesVerifier';
+import { enforceCountryEntityGuardrails, checkCrossContamination, FOREIGN_ENTITIES } from './guardrails';
 
 let cachedNews: NewsItem[] | null = null;
 let cachedFlash: FlashBrief[] | null = null;
@@ -411,9 +412,37 @@ export function detectPrimarySource(
   title: string,
   content: string,
   track: TrackId,
+  inheritedRawSource?: string,
   fallbackUrl?: string
 ): PrimarySourceInfo {
+  // 规则 2：【信源标签物理继承】
+  // 若爬虫已抓取到明确的真实信源，原样物理继承只读字段，严禁让 AI 或关键词自由脑补！
+  if (inheritedRawSource && /联合早报|财新网|路透|彭博|日经|华尔街日报|金融时报|第一财经|经济学人|应急管理部/.test(inheritedRawSource)) {
+    const urlMap: Record<string, string> = {
+      '联合早报': 'https://www.zaobao.com.sg',
+      '财新网': 'https://finance.caixin.com',
+      '路透': 'https://www.reuters.com',
+      '彭博': 'https://www.bloomberg.com',
+      '日经': 'https://asia.nikkei.com',
+      '华尔街日报': 'https://www.wsj.com',
+      '金融时报': 'https://www.ft.com',
+      '第一财经': 'https://www.yicai.com',
+      '经济学人': 'https://www.economist.com',
+      '应急管理部': 'https://www.mem.gov.cn',
+    };
+    for (const [k, u] of Object.entries(urlMap)) {
+      if (inheritedRawSource.includes(k)) {
+        return { source: inheritedRawSource, sourceUrl: fallbackUrl || u };
+      }
+    }
+  }
+
   const combined = (title + ' ' + content).toLowerCase();
+
+  // 若含日本主权实体，绝对禁止赋予中国官方信源！
+  if (FOREIGN_ENTITIES.JAPAN.test(combined)) {
+    return { source: '日经亚洲 Nikkei Asia', sourceUrl: 'https://asia.nikkei.com' };
+  }
 
   // 1. 显式提及的一级权威通讯社/官方部委机构（严禁接入新华社、人民日报等官方全量内宣大喇叭）
   if (/联合早报|zaobao/.test(combined)) {
@@ -455,25 +484,25 @@ export function detectPrimarySource(
   if (/塔斯社|tass/.test(combined)) {
     return { source: '塔斯社 TASS', sourceUrl: 'https://tass.com' };
   }
-  if (/交通运输部|交运部/.test(combined)) {
+  if (/交通运输部|交运部/.test(combined) && !/日本|美国|欧洲/.test(combined)) {
     return { source: '中国交通运输部通报', sourceUrl: 'https://www.mot.gov.cn' };
   }
-  if (/财政部|中央财政/.test(combined)) {
+  if (/(?:中国财政部|我国财政部)/.test(combined) && !/日本|美国|欧洲|韩国|英国/.test(combined)) {
     return { source: '中国财政部通报', sourceUrl: 'http://www.mof.gov.cn' };
   }
-  if (/发改委|国家发改委/.test(combined)) {
+  if (/(?:国家发展改革委|国家发改委)/.test(combined) && !/日本|美国|欧洲/.test(combined)) {
     return { source: '国家发展改革委公报', sourceUrl: 'https://www.ndrc.gov.cn' };
   }
-  if (/住建部/.test(combined)) {
+  if (/住建部/.test(combined) && !/日本|美国|欧洲/.test(combined)) {
     return { source: '国家住房和城乡建设部', sourceUrl: 'https://www.mohurd.gov.cn' };
   }
-  if (/民政部|应急管理部/.test(combined)) {
+  if (/(?:中国应急管理部|国家应急管理部)/.test(combined) && !/日本|美国/.test(combined)) {
     return { source: '国家应急管理部通报', sourceUrl: 'https://www.mem.gov.cn' };
   }
-  if (/国资委|上海市国资委/.test(combined)) {
+  if (/国资委|上海市国资委/.test(combined) && !/日本|美国/.test(combined)) {
     return { source: '国资监管委员会公报', sourceUrl: 'http://www.sasac.gov.cn' };
   }
-  if (/人民银行|央行|外汇局/.test(combined) && (track === 'china_domestic' || /人民币|降准|逆回购/.test(combined))) {
+  if (/(?:中国人民银行|我国央行)/.test(combined) && !/日本|美国|欧洲|韩国|英国/.test(combined) && (track === 'china_domestic' || /人民币|降准|逆回购/.test(combined))) {
     return { source: '中国人民银行 PBOC', sourceUrl: 'http://www.pbc.gov.cn' };
   }
   if (/美联储|fomc|鲍威尔|沃勒/.test(combined)) {
@@ -544,6 +573,18 @@ export function detectPrimarySource(
 function classifyTrack(item: RawLiveItem): TrackId {
   const t = (item.title + ' ' + item.content).toLowerCase();
 
+  // 【硬性实体词拦截门禁 Rule A】：外国主权与海外宏观实体一票否决国内赛道！
+  if (FOREIGN_ENTITIES.JAPAN.test(t)) {
+    if (/涉华|对华|中日/.test(t)) return 'china_policy';
+    return 'apac_tech';
+  }
+  if (FOREIGN_ENTITIES.US_MACRO.test(t) && !/涉华|对华|中美/.test(t)) {
+    return 'us_macro';
+  }
+  if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t)) {
+    return 'war_conflict';
+  }
+
   // 【通用重大外溢冲击收录标准判定准则】：
   // 无论事件属于文旅、民生、汽车、科技、法治、体育还是行政，只要命中 4 项外溢指标之一，强制收录！
   const spillover = evaluateSpilloverImpact(item.title, item.content);
@@ -551,7 +592,10 @@ function classifyTrack(item: RawLiveItem): TrackId {
     if (spillover.criteriaIndex === 3) {
       return 'china_policy';
     }
-    // 监管铁拳、供应链断裂、系统性责任事故与地方大震荡 -> 强制收录进国内要闻与治理板块
+    // 门禁复核：若命中外国实体，严禁强制塞入国内赛道！
+    if (FOREIGN_ENTITIES.JAPAN.test(t)) return 'apac_tech';
+    if (FOREIGN_ENTITIES.US_MACRO.test(t)) return 'us_macro';
+    if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t)) return 'war_conflict';
     return 'china_domestic';
   }
 
@@ -565,6 +609,10 @@ function classifyTrack(item: RawLiveItem): TrackId {
     if (/世界模型|大模型|生成式ai|算力|芯片|半导体|人形机器人/.test(t)) {
       return 'apac_tech';
     }
+    // 门禁复核：若含有日本/美联储等外国实体，严禁默认归为国内要闻！
+    if (FOREIGN_ENTITIES.JAPAN.test(t)) return 'apac_tech';
+    if (FOREIGN_ENTITIES.US_MACRO.test(t)) return 'us_macro';
+    if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t)) return 'war_conflict';
     // 其余全量归属于国内要闻与社会治理
     return 'china_domestic';
   }
@@ -659,6 +707,10 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
   // 7. 标普500成分股调整
   if (/标普500纳入|成分股|因美纳/.test(t)) {
     return '提前潜伏调仓名单的跨国对冲基金坐收抬轿暴利，被剔除的失势老股惨遭被动基金无情砸盘，散户跟风买入则极易在生效日高位接盘。';
+  }
+  // 7.1 日本财务省 / 日元汇率 / 植田和男
+  if (/日元|财务省|财务大臣|加藤胜信|植田和男|日银|日本央行|东证/.test(t)) {
+    return '跨国套息交易平仓风险加剧，日本出口型跨国车企与半导体材料原厂承受汇率重估震荡，离岸套利资本正紧急对冲汇率敞口。';
   }
   // 8. 伦铜 / 金属升水
   if (/铜|伦铜|lme.*铜/.test(t)) {
@@ -894,8 +946,13 @@ function generateCoreTakeaway(
   if (/加密|比特币|btc|eth/.test(t)) {
     return '【短线客落袋为安】：连续暴涨后杠杆已经拉满，非农数据一公布降息预期推迟，投机热钱立刻抢着把浮盈套现，谁也不想在高位给别人站岗。';
   }
+  // 7. 标普500成分股调整
   if (/标普500纳入|成分股|因美纳/.test(t)) {
     return '【机械规则送钱】：被动指数基金没有选股自由，只要名单公布就必须无脑买入，入选新贵哪怕基本面一般也能平白无故吃下一大波流动性红利。';
+  }
+  // 7.1 日本财务省 / 日元汇率 / 植田和男
+  if (/日元|财务省|财务大臣|加藤胜信|植田和男|日银|日本央行|东证/.test(t)) {
+    return '【日元汇率与官方干预】：日本财务省频频就汇率异动喊话施压，根本痛点在于输入型通胀加剧与海外息差悬殊；一旦关键防线失守，央行将面临被迫加息或真金白银直接入场干预的巨大压力。';
   }
   if (/铜|伦铜|lme.*铜/.test(t)) {
     return '【一铜难求现形记】：全球电网翻新加上新能源车抢铜，仓库里的精炼铜库存已经被掏空，下游加工厂就算明知涨价也只能硬着头皮加价现款提货。';
@@ -1014,6 +1071,9 @@ function generateSentiment(title: string, content: string, track: TrackId): 'BUL
 // 后续观察哨（关键时间窗口 / 待验证指标）
 function generateNextWatchlist(title: string, content: string, track: TrackId): string {
   const t = (title + ' ' + content).toLowerCase();
+  if (FOREIGN_ENTITIES.JAPAN.test(t)) {
+    return '【后续观察哨】：锁定在 日本央行货币政策委员会委员最新表态与日本财务省外汇干预临界点。';
+  }
   if (/美联储|降息|加息|非农|cpi|通胀|美债|收益率/.test(t)) {
     return '【后续观察哨】：锁定在 9月11日 20:30 美国 8 月 CPI 数据公布与 9 月 FOMC 议息决议。';
   }
@@ -1038,7 +1098,7 @@ function generateNextWatchlist(title: string, content: string, track: TrackId): 
   if (/中金|证券|合并|停牌|重组/.test(t)) {
     return '【后续观察哨】：锁定在 异议股东现金选择权实施结果及合并后新实体挂牌首日交易表现。';
   }
-  if (/物流|经济|pmi|统计局|发改委|财政部|国债/.test(t)) {
+  if (/物流|经济|pmi|统计局|发改委|财政部|国债/.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t) && !FOREIGN_ENTITIES.US_MACRO.test(t)) {
     return '【后续观察哨】：锁定在 财政部及人大常委会超长期特别国债资金落地发布会与下周金融信贷数据。';
   }
   if (/关税|对华|反倾销|出口管制|商务部|实体清单/.test(t)) {
@@ -1059,6 +1119,12 @@ function generateNextWatchlist(title: string, content: string, track: TrackId): 
 // 市场多空分歧焦点 (Consensus vs Divergence)
 function generateBullBearDivergence(title: string, content: string, track: TrackId): { bullConsensus: string; bearDivergence: string } {
   const t = (title + ' ' + content).toLowerCase();
+  if (FOREIGN_ENTITIES.JAPAN.test(t)) {
+    return {
+      bullConsensus: '日本企业加薪周期推进且半导体先进制造回流，东证龙头企业基本面具长期重估潜力。',
+      bearDivergence: '海外与日本本土利差过宽加剧汇率贬值压力，央行若加快加息将推升国债偿债成本。',
+    };
+  }
   if (/美联储|降息|加息|非农|通胀|美债|收益率/.test(t)) {
     return {
       bullConsensus: '非农与就业保持韧性验证美国经济软着陆逻辑，企业盈利底座依然牢固。',
@@ -1137,7 +1203,10 @@ function build5W1HSummary(
   const colonMatch = cleanTitle.match(/^([^：:，,——]{2,20})[：:——]/);
   if (colonMatch && !/提醒|提示|快讯|电讯|最新|据悉|权威|突发/.test(colonMatch[1])) {
     who = colonMatch[1].trim();
-  } else if (/中国人民银行|央行/.test(t)) {
+  } else if (FOREIGN_ENTITIES.JAPAN.test(t)) {
+    who = '日本财务省、日本央行（BOJ）及外汇市场监管当局';
+    where = '日本东京（日本财务省与央行决策中枢）';
+  } else if (/中国人民银行|央行/.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
     who = '中国人民银行（PBOC）及宏观货币政策司';
   } else if (/土耳其.*财政部/.test(t)) {
     who = '土耳其财政与国库部';
@@ -1145,7 +1214,7 @@ function build5W1HSummary(
   } else if (/美国财政部/.test(t)) {
     who = '美国财政部（U.S. Department of the Treasury）';
     where = '美国华盛顿特区（联邦决策中枢）';
-  } else if (/财政部/.test(t)) {
+  } else if (/(?:中国财政部|我国财政部|中央财政)/.test(t) || (/财政部/.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t) && !FOREIGN_ENTITIES.US_MACRO.test(t))) {
     who = '中华人民共和国财政部及直属预算司局';
   } else if (/商务部/.test(t)) {
     who = '中华人民共和国商务部新闻发言人与贸易救济局';
@@ -1193,7 +1262,9 @@ function build5W1HSummary(
   }
 
   // 2. Where (事件地点)
-  if (/北京/.test(t)) {
+  if (FOREIGN_ENTITIES.JAPAN.test(t)) {
+    where = '日本东京（日本财务省、日银与东证核心金融圈）';
+  } else if (/北京/.test(t)) {
     where = '中国北京（国家宏观决策与监管中枢）';
   } else if (/上海/.test(t)) {
     where = '中国上海（国际金融中心与产业创新前沿）';
@@ -1227,7 +1298,9 @@ function build5W1HSummary(
   }
 
   // 3. Why (起因背景：根据核心事实精准归因)
-  if (/合并|重组|停牌|并购/.test(t)) {
+  if (FOREIGN_ENTITIES.JAPAN.test(t)) {
+    why = '日元汇率异动与美日利差倒挂加剧输入型通胀压力，引发官方针对外汇单边走势的警示与干预预期。';
+  } else if (/合并|重组|停牌|并购/.test(t)) {
     why = '贯彻落实资本市场深化改革部署，通过同业重组整合优质资产、做优做强核心主业。';
   } else if (/税收|税费|减税|加计扣除/.test(t)) {
     why = '全面落实创新驱动发展战略，以普惠与结构性财税优惠红利持续赋能高新企业自主研发。';
@@ -1277,7 +1350,9 @@ function build5W1HSummary(
   }
 
   // 5. Consequence (后续影响与传导：拒绝流水线连接词与假大空套话)
-  if (/合并|重组|停牌|并购/.test(t)) {
+  if (FOREIGN_ENTITIES.JAPAN.test(t)) {
+    consequence = '引发跨国套息头寸紧急平仓，直接波及东证核心科技板块与跨国出口企业资产再定价。';
+  } else if (/合并|重组|停牌|并购/.test(t)) {
     consequence = '显著增强头部机构跨市场运作与综合金融服务能力，对行业兼并整合起到积极标杆示范作用。';
   } else if (/税收|税费|减税|研发费用/.test(t)) {
     consequence = '预计每年为实体创新企业减负数百亿元研发成本，加速战略新兴产业关键核心技术自主攻坚。';
@@ -1410,6 +1485,109 @@ export function evaluateCrossVerification(
   };
 }
 
+/**
+ * 规则 1：【单篇独立上下文处理流水线 (Single Item Pipeline)】
+ * 严禁大模型或清洗引擎将多条不同国家的新闻混杂在同一上下文！
+ * 每篇抓取快讯均走严格物理隔离闭环：
+ * 抓取单篇 -> 实体抽取 -> 前置国家互斥门禁 -> 信源物理继承 -> 5W1H/结论提取 -> 后置内容一致性熔断 -> 输出结构化卡片。
+ */
+export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveItem[]): NewsItem | null {
+  // 1. 独立赛道初始归类
+  let track = classifyTrack(raw);
+
+  // 2. 执行【国内重大资讯去伪与去宣传除杂指令】“三剥离、三保留”脱水规范
+  const isDomestic = track === 'china_domestic' || track === 'china_policy';
+  const cleanRawTitle = isDomestic ? sanitizeDomesticNewsText(raw.title) : raw.title;
+  const cleanRawContent = isDomestic ? sanitizeDomesticNewsText(raw.content) : raw.content;
+
+  // 3. 规则 2：【信源物理继承】严格从爬虫只读字段继承信源，严禁 AI/正则脑补
+  let primary = detectPrimarySource(cleanRawTitle, cleanRawContent, track, raw.source, raw.url);
+
+  // 4. 规则 3A：【前置实体词互斥硬性门禁】
+  // 日本/美联储/五角大楼等主权实体一票否决国内赛道与中国官方信源
+  const guardrailPre = enforceCountryEntityGuardrails(cleanRawTitle, cleanRawContent, track, primary, raw.source);
+  track = guardrailPre.correctedTrack;
+  primary = guardrailPre.correctedSource;
+
+  // 5. 单篇独立标题润色与 5W1H/深度小结推导
+  const enrichedTitle = enrichHeadline(cleanRawTitle, cleanRawContent, track);
+  const summary5W1H = build5W1HSummary(enrichedTitle, cleanRawContent, raw.time, primary.source, track);
+  const summaryParagraph = build5W1HParagraph(summary5W1H, enrichedTitle, cleanRawContent);
+  const coreTakeaway = generateCoreTakeaway(enrichedTitle, cleanRawContent, track, summary5W1H);
+  const transmissionImpact = inferTransmission(track, enrichedTitle, cleanRawContent);
+
+  // 6. 规则 3B：【后置内容一致性自检与串味污染熔断器】
+  // 如果标题为日本实体，而小结/结论充斥国内国债/内需/逆周期，直接判定为串味污染，物理拦截打回！
+  const consistency = checkCrossContamination(enrichedTitle, coreTakeaway, transmissionImpact, summaryParagraph);
+  if (!consistency.isClean) {
+    console.warn(`[GUARDRAIL CIRCUIT BREAKER] ${consistency.reason} -> 物理拦截并丢弃: "${enrichedTitle}"`);
+    return null;
+  }
+
+  const bulletPoints = extractBulletPoints(cleanRawContent, primary.source, raw.time);
+  const sentiment = generateSentiment(enrichedTitle, cleanRawContent, track);
+  const nextWatchlist = generateNextWatchlist(enrichedTitle, cleanRawContent, track);
+  const bullBearDivergence = generateBullBearDivergence(enrichedTitle, cleanRawContent, track);
+
+  // 【通用重大外溢冲击收录标准】：命中 4 项外溢指标之一者强制为一级重大情报
+  const spillover = evaluateSpilloverImpact(cleanRawTitle, cleanRawContent);
+  const isImportant =
+    spillover.isSpilloverMajor ||
+    raw.title.includes('美联储') ||
+    raw.title.includes('降息') ||
+    raw.title.includes('收益率') ||
+    raw.title.includes('空袭') ||
+    raw.title.includes('导弹') ||
+    raw.title.includes('乌克兰') ||
+    raw.title.includes('伊朗') ||
+    raw.title.includes('注资') ||
+    raw.title.includes('制裁') ||
+    raw.title.includes('暴雷') ||
+    raw.title.includes('突发');
+
+  const cross = evaluateCrossVerification(raw, rawItems, primary);
+  const isUnilateral = checkUnilateralClaim(cleanRawTitle, cleanRawContent);
+
+  const verificationLevel = isUnilateral ? 'UNILATERAL_CLAIM' : cross.verificationLevel;
+  const verificationBadge = isUnilateral ? '【单方通报·待验证】' : cross.verificationBadge;
+  const clarificationNote = isUnilateral
+    ? '该信息属企业或机构单方自宣/非正式辟谣口径，缺乏独立第三方检测或司法交叉复核，待进一步事实求证。'
+    : cross.clarificationNote;
+
+  const newsItem: NewsItem = {
+    id: raw.id,
+    track,
+    title: enrichedTitle,
+    source: primary.source,
+    sourceUrl: primary.sourceUrl,
+    publishedAt: raw.time,
+    impactLevel: isImportant ? 1 : 2,
+    oneLineTakeaway: coreTakeaway,
+    transmissionImpact,
+    bulletPoints,
+    summaryParagraph,
+    summary5W1H,
+    verificationLevel,
+    verificationBadge,
+    crossSourceCount: cross.crossSourceCount,
+    hasClarification: cross.hasClarification || isUnilateral,
+    clarificationNote,
+    sentiment,
+    nextWatchlist,
+    bullBearDivergence,
+    timeWindow: 'TODAY',
+    spilloverCriterion: spillover.isSpilloverMajor ? spillover.criteriaName : undefined,
+    isUnilateralClaim: isUnilateral,
+  };
+
+  if (/吉隆口岸|冰岩崩|樟木口岸.*通关/.test(enrichedTitle + ' ' + raw.content)) {
+    newsItem.isOngoingDisaster = true;
+    newsItem.disasterTracker = GYIRONG_PORT_DISASTER_TRACKER;
+  }
+
+  return newsItem;
+}
+
 export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsItem[]> {
   const now = Date.now();
   if (!forceRefresh && cachedNews && now - lastFetchTime < CACHE_TTL_MS) {
@@ -1436,81 +1614,13 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
       global_cognition: [],
     };
 
+
     for (const raw of rawItems) {
-      const track = classifyTrack(raw);
-      // 执行【国内重大资讯去伪与去宣传除杂指令】“三剥离、三保留”脱水规范
-      const isDomestic = track === 'china_domestic' || track === 'china_policy';
-      const cleanRawTitle = isDomestic ? sanitizeDomesticNewsText(raw.title) : raw.title;
-      const cleanRawContent = isDomestic ? sanitizeDomesticNewsText(raw.content) : raw.content;
-
-      const primary = detectPrimarySource(cleanRawTitle, cleanRawContent, track, raw.url);
-      const enrichedTitle = enrichHeadline(cleanRawTitle, cleanRawContent, track);
-      const summary5W1H = build5W1HSummary(enrichedTitle, cleanRawContent, raw.time, primary.source, track);
-      const summaryParagraph = build5W1HParagraph(summary5W1H, enrichedTitle, cleanRawContent);
-      const coreTakeaway = generateCoreTakeaway(enrichedTitle, cleanRawContent, track, summary5W1H);
-      const transmissionImpact = inferTransmission(track, enrichedTitle, cleanRawContent);
-      const bulletPoints = extractBulletPoints(cleanRawContent, primary.source, raw.time);
-      const sentiment = generateSentiment(enrichedTitle, cleanRawContent, track);
-      const nextWatchlist = generateNextWatchlist(enrichedTitle, cleanRawContent, track);
-      const bullBearDivergence = generateBullBearDivergence(enrichedTitle, cleanRawContent, track);
-
-      // 【通用重大外溢冲击收录标准】：命中 4 项外溢指标之一者强制为一级重大情报
-      const spillover = evaluateSpilloverImpact(cleanRawTitle, cleanRawContent);
-      const isImportant =
-        spillover.isSpilloverMajor ||
-        raw.title.includes('美联储') ||
-        raw.title.includes('降息') ||
-        raw.title.includes('收益率') ||
-        raw.title.includes('空袭') ||
-        raw.title.includes('导弹') ||
-        raw.title.includes('乌克兰') ||
-        raw.title.includes('伊朗') ||
-        raw.title.includes('注资') ||
-        raw.title.includes('制裁') ||
-        raw.title.includes('暴雷') ||
-        raw.title.includes('突发');
-
-      const cross = evaluateCrossVerification(raw, rawItems, primary);
-      const isUnilateral = checkUnilateralClaim(cleanRawTitle, cleanRawContent);
-
-      const verificationLevel = isUnilateral ? 'UNILATERAL_CLAIM' : cross.verificationLevel;
-      const verificationBadge = isUnilateral ? '【单方通报·待验证】' : cross.verificationBadge;
-      const clarificationNote = isUnilateral
-        ? '该信息属企业或机构单方自宣/非正式辟谣口径，缺乏独立第三方检测或司法交叉复核，待进一步事实求证。'
-        : cross.clarificationNote;
-
-      const newsItem: NewsItem = {
-        id: raw.id,
-        track,
-        title: enrichedTitle,
-        source: primary.source,
-        sourceUrl: primary.sourceUrl,
-        publishedAt: raw.time,
-        impactLevel: isImportant ? 1 : 2,
-        oneLineTakeaway: coreTakeaway,
-        transmissionImpact,
-        bulletPoints,
-        summaryParagraph,
-        summary5W1H,
-        verificationLevel,
-        verificationBadge,
-        crossSourceCount: cross.crossSourceCount,
-        hasClarification: cross.hasClarification || isUnilateral,
-        clarificationNote,
-        sentiment,
-        nextWatchlist,
-        bullBearDivergence,
-        timeWindow: 'TODAY',
-        spilloverCriterion: spillover.isSpilloverMajor ? spillover.criteriaName : undefined,
-        isUnilateralClaim: isUnilateral,
-      };
-
-      if (/吉隆口岸|冰岩崩|樟木口岸.*通关/.test(enrichedTitle + ' ' + raw.content)) {
-        newsItem.isOngoingDisaster = true;
-        newsItem.disasterTracker = GYIRONG_PORT_DISASTER_TRACKER;
+      const processed = processSingleItemIsolated(raw, rawItems);
+      if (!processed) {
+        continue;
       }
-
-      categorizedCandidates[track].push(newsItem);
+      categorizedCandidates[processed.track].push(processed);
     }
 
     const categorized: Record<TrackId, NewsItem[]> = {

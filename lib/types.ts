@@ -158,3 +158,8 @@ export interface TrackMetadata {
   iconName: string;
   badgeColor: string;
 }
+
+export interface PrimarySourceInfo {
+  source: string;
+  sourceUrl: string;
+}
