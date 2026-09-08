@@ -100,24 +100,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 策略 C: 页面导航 -> Network-First，离线回退到缓存骨架
+  // 策略 C: 页面导航 -> Stale-While-Revalidate 极速秒开 (有本地缓存 0ms 瞬间打开，后台静默联网保鲜)
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req)
-        .then((networkRes) => {
-          if (networkRes && networkRes.status === 200) {
-            const resClone = networkRes.clone();
-            caches.open(STATIC_CACHE).then((cache) => {
-              cache.put(req, resClone);
-            });
-          }
-          return networkRes;
-        })
-        .catch(() => {
-          return caches.match(req).then((cached) => {
+      caches.match(req).then((cached) => {
+        const fetchPromise = fetch(req)
+          .then((networkRes) => {
+            if (networkRes && networkRes.status === 200) {
+              const resClone = networkRes.clone();
+              caches.open(STATIC_CACHE).then((cache) => {
+                cache.put(req, resClone);
+              });
+            }
+            return networkRes;
+          })
+          .catch(() => {
             return cached || caches.match('/');
           });
-        })
+
+        // 核心提速：若本地已有网页缓存骨架，0ms 立即瞬时呈现，彻底杜绝白屏与网络等待感
+        return cached || fetchPromise;
+      })
     );
     return;
   }

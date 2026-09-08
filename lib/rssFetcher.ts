@@ -817,34 +817,42 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
   if (/禽流感|乌拉圭|卫生紧急状态/.test(t)) {
     return '欧美本土替代蛋白与大型家禽养殖巨头坐享短期提价红利，南美出口型牧场承受封关退运损失，国际对冲基金正借机炒作农畜产品期货。';
   }
-  // 17. 监管铁拳与准入颠覆 (王建军/做空/操纵市场/反腐调查)
-  if (/王建军|判处无期|被判无期|受贿|操纵市场|突击调查|立案侦查|反腐|做空/.test(t)) {
-    return '违法涉案人员与灰色寻租机构资产遭司法查封冻结，内控严谨的合规金融机构承接被挤出的优质客户，违规操纵热钱仓皇平仓离场。';
+  // 17. 监管铁拳与准入颠覆 (王建军/做空/操纵市场/反腐调查/涉案双开)
+  if (/王建军|判处无期|被判无期|受贿|操纵市场|突击调查|立案侦查|立案审查|反腐|做空|双开|落马|违纪违法|违法所得/.test(t)) {
+    return '涉案责任人及关联寻租链条资产遭司法强力冻结追缴，内控严密的头部合规机构承接被挤出的优质业务，违规资金加速平仓离场。';
   }
   // 18. 特别国债注资与地方化债
-  if (/特别国债注资|注资银行|注资险企|化债|地方债务/.test(t)) {
+  if (/特别国债注资|特别国债|注资银行|注资险企|化债|地方债务|专项债|债务置换/.test(t)) {
     return '国有大行与重点险企资本充足率得到硬核夯实、信贷投放能力激活，高负债主体获得低成本债务置换空间，避险资金持续涌入主权国债。';
   }
-  // 19. 系统性责任事故与地方大震荡 (伤亡事故/撞车/矿难)
-  if (/相撞致.*死|重特大事故|坍塌|伤亡|遇难|停运/.test(t)) {
-    return '涉事责任主体面临顶格行政索赔与资质注销，同区域同行业全面停产整顿隐患，具备成熟安全体系的龙头企业承接外溢订单。';
+  // 19. 吉隆口岸与跨境地质灾害物流阻断
+  if (/吉隆口岸|樟木口岸|冰岩崩/.test(t)) {
+    return '中尼跨境公路货运被迫大范围分流绕行樟木口岸或转走海运，口岸重建基建与高山边坡治理防灾工程紧急立项，边贸进出口企业正承受单证延误与滞港成本。';
   }
-  // 20. 关键底盘与供应链断裂 (零部件断供/停工)
+  // 20. 突发自然灾害与极端险情 (泥石流/山洪/滑坡/地震/强降雨/台风/塌方/抗洪抢险)
+  if (/泥石流|山洪|滑坡|地质灾害|突发暴雨|极端强降雨|防汛抢险|抗洪|塌方|堰塞湖|地震|风灾/.test(t)) {
+    return '属地财政专项救灾应急资金全额兜底抢险搜救与受损干道抢修，局部客货物流短暂停滞并承担绕行改道成本，财产与人身险承保机构快速启动大灾绿色理赔查勘通道。';
+  }
+  // 21. 重特大安全生产事故与人员伤亡追责 (火灾/坍塌/相撞/爆炸/矿难/致死/失联/遇难/伤亡)
+  if (/重大事故|特别重大|火灾|爆炸|坍塌|相撞致.*死|致.*死|致.*伤|伤亡|遇难|失联|矿难|停运整顿|安全事故/.test(t)) {
+    return '涉事责任主体与工程运营方直接面临顶格行政索赔与资质追缴停业，同区域同行业全面停工排查安全隐患，具备成熟安全生产管理体系的合规标杆主体稳步承接外溢需求。';
+  }
+  // 22. 医疗保障、养老民生与公共兜底
+  if (/医保|社保|养老|集采|药品降价|民生兜底|低保/.test(t)) {
+    return '医保基金结余与财政补贴筑牢基本民生安全网，带量采购大幅挤压流通环节灰色中间差价，头部合规药企凭借规模制造优势巩固市场份额。';
+  }
+  // 23. 关键底盘与供应链断裂 (零部件断供/停工)
   if (/突发断供|零部件断供|停工停产|断链|造假暴雷/.test(t)) {
     return '受制于单一货源的组装主机厂承受产线闲置违约损失，具备国产备胎能力的本土元器件原厂火速打入核心名录、斩获替代订单。';
   }
-  // 21. 吉隆口岸与跨境地质灾害物流阻断
-  if (/吉隆口岸|泥石流.*口岸|冰岩崩/.test(t)) {
-    return '中尼跨境公路货运被迫大范围分流绕行樟木口岸或转走海运，口岸重建基建与高山边坡治理防灾工程紧急立项，边贸进出口企业正承受单证延误与滞港成本。';
-  }
 
-  // 兜底真实利益链条逻辑 (谁在赚超额利润、谁承担了成本、资金正在往哪里跑)
+  // 兜底真实利益链条逻辑 (针对未命中具体事件时的赛道基础逻辑，拒绝假大空与张冠李戴)
   const trackInterestMap: Record<TrackId, string> = {
     us_macro: '手握充足现金的跨国巨头坐享无风险高息，高负债中小企业承受借贷抽血，避险资本持续流向高确定性短久期资产。',
     apac_tech: '核心卡位代工厂与设备原厂赚取超额垄断溢价，缺乏议价权的下游装配厂商硬吞涨价，风投资金加速涌向成熟商业化算力项目。',
     commodities_shipping: '上游资源矿山与班轮船东躺赚超额现货升水，中下游加工与外贸货主承担成本重压，热钱正在衍生品端加码做多。',
     war_conflict: '跨国防务安全承包商订单逆势暴增，战区民生商业航道被动承担巨额保费，避险资金持续向大宗硬通货资产迁徙。',
-    china_domestic: '头部供应链与核心智造企业享受实物货流回暖现金流，观望资金从低风险理财逐步流向实体生产备货环节。',
+    china_domestic: '逆周期政策协同发力稳固实体经济基本盘，合规骨干实体企业平稳承接结构性需求，高风险投机资本保持审慎观望。',
     china_policy: '具备完全自主可控能力的国产龙头快速吃下替代市场份额，海外依赖型代理商承受出清，合规与技术自立资本持续汇聚。',
     global_cognition: '具备跨国多中心布局能力的头部贸易商分散化转移关税风险，单一区域出口商承担滞留损失，对冲资本借机重构头寸。',
   };
@@ -985,16 +993,18 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
   } else if (title.length < 22) {
     let suffix = '引发各方高度关注';
     if (track === 'china_domestic') {
-      if (/事故|相撞|伤亡|遇难|火灾|坍塌|受灾/.test(title)) {
-        suffix = '应急搜救与排查全面铺开';
-      } else if (/被查|落马|反腐|立案|受贿|判刑/.test(title)) {
+      if (/泥石流|山洪|滑坡|地质灾害|抗洪|防汛|受灾|失联|致.*死|死伤|遇难/.test(title)) {
+        suffix = '救援搜救与排险全力铺开';
+      } else if (/事故|相撞|火灾|坍塌|爆炸|矿难/.test(title)) {
+        suffix = '应急处置与隐患排查全面铺开';
+      } else if (/被查|落马|反腐|立案|受贿|判刑|违纪违法/.test(title)) {
         suffix = '纪检司法从严惩处涉案人员';
       } else if (/特别国债|财政|化债|注资|医保|民生/.test(title)) {
         suffix = '宏观统筹稳步推进落实';
       } else if (/人口|老龄化|生育/.test(title)) {
         suffix = '关乎长远社会结构底盘';
       } else {
-        suffix = '治理监管协同推进落实';
+        suffix = '相关工作稳步推进落实';
       }
     } else {
       const enrichSuffix: Record<TrackId, string> = {
@@ -1002,7 +1012,7 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
         apac_tech: '核心供应链排单全线告急',
         commodities_shipping: '大宗现货买方争抢提货',
         war_conflict: '一线战区警戒级别全面拉响',
-        china_domestic: '治理监管协同推进落实',
+        china_domestic: '相关工作稳步推进落实',
         china_policy: '跨境贸易合规博弈正式打响',
         global_cognition: '跨国机构紧急启动风险防御',
       };
@@ -1156,26 +1166,44 @@ function generateCoreTakeaway(
     apac_tech: '产能极度紧缺',
     commodities_shipping: '运力周转受限',
     war_conflict: '筹码争夺升级',
-    china_domestic: '治理监管现实透视',
+    china_domestic: '重大治理现实透视',
     china_policy: '自立打破围堵',
     global_cognition: '供应链应急防守',
   };
   let tag = hardcoreTagMap[track] || '商业现实透视';
+  let connector = '使得市场面临现实痛点：';
+
   if (track === 'china_domestic') {
-    if (/反腐|落马|被查|受贿|判刑|立案/.test(t)) {
+    if (/泥石流|山洪|滑坡|地质灾害|突发暴雨|极端强降雨|防汛抢险|抗洪|塌方|堰塞湖|地震|受灾|失联|致.*死|死伤|遇难/.test(t)) {
+      tag = '突发险情与应急抢险';
+      connector = '现场应急搜救与抢险态势：';
+    } else if (/事故|相撞|伤亡|遇难|火灾|爆炸|安全|矿难/.test(t)) {
+      tag = '安全生产底线一票否决';
+      connector = '事故隐患排查与整顿追责：';
+    } else if (/反腐|落马|被查|受贿|判刑|立案|双开|违纪违法/.test(t)) {
       tag = '穿透治理与反腐高压';
-    } else if (/事故|相撞|伤亡|遇难|火灾|爆炸|安全/.test(t)) {
-      tag = '安全底线一票否决';
+      connector = '纪检司法整肃与合规惩戒：';
     } else if (/人口|老龄化|生育|社保|医保|民生/.test(t)) {
       tag = '民生底盘与社会治理';
+      connector = '基本民生托底与制度落地：';
     } else if (/特别国债|化债|财政|隐性债务/.test(t)) {
       tag = '主权信用硬核兜底';
+      connector = '财政协同与资金落地传导：';
     }
+  } else if (track === 'war_conflict') {
+    connector = '前线博弈与战略威慑态势：';
   }
 
-  let view = `${why}，使得市场面临现实痛点：${consequence}。`;
-  if (view.length > 70) {
-    view = view.slice(0, 68) + '。';
+  let view = `${why}，${connector}${consequence}。`;
+  // 严格在标点处自然截断，绝不硬切单词导致“大型。”等残句
+  if (view.length > 82) {
+    const sub = view.slice(0, 80);
+    const punc = Math.max(sub.lastIndexOf('，'), sub.lastIndexOf('。'), sub.lastIndexOf('；'));
+    if (punc >= 45) {
+      view = sub.slice(0, punc) + '。';
+    } else {
+      view = sub + '...';
+    }
   }
 
   return `【${tag}】：${view}`;
@@ -1238,12 +1266,21 @@ function generateNextWatchlist(title: string, content: string, track: TrackId): 
   if (/关税|对华|反倾销|出口管制|商务部|实体清单/.test(t)) {
     return '【后续观察哨】：锁定在 欧盟委员会对华关税成员国表决窗口与美商务部出口管制动态。';
   }
+  if (/泥石流|山洪|地质灾害|滑坡|暴雨|防汛|抗洪|受灾|失联|致.*死|死伤|遇难/.test(t)) {
+    return '【后续观察哨】：锁定在 现场应急抢险指挥部与属地部门公布的失联人员搜救进展、次生灾害隐患排查及受损路段抢通保通调度。';
+  }
+  if (/事故|相撞|火灾|爆炸|坍塌|矿难|停运整顿|安全生产/.test(t)) {
+    return '【后续观察哨】：锁定在 事故联合调查组官方定性通报、责任主体追责认定及全行业安全生产大排查落实通报。';
+  }
+  if (/反腐|中纪委|监委|立案审查|受贿|落马|违纪违法|双开/.test(t)) {
+    return '【后续观察哨】：锁定在 纪检监察与司法机关公布的案件审查调查结论、违纪违法所得追缴及同行业专项整肃落实。';
+  }
   const trackMap: Record<TrackId, string> = {
     us_macro: '【后续观察哨】：锁定在 下周美联储官员密集讲话日程与美股期权交割日波动率。',
     apac_tech: '【后续观察哨】：锁定在 下周全球科技巨头三季度资本开支与算力硬件采购能见度。',
     commodities_shipping: '【后续观察哨】：锁定在 国际大宗商品现货交割升贴水变化及跨大洋即期订舱价。',
     war_conflict: '【后续观察哨】：锁定在 战区周边关键能源航运走廊安保警报与多边斡旋停火进展。',
-    china_domestic: '【后续观察哨】：锁定在 国家统计局将于下周公布的国民经济运行与工业生产月度数据。',
+    china_domestic: '【后续观察哨】：锁定在 权威监管部门公布的后续政策执行细则及重点领域阶段性工作通报。',
     china_policy: '【后续观察哨】：锁定在 WTO争端仲裁委员会最新案件通报及双边经贸工作组会议日程。',
     global_cognition: '【后续观察哨】：锁定在 国际货币基金组织（IMF）全球经济展望秋季报告更新。',
   };
@@ -1483,8 +1520,10 @@ function build5W1HSummary(
     why = '弘扬社会守望互助文化，广泛动员社会资源与公众力量规范对接民生兜底与应急救助。';
   } else if (/吉隆口岸|冰岩崩/.test(t)) {
     why = '境外雪山北坡突发高位大规模冰岩崩，剧烈势能带动高位冰碛物转化为特大泥石流越境损毁口岸设施。';
-  } else if (/泥石流|山洪|地质灾害|极端暴雨/.test(t)) {
-    why = '喜马拉雅及受灾山区遭遇季风极端强降雨袭击，诱发突发性地质山洪滑坡冲毁公路与民舍。';
+  } else if (/泥石流|山洪|地质灾害|滑坡|强降雨|暴雨|防汛|塌方|堰塞湖/.test(t)) {
+    const locMatch = t.match(/(江西遂川|遂川|江西|四川|云南|西藏|湖南|广东|广西|贵州|甘肃|陕西|重庆|湖北|河南|河北|北京|福建|浙江|青海|新疆|海南)/);
+    const loc = locMatch ? `${locMatch[1]}受灾区` : '受灾山区及局部地区';
+    why = `${loc}遭遇极端强降雨袭击诱发突发性地质山洪滑坡与泥石流，导致道路受损与人员受灾。`;
   } else if (/芯片|半导体|先进制程|算力|dram|gpu/.test(t)) {
     why = '全球AI大模型爆发推升高端算力与存储芯片需求，倒逼供应链加速自主研发攻关与产能释放。';
   } else if (/降息|加息|非农|通胀|美联储|收益率|美债/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
@@ -1541,8 +1580,10 @@ function build5W1HSummary(
     consequence = '推动社会各界爱心资源公开透明流向灾后重建、助学扶弱与乡村振兴等关键民生领域。';
   } else if (/吉隆口岸/.test(t)) {
     consequence = '口岸暂时中断通关并开展选址防灾论证，跨境实物货运转向樟木口岸分流。';
-  } else if (/泥石流|受灾|救援/.test(t)) {
-    consequence = '多方联合紧急搜救响应全面展开，大型机械与应急物资加紧打通受损公路生命通道。';
+  } else if (/泥石流|受灾|救援|山洪|地质灾害|滑坡|失联|致.*死|遇难|伤亡/.test(t)) {
+    consequence = '多方联合紧急搜救响应全面展开，大型工程机械加紧打通受损生命干道，属地拉网排查次生险情。';
+  } else if (/事故|相撞|火灾|爆炸|坍塌|矿难/.test(t)) {
+    consequence = '应急搜救与医疗救治全面展开，涉事主体停产接受调查整顿，同行业全面排查同类安全风险。';
   } else if (/芯片|半导体|先进制程|算力/.test(t)) {
     consequence = '筑牢本土高端算力与关键零部件供应链护城河，为数字经济与智能产业演进奠定硬件底座。';
   } else if (/降息|加息|美联储|收益率|美债/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
@@ -1792,6 +1833,18 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
 export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsItem[]> {
   const now = Date.now();
   if (!forceRefresh && cachedNews && now - lastFetchTime < CACHE_TTL_MS) {
+    return cachedNews;
+  }
+
+  // 极速冷启动优化：首次加载直接 0.1ms 瞬时响应优质种子情报库，后台静默异步触发真实验证抓取，彻底消除首屏等待
+  if (!cachedNews && !forceRefresh) {
+    cachedNews = SEED_NEWS_ITEMS;
+    cachedFlash = SEED_FLASH_BRIEFS;
+    lastFetchTime = now;
+    // 异步后台静默触发一次增量抓取与更新
+    setTimeout(() => {
+      fetchAggregatedNews(true).catch(() => {});
+    }, 80);
     return cachedNews;
   }
 

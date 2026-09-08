@@ -10,6 +10,7 @@ import { FlashBrief, MarketQuote, NewsItem, TrackId, TimeWindow, QuotesVerificat
 import { SEED_FLASH_BRIEFS, SEED_MARKET_QUOTES, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
 import { SEED_NEWS_ITEMS } from '@/data/seedNews';
 import { Search, SlidersHorizontal, Calendar, Clock, Sparkles } from 'lucide-react';
+import BackToTopButton from '@/components/BackToTopButton';
 
 const REFRESH_INTERVAL_SECONDS = 30 * 60; // 30分钟 = 1800秒
 
@@ -59,58 +60,62 @@ export default function Home() {
     }
   };
 
-  // 加载与刷新最新数据
+  // 加载与刷新最新数据 (非阻塞异步流式渲染，优先渲染核心资讯)
   const loadData = async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
-    try {
-      const [newsRes, tickerRes] = await Promise.all([
-        fetch('/api/news').then((r) => (r.ok ? r.json() : null)),
-        fetch('/api/ticker').then((r) => (r.ok ? r.json() : null)),
-      ]);
 
-      if (newsRes?.success && newsRes.data) {
-        if (newsRes.data.news && newsRes.data.news.length > 0) {
-          setNews(newsRes.data.news);
-          try {
-            localStorage.setItem('git_cached_news', JSON.stringify(newsRes.data.news));
-          } catch (e) {}
+    // 1. 优先拉取与更新核心资讯数据（不被行情接口拖慢）
+    const fetchNewsPromise = fetch('/api/news')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((newsRes) => {
+        if (newsRes?.success && newsRes.data) {
+          if (newsRes.data.news && newsRes.data.news.length > 0) {
+            setNews(newsRes.data.news);
+            try {
+              localStorage.setItem('git_cached_news', JSON.stringify(newsRes.data.news));
+            } catch (e) {}
+          }
+          if (newsRes.data.flashBriefs && newsRes.data.flashBriefs.length > 0) {
+            setFlashBriefs(newsRes.data.flashBriefs);
+            try {
+              localStorage.setItem('git_cached_briefs', JSON.stringify(newsRes.data.flashBriefs));
+            } catch (e) {}
+          }
+          setLastUpdated(
+            new Date().toLocaleTimeString('zh-CN', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          );
         }
-        if (newsRes.data.flashBriefs && newsRes.data.flashBriefs.length > 0) {
-          setFlashBriefs(newsRes.data.flashBriefs);
-          try {
-            localStorage.setItem('git_cached_briefs', JSON.stringify(newsRes.data.flashBriefs));
-          } catch (e) {}
-        }
-        setLastUpdated(
-          new Date().toLocaleTimeString('zh-CN', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-        );
-      }
+      })
+      .catch((e) => {
+        console.warn('资讯更新异常，使用离线深度储备:', e);
+      });
 
-      if (tickerRes?.success && tickerRes.data?.quotes) {
-        setQuotes(tickerRes.data.quotes);
-        try {
-          localStorage.setItem('git_cached_quotes', JSON.stringify(tickerRes.data.quotes));
-        } catch (e) {}
-        if (tickerRes.data.verificationSummary) {
-          setQuotesVerification(tickerRes.data.verificationSummary);
+    // 2. 独立拉取与更新多源实时金融行情
+    const fetchTickerPromise = fetch('/api/ticker')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((tickerRes) => {
+        if (tickerRes?.success && tickerRes.data?.quotes) {
+          setQuotes(tickerRes.data.quotes);
+          try {
+            localStorage.setItem('git_cached_quotes', JSON.stringify(tickerRes.data.quotes));
+          } catch (e) {}
+          if (tickerRes.data.verificationSummary) {
+            setQuotesVerification(tickerRes.data.verificationSummary);
+          }
         }
-      }
-    } catch (e) {
-      console.warn('网络同步异常，按需加载内置离线深度数据库:', e);
-      try {
-        const { SEED_NEWS_ITEMS } = await import('@/data/seedNews');
-        setNews(SEED_NEWS_ITEMS);
-      } catch (err) {
+      })
+      .catch((e) => {
         // silent
-      }
-    } finally {
+      });
+
+    Promise.allSettled([fetchNewsPromise, fetchTickerPromise]).finally(() => {
       if (isManual) {
-        setTimeout(() => setIsRefreshing(false), 500);
+        setTimeout(() => setIsRefreshing(false), 300);
       }
-    }
+    });
   };
 
   // 1. 0ms 瞬间秒开：挂载时优先提取最近一次本地缓存数据，彻底终结网络请求带来的等待感与界面跳变
@@ -528,6 +533,9 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* 一键回到页面顶端浮动按钮 */}
+      <BackToTopButton />
     </div>
   );
 }

@@ -244,8 +244,29 @@ export function validateTitleSummaryEntityConsistency(
     }
   }
 
+  // 5. 突发灾害/伤亡事故标题 vs 商业赚钱/制造回暖/理财备货小结（物理杜绝牛头不对马嘴）
+  if (/泥石流|山洪|滑坡|地质灾害|重特大事故|坍塌|火灾|爆炸|伤亡|遇难|失联|致.*死|死伤|抗洪抢险|极端暴雨/.test(titleText)) {
+    if (/智造企业|现金流回暖|实物货流回暖|低风险理财|实体生产备货|现货升水|代工厂|晶圆|变压器排队|买显卡/.test(bodyText)) {
+      return {
+        isClean: false,
+        contaminationScore: 10,
+        reason: '【灾害事故实体严重错位】：标题为突发自然灾害或人员伤亡抢险，但小结/利益链被误植入智造企业回暖、理财备货或商业赚钱话术，已触发物理熔断拦截！',
+      };
+    }
+  }
+
+  // 6. 地理区域跨省/跨国张冠李戴拦截门禁（如江西遂川等非吉隆口岸灾害被套用“喜马拉雅”）
+  if (!/吉隆|西藏|中尼|日喀则|定日/.test(titleText) && /喜马拉雅|樟木口岸|中尼公路/.test(bodyText)) {
+    return {
+      isClean: false,
+      contaminationScore: 10,
+      reason: '【地理区域严重错位】：标题非西藏/中尼口岸事件，但内容套用喜马拉雅或樟木口岸地理标签，已触发物理熔断拦截！',
+    };
+  }
+
   return {
     isClean: true,
     contaminationScore: 0,
   };
 }
+

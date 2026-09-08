@@ -35,6 +35,9 @@ export default function RootLayout({
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <link rel="manifest" href="/manifest.json" />
+        <link rel="dns-prefetch" href="https://hq.sinajs.cn" />
+        <link rel="dns-prefetch" href="https://qt.gtimg.cn" />
+        <link rel="dns-prefetch" href="https://push2.eastmoney.com" />
         <meta name="application-name" content="全球情报" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
