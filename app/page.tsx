@@ -465,7 +465,9 @@ function TerminalApp() {
       {/* 2. 顶栏 (Header)：位于股市栏正下方，下滑时自动向上滑入股市栏后方隐藏，上滑时平滑呼出 */}
       <div
         className={`sticky top-[38px] z-30 w-full will-change-transform ${
-          isTopBarHidden || isHeaderHidden
+          isTopBarHidden
+            ? 'hidden'
+            : isHeaderHidden
             ? '-translate-y-full opacity-0 pointer-events-none'
             : 'translate-y-0 opacity-100 pointer-events-auto shadow-md'
         }`}

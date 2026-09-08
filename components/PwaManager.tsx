@@ -12,38 +12,59 @@ export default function PwaManager() {
   const [installedSuccess, setInstalledSuccess] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. 注册 Service Worker
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker
-          .register('/sw.js')
-          .then((registration) => {
-            // 自动检查更新
-            registration.addEventListener('updatefound', () => {
-              const installingWorker = registration.installing;
-              if (installingWorker) {
-                installingWorker.onstatechange = () => {
-                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    console.log('[PWA] 发现新版本情报终端，自动激活最新部署');
-                    installingWorker.postMessage({ type: 'SKIP_WAITING' });
-                  }
-                };
-              }
-            });
-
-            // 监听控制器变更，自动刷新获取最新生产脚本
-            let refreshing = false;
-            navigator.serviceWorker.addEventListener('controllerchange', () => {
-              if (!refreshing) {
-                refreshing = true;
-                window.location.reload();
-              }
-            });
-          })
-          .catch((err) => {
-            console.warn('[PWA] Service Worker 注册状态:', err);
+    // 1. 注册 Service Worker 并深度管理版本更迭
+    if (typeof window !== 'undefined') {
+      // 深度清理历史旧版缓存，确保彻底换代
+      if ('caches' in window) {
+        caches.keys().then((keys) => {
+          keys.forEach((key) => {
+            if (!key.includes('v3.0')) {
+              caches.delete(key);
+            }
           });
-      });
+        });
+      }
+
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker
+            .register('/sw.js')
+            .then((registration) => {
+              // 主动向服务端比对最新 sw.js 字节，杜绝等待
+              registration.update();
+
+              // 若已有待激活的 worker，立即令其跳过等待
+              if (registration.waiting) {
+                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+              }
+
+              // 自动检查更新
+              registration.addEventListener('updatefound', () => {
+                const installingWorker = registration.installing;
+                if (installingWorker) {
+                  installingWorker.onstatechange = () => {
+                    if (installingWorker.state === 'installed') {
+                      console.log('[PWA] 发现新版本情报终端，自动激活最新部署');
+                      installingWorker.postMessage({ type: 'SKIP_WAITING' });
+                    }
+                  };
+                }
+              });
+
+              // 监听控制器变更，自动刷新获取最新生产脚本
+              let refreshing = false;
+              navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!refreshing) {
+                  refreshing = true;
+                  window.location.reload();
+                }
+              });
+            })
+            .catch((err) => {
+              console.warn('[PWA] Service Worker 注册状态:', err);
+            });
+        });
+      }
     }
 
     // 2. 检测是否已经处于独立 App 沉浸模式 (Standalone)

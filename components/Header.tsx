@@ -17,6 +17,7 @@ import {
   Sun,
   Moon,
   Image as ImageIcon,
+  X,
 } from 'lucide-react';
 import { FlashBrief, MarketQuote, NewsItem } from '@/lib/types';
 import dynamic from 'next/dynamic';
@@ -225,6 +226,17 @@ export default function Header({
     };
   }, []);
 
+  useEffect(() => {
+    if (!isHovered) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || e.key === 'Esc' || e.keyCode === 27) {
+        setIsHovered(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc, true);
+    return () => window.removeEventListener('keydown', handleEsc, true);
+  }, [isHovered]);
+
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     setIsHovered(true);
@@ -361,9 +373,22 @@ export default function Header({
                         </p>
                       </div>
                     </div>
-                    <span className="text-[10px] sm:text-[11px] text-slate-400 font-mono">
-                      {verifyData?.verifiedAt || '刚刚'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] sm:text-[11px] text-slate-400 font-mono">
+                        {verifyData?.verifiedAt || '刚刚'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsHovered(false);
+                        }}
+                        className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                        title="关闭自检窗口 (快捷键: Esc)"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* 浮层主体 */}

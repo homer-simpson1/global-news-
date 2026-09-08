@@ -1,5 +1,5 @@
 // 全球决策情报终端 - 生产级 Service Worker (PWA)
-const CACHE_VERSION = 'git-pwa-v2.2';
+const CACHE_VERSION = 'git-pwa-v3.0';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 
@@ -100,35 +100,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 策略 C: 页面导航 -> Stale-While-Revalidate 极速秒开 (有本地缓存 0ms 瞬间打开，后台静默联网保鲜)
+  // 策略 C: 页面导航 -> Network-First 绝对优先获取云端最新构建，彻底解决刷新看到旧网页的问题；离线时自动降级
   if (req.mode === 'navigate') {
     event.respondWith(
-      (async () => {
-        // 1. 毫秒级匹配已有网页壳缓存（优先匹配完整 URL，回退匹配根路径 '/'）
-        const cached = (await caches.match(req)) || (await caches.match('/'));
-
-        const fetchPromise = fetch(req)
-          .then(async (networkRes) => {
-            if (networkRes && networkRes.status === 200) {
-              const resClone = networkRes.clone();
-              const cache = await caches.open(STATIC_CACHE);
-              await cache.put(req, resClone.clone());
-              await cache.put('/', resClone);
-            }
-            return networkRes;
-          })
-          .catch(() => {
-            return cached;
-          });
-
-        // 核心提速：若本地已有网页缓存骨架，0ms 立即瞬时呈现，彻底杜绝白屏与网络等待感；后台静默保鲜
-        if (cached) {
-          event.waitUntil(fetchPromise);
-          return cached;
-        }
-
-        return await fetchPromise;
-      })()
+      fetch(req)
+        .then(async (networkRes) => {
+          if (networkRes && networkRes.status === 200) {
+            const resClone = networkRes.clone();
+            const cache = await caches.open(STATIC_CACHE);
+            await cache.put(req, resClone.clone());
+            await cache.put('/', resClone);
+          }
+          return networkRes;
+        })
+        .catch(async () => {
+          const cached = (await caches.match(req)) || (await caches.match('/'));
+          if (cached) return cached;
+          return new Response('离线状态', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+        })
     );
     return;
   }

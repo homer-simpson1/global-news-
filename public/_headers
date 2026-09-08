@@ -1,0 +1,12 @@
+﻿# Cloudflare Pages Custom Headers Configuration
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+  Service-Worker-Allowed: /
+
+/
+  Cache-Control: no-cache, must-revalidate
+
+/api/*
+  Cache-Control: public, max-age=30, s-maxage=60, stale-while-revalidate=300
