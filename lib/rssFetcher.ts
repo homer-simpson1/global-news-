@@ -744,8 +744,25 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
   if (/openai|gpt|推理架构|思维链|agent/.test(t)) {
     return '掌握最强推理算法的闭源大厂开始向企业收取高昂API溢价，缺乏自研能力的包装型套壳软件加速死掉，算力采购全面倾斜向推理加速卡。';
   }
-  // 4. 美债收益率 / 非农 / 降息
-  if (/美债|收益率|两年期|10年期/.test(t) || (/美联储|降息|非农/.test(t) && track === 'us_macro')) {
+  // 3.1 澳洲联储 (RBA)
+  if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
+    return '澳元汇率获得高息资产利差支撑，澳洲商业银行房贷与中小企业借贷成本维持高位，避险资金持续向澳洲高息主权债集聚。';
+  }
+  // 3.2 欧洲央行 (ECB)
+  if (FOREIGN_ENTITIES.EUROPE_ECB.test(t)) {
+    return '欧元区主权公债利差走阔增加重债国融资成本，跨国资本在欧美利差与降息节奏之间寻找平衡。';
+  }
+  // 3.3 英国央行 (BOE)
+  if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
+    return '英国基准利率维持高位推升高负债企业借贷利息支出，英国本土商业按揭与零售行业现金流持续受压。';
+  }
+  // 4. 美债收益率 / 非农 / 降息（严格排除非美央行）
+  if (
+    !FOREIGN_ENTITIES.AUSTRALIA.test(t) &&
+    !FOREIGN_ENTITIES.EUROPE_ECB.test(t) &&
+    !FOREIGN_ENTITIES.UK_BOE.test(t) &&
+    (/美债|收益率|两年期|10年期/.test(t) || (/美联储|降息|非农/.test(t) && track === 'us_macro'))
+  ) {
     return '华尔街一级做市商与货币基金赚取无风险高息，重资产高杠杆中小企业背负沉重利息支出，避险资金持续从成长股倒流回短久期美债。';
   }
   // 5. 期指尾盘下挫 / 巨头抗跌
@@ -919,19 +936,51 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
     title = '禽流感逼近南美农牧圈！乌拉圭宣布紧急状态，多国拉响警报';
   } else if (/吉隆口岸/.test(title)) {
     title = '吉隆口岸遭跨境泥石流冲击，陆路抢通推进搜救与选址论证';
+  } else if (/澳洲联储|澳联储|hunter/i.test(title) && /通胀|抗击通胀/.test(title)) {
+    title = '澳洲联储明确抗击通胀为首要任务，警惕物价反复压制降息预期';
+  } else if (/欧洲央行|欧央行|拉加德/.test(title) && /降息|加息|通胀/.test(title)) {
+    title = '欧洲央行审慎权衡降息节奏，通胀回落与经济低迷拉锯加剧';
+  } else if (/英国央行|英央行|贝利/.test(title) && /降息|加息|利率/.test(title)) {
+    title = '英国央行抗通胀立场保持克制，薪资粘性推迟全面宽松窗口';
   }
 
   // 清除首尾逗号和空格
   title = title.replace(/^[，,\s]+|[，,\s]+$/g, '');
 
-  // 5. 严格控制字数在 22~28 个汉字区间，自然断句，绝不机械截断
+  // 5. 严格控制字数在 22~28 个汉字区间，自然断句，绝不机械硬性腰斩（严禁切断词语导致“明确抗”残句）
   if (title.length > 28) {
-    const sub = title.slice(0, 28);
-    const lastPunc = Math.max(sub.lastIndexOf('，'), sub.lastIndexOf('！'), sub.lastIndexOf(' '));
-    if (lastPunc >= 21) {
-      title = sub.slice(0, lastPunc);
+    // 优先基于自然分句提取完整语义
+    const clauses = title.split(/[，,；;！!]/).map((s) => s.trim()).filter(Boolean);
+    if (clauses.length >= 2) {
+      if (clauses[1].length >= 20 && clauses[1].length <= 32) {
+        title = clauses[1];
+      } else if (clauses[0].length >= 20 && clauses[0].length <= 32) {
+        title = clauses[0];
+      } else {
+        const joined = `${clauses[0]}，${clauses[1]}`;
+        if (joined.length <= 32) {
+          title = joined;
+        } else {
+          // 在 22~32 字符范围内寻找最近标点断开
+          const sub = title.slice(0, 32);
+          const punc = Math.max(sub.lastIndexOf('，'), sub.lastIndexOf(' '), sub.lastIndexOf('！'));
+          if (punc >= 20) {
+            title = sub.slice(0, punc);
+          } else {
+            title = sub;
+          }
+        }
+      }
     } else {
-      title = sub.slice(0, 28);
+      if (title.length > 32) {
+        const sub = title.slice(0, 32);
+        const punc = Math.max(sub.lastIndexOf('，'), sub.lastIndexOf('、'), sub.lastIndexOf(' '));
+        if (punc >= 20) {
+          title = sub.slice(0, punc);
+        } else {
+          title = sub;
+        }
+      }
     }
   } else if (title.length < 22) {
     let suffix = '引发各方高度关注';
@@ -959,11 +1008,8 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
       };
       suffix = enrichSuffix[track] || '引发全网多空高度聚焦';
     }
-    if (title.length + suffix.length + 1 <= 28) {
+    if (title.length + suffix.length + 1 <= 32) {
       title = `${title}，${suffix}`;
-    }
-    if (title.length > 28) {
-      title = title.slice(0, 28);
     }
   }
 
@@ -999,7 +1045,24 @@ function generateCoreTakeaway(
   if (/openai|gpt|推理架构|思维链|agent/.test(t)) {
     return '【给思考时间买单】：光堆参数已经摸到天花板，现在模型通过自我多轮推演与纠错消除幻觉，企业终于敢把核心业务系统交给AI智能体代管。';
   }
-  if (/美债|收益率|两年期|10年期/.test(t) || (/美联储|降息|非农/.test(t) && track === 'us_macro')) {
+  // 3.1 澳洲联储 (RBA)
+  if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
+    return '【抗通胀立场寸步不让】：澳洲联储咬死抗击通胀目标不松口，直接粉碎了市场关于过早降息的幻想，借贷高息环境将更长时间压制本土资产扩张。';
+  }
+  // 3.2 欧洲央行 (ECB)
+  if (FOREIGN_ENTITIES.EUROPE_ECB.test(t)) {
+    return '【欧洲央行审慎权衡】：在通胀回落与欧洲经济疲软之间艰难权衡，降息窗口虽逐步打开但节奏极其克制。';
+  }
+  // 3.3 英国央行 (BOE)
+  if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
+    return '【英国央行高息维稳】：薪资与服务业通胀粘性迫使英格兰银行保持审慎，全面宽松窗口被不断校准推迟。';
+  }
+  if (
+    !FOREIGN_ENTITIES.AUSTRALIA.test(t) &&
+    !FOREIGN_ENTITIES.EUROPE_ECB.test(t) &&
+    !FOREIGN_ENTITIES.UK_BOE.test(t) &&
+    (/美债|收益率|两年期|10年期/.test(t) || (/美联储|降息|非农/.test(t) && track === 'us_macro'))
+  ) {
     return '【宽松幻想破灭】：就业市场比华尔街预期的硬气得多，短端国债被疯狂抛售，借贷成本难以下降，指望美联储立刻大水漫灌的对冲基金只能认亏平仓。';
   }
   if (/期指|期货|美股三大|道指|标普|纳斯达克/.test(t)) {
@@ -1136,7 +1199,16 @@ function generateNextWatchlist(title: string, content: string, track: TrackId): 
   if (FOREIGN_ENTITIES.JAPAN.test(t)) {
     return '【后续观察哨】：锁定在 日本央行货币政策委员会委员最新表态与日本财务省外汇干预临界点。';
   }
-  if (/美联储|降息|加息|非农|cpi|通胀|美债|收益率/.test(t)) {
+  if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
+    return '【后续观察哨】：锁定在 澳洲联储（RBA）下一次货币政策利率决议与澳大利亚三季度核心 CPI 物价变动趋势。';
+  }
+  if (FOREIGN_ENTITIES.EUROPE_ECB.test(t)) {
+    return '【后续观察哨】：锁定在 欧洲央行管理委员会（ECB）最新利率决议与欧元区主要成员国调和 CPI 通胀终值。';
+  }
+  if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
+    return '【后续观察哨】：锁定在 英国央行货币政策委员会（MPC）议息纪要与英国核心通胀及薪资增长数据。';
+  }
+  if (/美联储|降息|加息|非农|cpi|通胀|美债|收益率/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
     return '【后续观察哨】：锁定在 9月11日 20:30 美国 8 月 CPI 数据公布与 9 月 FOMC 议息决议。';
   }
   if (/台积电|先进制程|2nm|晶圆|芯片|半导体|英伟达|算力|asml/.test(t)) {
@@ -1160,7 +1232,7 @@ function generateNextWatchlist(title: string, content: string, track: TrackId): 
   if (/中金|证券|合并|停牌|重组/.test(t)) {
     return '【后续观察哨】：锁定在 异议股东现金选择权实施结果及合并后新实体挂牌首日交易表现。';
   }
-  if (/物流|经济|pmi|统计局|发改委|财政部|国债/.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t) && !FOREIGN_ENTITIES.US_MACRO.test(t)) {
+  if (/物流|经济|pmi|统计局|发改委|财政部|国债/.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t) && !FOREIGN_ENTITIES.US_MACRO.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
     return '【后续观察哨】：锁定在 财政部及人大常委会超长期特别国债资金落地发布会与下周金融信贷数据。';
   }
   if (/关税|对华|反倾销|出口管制|商务部|实体清单/.test(t)) {
@@ -1187,7 +1259,25 @@ function generateBullBearDivergence(title: string, content: string, track: Track
       bearDivergence: '海外与日本本土利差过宽加剧汇率贬值压力，央行若加快加息将推升国债偿债成本。',
     };
   }
-  if (/美联储|降息|加息|非农|通胀|美债|收益率/.test(t)) {
+  if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
+    return {
+      bullConsensus: '大宗商品出口与采矿业稳固为澳洲经济提供坚实底盘，澳洲联储坚守通胀目标支撑澳元资产估值。',
+      bearDivergence: '房贷利率与借贷成本高企持续抑制澳洲居民家庭消费，紧缩过久可能增加本土商业信贷违约风险。',
+    };
+  }
+  if (FOREIGN_ENTITIES.EUROPE_ECB.test(t)) {
+    return {
+      bullConsensus: '欧洲核心通胀逐步朝目标收敛，适度宽松节奏有助于改善欧元区工业与制造业借贷条件。',
+      bearDivergence: '地缘溢价与能源转型成本粘性高，若过早过快降息恐致欧元兑主要非美货币汇率波动加剧。',
+    };
+  }
+  if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
+    return {
+      bullConsensus: '英国服务业通胀韧性与实际工资回升支撑经济内生动力，英镑资产具备息差防守价值。',
+      bearDivergence: '公共部门债务高企与借贷成本刚性，抑制英国私人投资与长期经济潜在增速。',
+    };
+  }
+  if (/美联储|降息|加息|非农|通胀|美债|收益率/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
     return {
       bullConsensus: '非农与就业保持韧性验证美国经济软着陆逻辑，企业盈利底座依然牢固。',
       bearDivergence: '长端国债收益率居高难下，若通胀反复可能大幅推迟宽松窗口，科技股估值承压。',
@@ -1268,7 +1358,16 @@ function build5W1HSummary(
   } else if (FOREIGN_ENTITIES.JAPAN.test(t)) {
     who = '日本财务省、日本央行（BOJ）及外汇市场监管当局';
     where = '日本东京（日本财务省与央行决策中枢）';
-  } else if (/中国人民银行|央行/.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
+  } else if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
+    who = '澳大利亚储备银行（RBA，澳洲联储）及货币政策决策委员会';
+    where = '澳大利亚悉尼（马丁广场央行总部与金融交易中心）';
+  } else if (FOREIGN_ENTITIES.EUROPE_ECB.test(t)) {
+    who = '欧洲中央银行（ECB）管理委员会及执行董事会';
+    where = '德国法兰克福（欧洲央行总部与欧洲金融核心枢纽）';
+  } else if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
+    who = '英国央行（BOE）货币政策委员会（MPC）及监管机构';
+    where = '英国伦敦（针线街央行总部与伦敦金融城）';
+  } else if (/中国人民银行|央行/.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t)) {
     who = '中国人民银行（PBOC）及宏观货币政策司';
   } else if (/土耳其.*财政部/.test(t)) {
     who = '土耳其财政与国库部';
@@ -1276,7 +1375,7 @@ function build5W1HSummary(
   } else if (/美国财政部/.test(t)) {
     who = '美国财政部（U.S. Department of the Treasury）';
     where = '美国华盛顿特区（联邦决策中枢）';
-  } else if (/(?:中国财政部|我国财政部|中央财政)/.test(t) || (/财政部/.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t) && !FOREIGN_ENTITIES.US_MACRO.test(t))) {
+  } else if (/(?:中国财政部|我国财政部|中央财政)/.test(t) || (/财政部/.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t) && !FOREIGN_ENTITIES.US_MACRO.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t))) {
     who = '中华人民共和国财政部及直属预算司局';
   } else if (/商务部/.test(t)) {
     who = '中华人民共和国商务部新闻发言人与贸易救济局';
@@ -1313,7 +1412,7 @@ function build5W1HSummary(
   } else {
     const trackWhoMap: Record<TrackId, string> = {
       china_domestic: '国内宏观管理部门与相关企事业单位',
-      us_macro: '美联储利率政策追踪委员会与金融市场机构',
+      us_macro: '国际宏观政策追踪委员会与金融市场机构',
       apac_tech: '亚太半导体先进制程与硬件供应链核心厂商',
       commodities_shipping: '国际大宗商品交易所、欧佩克产油国与国际海事航运联盟',
       war_conflict: '冲突战区前方军事指挥部与防务情报部门',
@@ -1326,6 +1425,12 @@ function build5W1HSummary(
   // 2. Where (事件地点)
   if (FOREIGN_ENTITIES.JAPAN.test(t)) {
     where = '日本东京（日本财务省、日银与东证核心金融圈）';
+  } else if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
+    where = '澳大利亚悉尼（马丁广场央行总部与金融交易中心）';
+  } else if (FOREIGN_ENTITIES.EUROPE_ECB.test(t)) {
+    where = '德国法兰克福（欧洲央行总部与欧洲金融核心枢纽）';
+  } else if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
+    where = '英国伦敦（针线街央行总部与伦敦金融城）';
   } else if (/北京/.test(t)) {
     where = '中国北京（国家宏观决策与监管中枢）';
   } else if (/上海/.test(t)) {
@@ -1362,6 +1467,12 @@ function build5W1HSummary(
   // 3. Why (起因背景：根据核心事实精准归因)
   if (FOREIGN_ENTITIES.JAPAN.test(t)) {
     why = '日元汇率异动与美日利差倒挂加剧输入型通胀压力，引发官方针对外汇单边走势的警示与干预预期。';
+  } else if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
+    why = '澳洲国内核心服务业通胀粘性依然坚固，促使澳洲联储重申紧缩防守立场并压制过早降息预期。';
+  } else if (FOREIGN_ENTITIES.EUROPE_ECB.test(t)) {
+    why = '欧洲央行平衡抑制通胀粘性与维护经济增长底盘，依据最新核心通胀读数审慎微调流动性政策路径。';
+  } else if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
+    why = '英国工资增速与服务业物价中枢维持高位，促使英国央行在兼顾增长与抗击通胀间保持审慎防守。';
   } else if (/合并|重组|停牌|并购/.test(t)) {
     why = '贯彻落实资本市场深化改革部署，通过同业重组整合优质资产、做优做强核心主业。';
   } else if (/税收|税费|减税|加计扣除/.test(t)) {
@@ -1376,7 +1487,7 @@ function build5W1HSummary(
     why = '喜马拉雅及受灾山区遭遇季风极端强降雨袭击，诱发突发性地质山洪滑坡冲毁公路与民舍。';
   } else if (/芯片|半导体|先进制程|算力|dram|gpu/.test(t)) {
     why = '全球AI大模型爆发推升高端算力与存储芯片需求，倒逼供应链加速自主研发攻关与产能释放。';
-  } else if (/降息|加息|非农|通胀|美联储|收益率|美债/.test(t)) {
+  } else if (/降息|加息|非农|通胀|美联储|收益率|美债/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
     why = '宏观就业与通胀数据显现韧性，促使市场交易员动态修正对央行流动性宽松窗口的押注。';
   } else if (/空袭|导弹|袭击|交火|军事行动/.test(t)) {
     why = '地缘冲突双方在前线战线互试底线，通过高强度对等威慑打击争夺军事均势与博弈筹码。';
@@ -1414,6 +1525,12 @@ function build5W1HSummary(
   // 5. Consequence (后续影响与传导：拒绝流水线连接词与假大空套话)
   if (FOREIGN_ENTITIES.JAPAN.test(t)) {
     consequence = '引发跨国套息头寸紧急平仓，直接波及东证核心科技板块与跨国出口企业资产再定价。';
+  } else if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
+    consequence = '打消跨国交易员激进降息押注，对澳元汇率与澳洲本土商业借贷利率形成刚性支撑。';
+  } else if (FOREIGN_ENTITIES.EUROPE_ECB.test(t)) {
+    consequence = '引导欧元区主权债务利差与银行流动性平稳过渡，直接影响跨大西洋资产头寸配置。';
+  } else if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
+    consequence = '锚定英国金边债券收益率中枢，引导伦敦离岸信贷与按揭抵押贷款利率动态重定价。';
   } else if (/合并|重组|停牌|并购/.test(t)) {
     consequence = '显著增强头部机构跨市场运作与综合金融服务能力，对行业兼并整合起到积极标杆示范作用。';
   } else if (/税收|税费|减税|研发费用/.test(t)) {
@@ -1428,7 +1545,7 @@ function build5W1HSummary(
     consequence = '多方联合紧急搜救响应全面展开，大型机械与应急物资加紧打通受损公路生命通道。';
   } else if (/芯片|半导体|先进制程|算力/.test(t)) {
     consequence = '筑牢本土高端算力与关键零部件供应链护城河，为数字经济与智能产业演进奠定硬件底座。';
-  } else if (/降息|加息|美联储|收益率|美债/.test(t)) {
+  } else if (/降息|加息|美联储|收益率|美债/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
     consequence = '重塑美债收益率曲线与权益资产借贷估值，外溢影响跨国离岸流动性配置节奏。';
   } else if (/空袭|导弹|原油|中东/.test(t)) {
     consequence = '推升国际原油与大宗黄金地缘避险买盘，国际航道与关键能源通道安保等级同步上调。';

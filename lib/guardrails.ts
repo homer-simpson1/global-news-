@@ -8,8 +8,11 @@ import { TrackId, PrimarySourceInfo } from './types';
 // 1. 外国主权与核心实体词（与中国国内板块物理绝对互斥）
 export const FOREIGN_ENTITIES = {
   JAPAN: /日本|日元|日银|东证|财务省|财务大臣|加藤胜信|植田和男|岸田|石破茂|东京|日经225|丰田|索尼|软银/,
-  US_MACRO: /美联储|鲍威尔|美债|美国国债|白宫|耶伦|美国财政部|华尔街|纳斯达克|道琼斯|标普500|非农|初请|失业金|美股三大|fomc/,
-  WAR_DEFENSE: /五角大楼|防卫省|以军|俄军|乌军|克里姆林宫|北约|泽连斯基|普京|内塔尼亚胡|哈马斯|真主党|黎巴嫩|加沙|也门胡塞|霍尔木兹/,
+  AUSTRALIA: /澳洲|澳大利亚|澳联储|澳洲联储|rba|hunter|布洛克|澳元|悉尼/i,
+  EUROPE_ECB: /欧洲央行|欧央行|拉加德|ecb|欧元区|欧元/i,
+  UK_BOE: /英国央行|英央行|贝利|boe|英格兰银行|英镑/i,
+  US_MACRO: /美联储|鲍威尔|美债|美国国债|白宫|耶伦|美国财政部|华尔街|纳斯达克|道琼斯|标普500|非农|初请|失业金|美股三大|fomc/i,
+  WAR_DEFENSE: /五角大楼|防卫省|以军|俄军|乌军|克里姆林宫|北约|泽连斯基|普京|内塔尼亚胡|哈马斯|真主党|黎巴嫩|加沙|也门胡塞|霍尔木兹/i,
 };
 
 // 2. 中国国内专属治理与宏观词汇（用于串味污染检测）
@@ -226,6 +229,17 @@ export function validateTitleSummaryEntityConsistency(
         isClean: false,
         contaminationScore: 10,
         reason: '【战局防务实体严重错位】：标题为前线军事交火，但小结出现国内财政与社会治理词汇，已触发物理熔断拦截！',
+      };
+    }
+  }
+
+  // 4. 澳洲联储 / 欧洲央行 / 英国央行 标题 vs 美联储 / 美债 / FOMC 小结（防跨国央行严重杂交）
+  if (FOREIGN_ENTITIES.AUSTRALIA.test(titleText) || FOREIGN_ENTITIES.EUROPE_ECB.test(titleText) || FOREIGN_ENTITIES.UK_BOE.test(titleText)) {
+    if (!/美联储|鲍威尔|fomc|美债/.test(titleText) && /美联储利率政策追踪委员会|华盛顿联邦决策中枢|9月\s*fomc\s*议息决议|美债收益率曲线/.test(bodyText)) {
+      return {
+        isClean: false,
+        contaminationScore: 10,
+        reason: '【跨国央行严重杂交错位】：标题为澳洲联储/欧洲央行等非美央行，但小结被误植入美联储/FOMC/华盛顿中枢模板，已触发物理熔断拦截！',
       };
     }
   }
