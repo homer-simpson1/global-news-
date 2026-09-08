@@ -126,12 +126,20 @@ function CountdownBadge({
   const m = Math.floor(secs / 60);
   const s = secs % 60;
   const formatted = `${m}分${s < 10 ? '0' : ''}${s}秒`;
+  const formattedShort = `${m}:${s < 10 ? '0' : ''}${s}`;
 
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-medium">
-      <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-      <span>
+    <div
+      className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-medium shrink-0 select-none"
+      title={`自动刷新倒计时：还剩 ${formatted}`}
+      aria-label={`自动刷新倒计时还剩 ${formatted}`}
+    >
+      <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+      <span className="hidden sm:inline">
         自动刷新: <span className="font-mono font-bold text-blue-900 dark:text-blue-200">{formatted}</span>
+      </span>
+      <span className="sm:hidden font-mono font-bold text-blue-900 dark:text-blue-200">
+        ⏱ {formattedShort}
       </span>
     </div>
   );
@@ -313,33 +321,34 @@ export default function Header({
           </div>
 
           {/* 右侧：30分钟定时器、15分钟自检、长图生成、暗黑模式切换与快捷操作 */}
-          <div className="flex items-center flex-wrap gap-2 w-full md:w-auto justify-between md:justify-end text-xs md:text-sm">
+          <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto justify-between md:justify-end text-xs md:text-sm overflow-x-auto no-scrollbar py-0.5">
             {/* 15分钟自动化新闻真实性与准确性自检指示器 */}
             <div
-              className="relative"
+              className="relative shrink-0"
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
             >
               <button
                 type="button"
                 onClick={() => setIsHovered(!isHovered)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shadow-xs cursor-pointer select-none ${
+                aria-label="15分钟新闻自检状态"
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-all shadow-xs cursor-pointer select-none shrink-0 ${
                   hasUnpassed
                     ? 'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/20'
                     : 'bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                 }`}
               >
                 {hasUnpassed ? (
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 animate-pulse" />
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 animate-pulse shrink-0" />
                 ) : (
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 )}
                 <span>
-                  15分自检:{' '}
+                  <span className="hidden md:inline">15分自检: </span>
                   <span className={`font-bold ${hasUnpassed ? 'text-amber-800 dark:text-amber-200' : 'text-emerald-900 dark:text-emerald-200'}`}>
                     {hasUnpassed
-                      ? `${unpassedCount}篇待优化 (${verifyData?.passRate || '90%'})`
-                      : `通过 (${verifyData?.passRate || '100%'})`}
+                      ? `${unpassedCount}篇 (${verifyData?.passRate || '90%'})`
+                      : <><span className="hidden sm:inline">通过 </span><span>({verifyData?.passRate || '100%'})</span></>}
                   </span>
                 </span>
               </button>
@@ -482,28 +491,30 @@ export default function Header({
             {/* 一键生成早晚报高清长图 */}
             <button
               onClick={() => setIsShareModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-bold transition-all shadow-xs cursor-pointer active:scale-95 shrink-0"
               title="一键生成今日决策早晚报精美长图，支持复制与下载"
+              aria-label="生成早晚报长图"
             >
-              <ImageIcon className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-              <span>生成长图</span>
+              <ImageIcon className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+              <span className="hidden sm:inline">生成长图</span>
             </button>
 
             {/* 一键复制速递 */}
             <button
               onClick={handleCopyDigest}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 font-medium transition-colors shadow-xs active:scale-95 cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 font-medium transition-colors shadow-xs active:scale-95 cursor-pointer shrink-0"
               title="将今日核心决策速递复制为微信分享格式"
+              aria-label="复制今日决策速递"
             >
               {copied ? (
                 <>
-                  <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span className="text-emerald-700 dark:text-emerald-300 font-semibold">已复制速递</span>
+                  <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="text-emerald-700 dark:text-emerald-300 font-semibold hidden sm:inline">已复制速递</span>
                 </>
               ) : (
                 <>
-                  <Copy className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-                  <span>复制速递</span>
+                  <Copy className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
+                  <span className="hidden sm:inline">复制速递</span>
                 </>
               )}
             </button>
@@ -511,13 +522,14 @@ export default function Header({
             {/* 深色模式切换按钮 */}
             <button
               onClick={toggleDarkMode}
-              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 transition-colors cursor-pointer shadow-xs"
+              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 transition-colors cursor-pointer shadow-xs shrink-0"
               title={isDarkMode ? '切换至明亮模式' : '切换至金融终端暗黑模式'}
+              aria-label="切换明暗主题"
             >
               {isDarkMode ? (
-                <Sun className="w-4 h-4 text-amber-400" />
+                <Sun className="w-3.5 h-3.5 text-amber-400" />
               ) : (
-                <Moon className="w-4 h-4 text-slate-600" />
+                <Moon className="w-3.5 h-3.5 text-slate-600" />
               )}
             </button>
 
@@ -525,11 +537,12 @@ export default function Header({
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-500 text-white transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-500 text-white transition-colors disabled:opacity-50 cursor-pointer shadow-sm shrink-0"
               title="立即检查最新权威信源更新"
+              aria-label="刷新权威数据"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-              <span>{isRefreshing ? '获取中...' : '刷新'}</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''} shrink-0`} />
+              <span className="hidden sm:inline">{isRefreshing ? '获取中...' : '刷新'}</span>
             </button>
 
             {/* 始终固定在顶部的隐藏/折叠控制按钮 */}
@@ -537,10 +550,11 @@ export default function Header({
               <button
                 type="button"
                 onClick={onToggleHideTopBar}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 border border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-800 text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
+                className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 border border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-800 text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
                 title="隐藏顶部常驻栏，全屏沉浸阅读（隐藏后顶部保留便捷展开小按钮）"
+                aria-label="隐藏顶部栏"
               >
-                <ChevronUp className="w-3.5 h-3.5 text-slate-500 hover:text-rose-500" />
+                <ChevronUp className="w-3.5 h-3.5 text-slate-500 hover:text-rose-500 shrink-0" />
                 <span className="hidden sm:inline">隐藏顶部</span>
               </button>
             )}

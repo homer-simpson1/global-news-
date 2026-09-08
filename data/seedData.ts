@@ -64,7 +64,7 @@ export const SEED_MARKET_QUOTES: MarketQuote[] = [
   { symbol: '国际原油', name: 'WTI原油连续', price: '$92.67/桶', change: '+1.26%', isUp: true, category: 'BOND_FX' },
   { symbol: '国际黄金', name: 'COMEX期金', price: '$4,450.8/盎司', change: '-0.49%', isUp: false, category: 'BOND_FX' },
   { symbol: '美元兑日元', name: '美元 / 日元', price: '154.23', change: '-0.08%', isUp: false, category: 'BOND_FX' },
-  { symbol: '离岸人民币', name: '美元 / 离岸人民币', price: '6.7090', change: '-0.02%', isUp: false, category: 'BOND_FX' },
+  { symbol: '离岸人民币', name: '美元 / 离岸人民币', price: '7.2365', change: '-0.04%', isUp: false, category: 'BOND_FX' },
 ];
 
 export const SEED_FLASH_BRIEFS: FlashBrief[] = [

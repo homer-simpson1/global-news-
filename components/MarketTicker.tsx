@@ -135,16 +135,16 @@ function MarketTicker({
       <div className="w-full h-[38px] min-h-[38px] bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center overflow-hidden select-none transition-colors duration-200">
         <div className="flex items-center w-full h-full">
           {/* 左侧固定控制锚区：品牌标识、多源联网交叉验真徽章与交易时段状态 */}
-          <div className="flex-shrink-0 z-20 bg-slate-100 dark:bg-slate-900 px-3 sm:px-4 py-0.5 border-r border-slate-300 dark:border-slate-700 flex items-center gap-2 shadow-xs">
-            <div className="flex items-center gap-1.5 text-xs font-black tracking-wider text-slate-900 dark:text-slate-100">
-              <span className="inline-block w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse" />
+          <div className="flex-shrink-0 z-20 bg-slate-100 dark:bg-slate-900 px-2 sm:px-4 py-0.5 border-r border-slate-300 dark:border-slate-700 flex items-center gap-1.5 sm:gap-2 shadow-xs">
+            <div className="flex items-center gap-1 sm:gap-1.5 text-xs font-black tracking-wider text-slate-900 dark:text-slate-100 shrink-0">
+              <span className="inline-block w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse shrink-0" />
               <span className="hidden sm:inline">实时全球行情</span>
               <span className="sm:hidden">行情</span>
             </div>
 
-            {/* 交易状态胶囊（盘中实时交易 vs 盘后/休市提示，杜绝用户误认卡死） */}
+            {/* 交易状态胶囊（移动端隐藏以释放视口空间） */}
             <div
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors select-none ${
+              className={`hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors select-none ${
                 marketStatus.isTrading
                   ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800'
                   : 'bg-slate-200/70 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
@@ -164,14 +164,16 @@ function MarketTicker({
               )}
             </div>
 
-            {/* 联网多源交叉验真交互胶囊 (0 Token，支持点击展开全量比对中心) */}
+            {/* 联网多源交叉验真交互胶囊 (移动端精简为 [100%✓]) */}
             <button
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/70 hover:bg-emerald-100 dark:hover:bg-emerald-900/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 transition-all cursor-pointer shadow-2xs active:scale-95"
+              className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/70 hover:bg-emerald-100 dark:hover:bg-emerald-900/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0"
               title="点击查看全球行情全网多源交叉核验明细 (新浪+腾讯+东财 0 Token实时比对)"
+              aria-label="查看多源验真明细"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>多源验真 {passRate}</span>
+              <ShieldCheck className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span className="sm:hidden">{passRate}✓</span>
+              <span className="hidden sm:inline">多源验真 {passRate}</span>
               <span className="hidden md:inline text-[10px] text-emerald-700 dark:text-emerald-400 opacity-80">
                 (误差{maxDiff})
               </span>
@@ -181,9 +183,9 @@ function MarketTicker({
           {/* 跑马灯滚动区（配备左右双向平滑羽化渐变遮罩，杜绝文字突兀生硬截断） */}
           <div className="overflow-hidden relative w-full flex-1 min-w-0 h-full flex items-center">
             {/* 左侧平滑羽化遮罩 */}
-            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-100 dark:from-slate-900 to-transparent pointer-events-none z-10" />
+            <div className="absolute left-0 top-0 bottom-0 w-6 sm:w-10 bg-gradient-to-r from-slate-100 dark:from-slate-900 to-transparent pointer-events-none z-10" />
             {/* 右侧平滑羽化遮罩 */}
-            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-100 dark:from-slate-900 to-transparent pointer-events-none z-10" />
+            <div className="absolute right-0 top-0 bottom-0 w-6 sm:w-10 bg-gradient-to-l from-slate-100 dark:from-slate-900 to-transparent pointer-events-none z-10" />
 
             <div className="animate-ticker flex items-center gap-8 pl-8">
               {displayQuotes.map((q, idx) => {

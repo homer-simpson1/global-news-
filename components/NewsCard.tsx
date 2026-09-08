@@ -104,10 +104,10 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
           <span id="news-card-TRK-GYIRONG-PORT-2026" className="absolute -top-28 pointer-events-none" />
         </>
       )}
-      <div className="p-5 md:p-6">
+      <div className="p-4 sm:p-5 md:p-6">
         {/* 顶部元数据行：分类标签、信源、时间、头条徽章、右侧一键查错与展开按钮 */}
-        <div className="flex items-center justify-between gap-4 mb-3.5 flex-wrap">
-          <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 mb-3.5">
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
             {/* 头条要闻专属标记 */}
             {isLead && (
               <span
@@ -206,14 +206,14 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
             )}
           </div>
 
-          {/* 右侧操作区：一键搜索查错与展开深度小结按钮 */}
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {/* 右侧操作区：一键搜索查错与展开深度小结按钮（规范拇指安全热区 >= 36px 即 h-9） */}
+          <div className="flex items-center gap-2 justify-end sm:justify-start flex-shrink-0 w-full sm:w-auto">
             <a
               href={bingSearchUrl}
               target="_blank"
               rel="noopener noreferrer"
               title={`提取核心实体词在必应搜索核实: "${keywords}"`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 bg-white dark:bg-slate-800 hover:bg-blue-50/80 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 hover:border-blue-300 shadow-xs transition-all cursor-pointer select-none"
+              className="h-9 min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 bg-white dark:bg-slate-800 hover:bg-blue-50/80 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 hover:border-blue-300 shadow-xs transition-all cursor-pointer select-none active:scale-95"
             >
               <Search className="w-3.5 h-3.5 text-blue-500" />
               <span>实体查错</span>
@@ -221,11 +221,11 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
 
             <button
               onClick={() => setExpanded(!expanded)}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer select-none border ${
+              className={`h-9 min-h-[36px] inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer select-none border active:scale-95 ${
                 expanded ? theme.buttonActive : theme.buttonIdle
               }`}
             >
-              <span>{expanded ? '收起深度透视' : '展开深度透视'}</span>
+              <span>{expanded ? '收起透视' : '展开深度透视'}</span>
               {expanded ? (
                 <ChevronUp className="w-3.5 h-3.5" />
               ) : (

@@ -425,7 +425,7 @@ function TerminalApp() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200 pb-[env(safe-area-inset-bottom,1.5rem)]">
       {/* 1. 顶栏 (Header)：位于页面最顶部。页面下滑时平滑渐变淡出并自然滚出视口，从根源上彻底消除与股市栏图层重叠冲突 */}
       {!isTopBarHidden && (
         <div
@@ -512,23 +512,26 @@ function TerminalApp() {
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-              {trackTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setSelectedTrack(tab.id)}
-                  className={`h-10 inline-flex items-center gap-2 px-3.5 sm:px-4 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer border shadow-xs ${
-                    selectedTrack === tab.id ? tab.activeClass : tab.idleClass
-                  }`}
-                >
-                  <span
-                    className={`w-2.5 h-2.5 rounded-full ${
-                      selectedTrack === tab.id ? 'bg-white' : tab.dotClass
-                    } flex-shrink-0`}
-                  />
-                  <span>{tab.label}</span>
-                </button>
-              ))}
+            {/* 专区快速切换：移动端原生横向滑动胶囊栏 (Horizontal Scroll Strip)，PC端 flex-wrap 平铺 */}
+            <div className="relative w-full overflow-hidden">
+              <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar flex-nowrap lg:flex-wrap py-1 scroll-smooth">
+                {trackTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSelectedTrack(tab.id)}
+                    className={`h-9 sm:h-10 inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer border shadow-xs flex-shrink-0 ${
+                      selectedTrack === tab.id ? tab.activeClass : tab.idleClass
+                    }`}
+                  >
+                    <span
+                      className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${
+                        selectedTrack === tab.id ? 'bg-white' : tab.dotClass
+                      } flex-shrink-0`}
+                    />
+                    <span>{tab.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -537,12 +540,12 @@ function TerminalApp() {
             {/* 左侧：时钟周期与重大关注 */}
             <div className="flex flex-wrap items-center gap-2.5">
               {/* 时效周期切换胶囊 */}
-              <div className="inline-flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+              <div className="inline-flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex-shrink-0">
                 {timeTabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setTimeFilter(tab.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       timeFilter === tab.id
                         ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -556,7 +559,7 @@ function TerminalApp() {
               {/* 仅看重大关注开关 */}
               <button
                 onClick={() => setOnlyLevel1(!onlyLevel1)}
-                className={`h-9 inline-flex items-center gap-2 px-3.5 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap shadow-xs ${
+                className={`h-9 inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap shadow-xs flex-shrink-0 ${
                   onlyLevel1
                     ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-500/25 ring-2 ring-rose-400'
                     : 'bg-rose-50/80 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-800 dark:text-rose-300 border-rose-200/90 dark:border-rose-800'
@@ -574,7 +577,7 @@ function TerminalApp() {
               <button
                 type="button"
                 onClick={() => handleScrollToDisasterCard('GID-JILONG-PORT-DISASTER')}
-                className="h-9 inline-flex items-center gap-1.5 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap shadow-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700"
+                className="h-9 inline-flex items-center gap-1.5 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap shadow-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700 flex-shrink-0"
                 title="直达正在全生命周期持续追踪的吉隆口岸特大跨境地质灾害看板"
               >
                 <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse flex-shrink-0" />
@@ -582,7 +585,7 @@ function TerminalApp() {
               </button>
             </div>
 
-            {/* 搜索框（常驻清空按钮 ✕ 实现交互闭环） */}
+            {/* 搜索框（iOS 防缩放：input 默认 text-base，在 sm 上 text-sm） */}
             <div className="relative w-full lg:w-72 h-9">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -590,7 +593,7 @@ function TerminalApp() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索实体词 / 股票 / 战局..."
-                className="h-9 w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-9 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-slate-800 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 transition-all shadow-xs"
+                className="h-9 w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-9 text-base sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-slate-800 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 transition-all shadow-xs"
               />
               {searchQuery && (
                 <button
@@ -605,13 +608,13 @@ function TerminalApp() {
             </div>
           </div>
 
-          {/* 第三层：热点实体快速检索胶囊 Tag（点击切换 Active Pill 高亮态） */}
-          <div className="border-t border-slate-100 dark:border-slate-800 pt-3 flex items-center gap-2 flex-wrap">
+          {/* 第三层：热点实体快速检索胶囊 Tag（移动端原生横向滑动，拒绝折行堆叠） */}
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-3 flex items-center gap-2 overflow-x-auto no-scrollbar flex-nowrap lg:flex-wrap py-1 scroll-smooth">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 flex-shrink-0">
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               <span>热搜实体:</span>
             </span>
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center gap-1.5 flex-nowrap lg:flex-wrap">
               {HOT_TAGS.map((tag) => {
                 const isActive = searchQuery === tag.keyword || searchQuery.trim() === tag.label.replace(/^#/, '');
                 return (
@@ -628,7 +631,7 @@ function TerminalApp() {
                         }
                       }
                     }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border select-none ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border select-none flex-shrink-0 ${
                       isActive
                         ? 'bg-blue-600 dark:bg-blue-500 text-white border-blue-600 dark:border-blue-500 shadow-sm ring-2 ring-blue-400/40 scale-105 font-bold'
                         : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
@@ -667,7 +670,7 @@ function TerminalApp() {
       </main>
 
       {/* 底部页脚 */}
-      <footer className="w-full bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 py-8 px-4 text-center mt-16 text-xs sm:text-sm text-slate-500 dark:text-slate-400 transition-colors duration-200">
+      <footer className="w-full bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 py-8 px-4 text-center mt-16 text-xs sm:text-sm text-slate-500 dark:text-slate-400 transition-colors duration-200 pb-[env(safe-area-inset-bottom,1.5rem)]">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-900 dark:text-white text-base">全球决策情报终端</span>
@@ -692,15 +695,7 @@ function TerminalApp() {
 
 export default function Home() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 flex items-center justify-center">
-          <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-sm font-medium animate-pulse">
-            <span>全球决策情报终端正在加载...</span>
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="min-h-screen" />}>
       <TerminalApp />
     </Suspense>
   );
