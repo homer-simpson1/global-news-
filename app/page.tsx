@@ -41,7 +41,7 @@ function TerminalApp() {
   const [quotesVerification, setQuotesVerification] = useState<QuotesVerificationSummary | null>(null);
   const [isVerifyingQuotes, setIsVerifyingQuotes] = useState<boolean>(false);
   const [isTopBarHidden, setIsTopBarHidden] = useState<boolean>(false);
-  const [isScrolledDown, setIsScrolledDown] = useState<boolean>(false);
+  const [isHeaderHidden, setIsHeaderHidden] = useState<boolean>(false);
 
   useEffect(() => {
     try {
@@ -52,7 +52,7 @@ function TerminalApp() {
     } catch (e) {}
   }, []);
 
-  // 页面滚动监听：下滑自动渐变隐藏顶部，上滑或处于顶部时自动平滑浮现
+  // 页面滚动监听：下滑时顶栏自动平滑滑入股市栏后方隐藏；上滑或处于顶部时自动平滑浮现
   useEffect(() => {
     let lastScrollY = typeof window !== 'undefined' ? window.scrollY : 0;
     let ticking = false;
@@ -60,26 +60,27 @@ function TerminalApp() {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
 
-      // 顶部安全区（距离顶部小于 70px 时始终保持完整显现）
-      if (currentScrollY <= 70) {
-        setIsScrolledDown(false);
+      // 1. 顶部安全区（距离顶部 <= 60px 时始终保持完整显现）
+      if (currentScrollY <= 60) {
+        setIsHeaderHidden(false);
         lastScrollY = currentScrollY;
         ticking = false;
         return;
       }
 
-      const diff = currentScrollY - lastScrollY;
+      const delta = currentScrollY - lastScrollY;
 
-      // 向下滚动超过 8px：平滑渐变隐藏顶部
-      if (diff > 8) {
-        setIsScrolledDown(true);
+      // 2. 迟滞死区 (Hysteresis Deadband)：只有向下滚动超过 20px 且位置 > 90px 才触发隐藏
+      if (delta > 20 && currentScrollY > 90) {
+        setIsHeaderHidden(true);
+        lastScrollY = currentScrollY;
       }
-      // 向上滚动超过 8px：平滑渐变浮现
-      else if (diff < -8) {
-        setIsScrolledDown(false);
+      // 3. 只有向上滚动超过 15px 才触发重新显示
+      else if (delta < -15) {
+        setIsHeaderHidden(false);
+        lastScrollY = currentScrollY;
       }
 
-      lastScrollY = currentScrollY;
       ticking = false;
     };
 
@@ -449,30 +450,31 @@ function TerminalApp() {
     { id: 'HISTORIC', label: '历史精选' },
   ];
 
-  const isTopBarVisible = !isTopBarHidden && !isScrolledDown;
-
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
-      {/* 顶部常驻固定容器 (Sticky Top Container): 随页面下滑平滑渐变隐藏，上滑自动渐变浮现，同时支持手动一键隐藏 */}
-      <div
-        className={`sticky top-0 z-40 w-full will-change-transform ${
-          !isTopBarVisible
-            ? '-translate-y-full opacity-0 pointer-events-none max-h-0 overflow-hidden'
-            : 'translate-y-0 opacity-100 max-h-[300px] shadow-md'
-        }`}
-        style={{
-          transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1), opacity 320ms ease-out, max-height 360ms ease-out',
-        }}
-      >
-        {/* 顶部行情跑马灯（集成全网多源0 Token实时交叉验真中心） */}
+      {/* 1. 股市行情跑马灯：永久固定在屏幕最顶端 (top-0)，下滑时永不隐藏，高度恒定为 38px */}
+      <div className="sticky top-0 z-40 w-full h-[38px] bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs select-none">
         <MarketTicker
           quotes={quotes}
           verificationSummary={quotesVerification}
           onRefreshQuotes={refreshQuotes}
           isRefreshingQuotes={isVerifyingQuotes}
         />
+      </div>
 
-        {/* 导航头（包含30分钟倒计时、长图生成、暗黑模式、一键复制与隐藏顶部控制） */}
+      {/* 2. 顶栏 (Header)：位于股市栏正下方，下滑时自动向上滑入股市栏后方隐藏，上滑时平滑呼出 */}
+      <div
+        className={`sticky top-[38px] z-30 w-full will-change-transform ${
+          isTopBarHidden || isHeaderHidden
+            ? '-translate-y-full opacity-0 pointer-events-none'
+            : 'translate-y-0 opacity-100 pointer-events-auto shadow-md'
+        }`}
+        style={{
+          transitionProperty: 'transform, opacity',
+          transitionDuration: '280ms',
+          transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+        }}
+      >
         <Header
           onRefresh={() => loadData(true)}
           isRefreshing={isRefreshing}
@@ -489,25 +491,26 @@ function TerminalApp() {
           isTopBarHidden={isTopBarHidden}
         />
 
-        {/* 底部柔和渐变羽化边缘：保证下滑收起与上滑呼出具备柔和渐变通透质感 */}
-        <div className="h-2 w-full bg-gradient-to-b from-black/5 via-black/[0.02] to-transparent dark:from-white/5 dark:via-white/[0.02] pointer-events-none" />
+        {/* 底部柔和羽化阴影 */}
+        <div className="h-1.5 w-full bg-gradient-to-b from-black/5 via-black/[0.02] to-transparent dark:from-white/5 dark:via-white/[0.02] pointer-events-none" />
       </div>
 
-      {/* 当顶部栏隐藏时，在页面最上方居中悬浮一个精致小胶囊，点击即可一键展开恢复 */}
+      {/* 当用户手动隐藏顶栏时，在股市栏下方居中悬浮一个精致小胶囊，点击即可一键展开恢复 */}
       {isTopBarHidden && (
-        <div className="fixed top-2.5 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="fixed top-[46px] left-1/2 -translate-x-1/2 z-40 animate-in fade-in slide-in-from-top-2 duration-200">
           <button
             onClick={() => {
               setIsTopBarHidden(false);
+              setIsHeaderHidden(false);
               try {
                 localStorage.setItem('git_topbar_hidden', 'false');
               } catch (e) {}
             }}
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-900/90 dark:bg-slate-800/90 hover:bg-slate-900 dark:hover:bg-slate-700 text-white border border-slate-700/50 dark:border-slate-600/50 shadow-xl backdrop-blur-md cursor-pointer select-none transition-all hover:scale-105 active:scale-95"
-            title="点击展开顶部固定导航栏与实时行情条"
+            title="点击展开顶部固定导航栏"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>展开顶部栏</span>
+            <span>展开顶栏</span>
             <ChevronDown className="w-3.5 h-3.5 text-slate-300" />
           </button>
         </div>

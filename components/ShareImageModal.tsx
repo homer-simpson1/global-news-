@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Download, X, Copy, Check, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { FlashBrief, MarketQuote, NewsItem, TrackId } from '@/lib/types';
 import { TRACK_THEMES } from '@/lib/trackThemes';
@@ -25,6 +26,11 @@ export default function ShareImageModal({
   const [copied, setCopied] = useState<boolean>(false);
   const [generating, setGenerating] = useState<boolean>(false);
   const [exportMode, setExportMode] = useState<'brief' | 'full'>('brief');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -467,13 +473,13 @@ export default function ShareImageModal({
     }
   };
 
-  if (!isOpen) return null;
+  if (!mounted || !isOpen) return null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-hidden select-none"
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 overflow-hidden select-none"
     >
       {/* 独立全屏透明暗色蒙层：点击空白处 100% 触发关闭 */}
       <div
@@ -622,6 +628,7 @@ export default function ShareImageModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

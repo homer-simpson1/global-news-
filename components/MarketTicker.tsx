@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { MarketQuote, QuotesVerificationSummary } from '@/lib/types';
 import {
   TrendingUp,
@@ -84,6 +85,11 @@ function MarketTicker({
 }: MarketTickerProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   React.useEffect(() => {
     if (!isModalOpen) return;
@@ -126,10 +132,10 @@ function MarketTicker({
 
   return (
     <>
-      <div className="w-full bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 py-1.5 overflow-hidden select-none transition-colors duration-200">
-        <div className="flex items-center">
+      <div className="w-full h-[38px] min-h-[38px] bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center overflow-hidden select-none transition-colors duration-200">
+        <div className="flex items-center w-full h-full">
           {/* 左侧固定控制锚区：品牌标识、多源联网交叉验真徽章与交易时段状态 */}
-          <div className="flex-shrink-0 z-10 bg-slate-100 dark:bg-slate-900 px-3 sm:px-4 py-0.5 border-r border-slate-300 dark:border-slate-700 flex items-center gap-2 shadow-sm">
+          <div className="flex-shrink-0 z-20 bg-slate-100 dark:bg-slate-900 px-3 sm:px-4 py-0.5 border-r border-slate-300 dark:border-slate-700 flex items-center gap-2 shadow-xs">
             <div className="flex items-center gap-1.5 text-xs font-black tracking-wider text-slate-900 dark:text-slate-100">
               <span className="inline-block w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse" />
               <span className="hidden sm:inline">实时全球行情</span>
@@ -172,9 +178,14 @@ function MarketTicker({
             </button>
           </div>
 
-          {/* 跑马灯滚动区 */}
-          <div className="overflow-hidden relative w-full">
-            <div className="animate-ticker flex items-center gap-8 pl-6">
+          {/* 跑马灯滚动区（配备左右双向平滑羽化渐变遮罩，杜绝文字突兀生硬截断） */}
+          <div className="overflow-hidden relative w-full flex-1 min-w-0 h-full flex items-center">
+            {/* 左侧平滑羽化遮罩 */}
+            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-100 dark:from-slate-900 to-transparent pointer-events-none z-10" />
+            {/* 右侧平滑羽化遮罩 */}
+            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-100 dark:from-slate-900 to-transparent pointer-events-none z-10" />
+
+            <div className="animate-ticker flex items-center gap-8 pl-8">
               {displayQuotes.map((q, idx) => {
                 const hasVerify = !!q.verification;
                 const tooltipText = hasVerify
@@ -233,12 +244,12 @@ function MarketTicker({
         </div>
       </div>
 
-      {/* 全球行情多源联网交叉验真中心 弹窗 / 浮层 */}
-      {isModalOpen && (
+      {/* 全球行情多源联网交叉验真中心 弹窗 (通过 createPortal 直接挂载到 document.body，彻底消除图层堆叠冲突) */}
+      {mounted && isModalOpen && createPortal(
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-hidden"
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 overflow-hidden"
         >
           {/* 独立全屏暗色毛玻璃背景：点击任意空白处 100% 触发立即关闭 */}
           <div
@@ -504,7 +515,8 @@ function MarketTicker({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
