@@ -1903,8 +1903,9 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
     const usedNewsTitles: string[] = [];
 
     for (const trk of targetTracks) {
-      const candidate = categorized[trk][0];
-      if (candidate) {
+      // 绝不将特大突发灾害项目选入顶部速递（特大灾害在顶部有专门看板，在正文必须常驻完整演进档案）
+      const candidate = categorized[trk].find((c) => !c.isOngoingDisaster && !c.disasterTracker && c.id !== 'GID-JILONG-PORT-DISASTER') || categorized[trk][0];
+      if (candidate && !candidate.isOngoingDisaster && !candidate.disasterTracker && candidate.id !== 'GID-JILONG-PORT-DISASTER') {
         usedNewsIds.push(candidate.id);
         const cleanT = candidate.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
         usedNewsTitles.push(cleanT);
@@ -1944,8 +1945,12 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
     }
 
     // 核心物理去重：凡是被推送到“今日决策速递”的新闻，从下方各专区板块中彻底剔除，避免重复呈现！
+    // 注意：特大灾害全生命周期持续追踪档案（如吉隆口岸）永久豁免剔除，必须长驻在正文板块中！
     for (const trk of Object.keys(categorized) as TrackId[]) {
       categorized[trk] = categorized[trk].filter((item) => {
+        if (item.isOngoingDisaster || item.disasterTracker || item.id === 'GID-JILONG-PORT-DISASTER') {
+          return true;
+        }
         if (usedNewsIds.includes(item.id)) return false;
         const cleanItemTitle = item.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
         if (usedNewsTitles.includes(cleanItemTitle)) return false;
@@ -1996,6 +2001,11 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
           }
         }
       }
+    }
+
+    // 确保吉隆口岸特大灾害持续追踪卡片始终置顶在 domestic 赛道首位
+    if (jilongItem && !categorized.china_domestic.some((e) => e.id === jilongItem.id)) {
+      categorized.china_domestic.unshift(jilongItem);
     }
 
     const allNews: NewsItem[] = [

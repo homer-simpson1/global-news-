@@ -175,20 +175,25 @@ export default function Home() {
   // 筛选与搜索过滤（useMemo 确保只有搜索、专区或数据发生改变时才执行过滤）
   const filteredNews = React.useMemo(() => {
     return news.filter((item) => {
-      // 核心去重门禁：若某篇新闻已在“今日决策速递”中推出，下方各专区板块绝不重复出现！
-      const cleanItemTitle = item.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
-      const isAlreadyInFlash = flashBriefs.some((f) => {
-        if (f.id === item.id || f.id === `flash-${item.id}` || `flash-${f.id}` === item.id) return true;
-        const cleanFlashContent = f.content.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
-        if (cleanItemTitle === cleanFlashContent) return true;
-        if (cleanItemTitle.length > 8 && cleanFlashContent.length > 8) {
-          if (cleanItemTitle.includes(cleanFlashContent) || cleanFlashContent.includes(cleanItemTitle)) return true;
-        }
-        return false;
-      });
+      // 核心保护：特大灾害持续追踪档案（吉隆口岸等）绝不被速递过滤，必须常驻正文专区供读者深度阅读！
+      const isDisasterTrackerItem = Boolean(item.isOngoingDisaster || item.disasterTracker || item.id === 'GID-JILONG-PORT-DISASTER');
 
-      if (isAlreadyInFlash) {
-        return false;
+      if (!isDisasterTrackerItem) {
+        // 核心去重门禁：若某篇新闻已在“今日决策速递”中推出，下方各专区板块绝不重复出现！
+        const cleanItemTitle = item.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
+        const isAlreadyInFlash = flashBriefs.some((f) => {
+          if (f.id === item.id || f.id === `flash-${item.id}` || `flash-${f.id}` === item.id) return true;
+          const cleanFlashContent = f.content.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
+          if (cleanItemTitle === cleanFlashContent) return true;
+          if (cleanItemTitle.length > 8 && cleanFlashContent.length > 8) {
+            if (cleanItemTitle.includes(cleanFlashContent) || cleanFlashContent.includes(cleanItemTitle)) return true;
+          }
+          return false;
+        });
+
+        if (isAlreadyInFlash) {
+          return false;
+        }
       }
 
       if (selectedTrack !== 'all' && item.track !== selectedTrack) {
@@ -219,19 +224,24 @@ export default function Home() {
   }, [news, flashBriefs, selectedTrack, onlyLevel1, timeFilter, searchQuery]);
 
   const handleScrollToDisasterCard = React.useCallback((cardId?: string) => {
+    // 1. 彻底清除可能遮蔽吉隆口岸卡片的筛选条件，保证正文卡片立即处于可见状态
+    if (searchQuery) setSearchQuery('');
+    if (onlyLevel1) setOnlyLevel1(false);
+    if (timeFilter !== 'ALL') setTimeFilter('ALL');
     if (selectedTrack !== 'all' && selectedTrack !== 'china_domestic') {
       setSelectedTrack('china_domestic');
     }
+    // 2. 延迟等待 DOM 状态就绪后执行平滑居中滚动与高亮
     setTimeout(() => {
       const targetId = cardId ? `news-card-${cardId}` : 'news-card-GID-JILONG-PORT-DISASTER';
       const el = document.getElementById(targetId) || document.getElementById('news-card-GID-JILONG-PORT-DISASTER') || document.querySelector('[id^="news-card-"]');
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('ring-4', 'ring-rose-500');
+        el.classList.add('ring-4', 'ring-rose-500', 'transition-all');
         setTimeout(() => el.classList.remove('ring-4', 'ring-rose-500'), 2500);
       }
-    }, 80);
-  }, [selectedTrack]);
+    }, 120);
+  }, [searchQuery, onlyLevel1, timeFilter, selectedTrack]);
 
   const tracks: { id: TrackId; items: NewsItem[] }[] = React.useMemo(() => [
     { id: 'us_macro', items: filteredNews.filter((n) => n.track === 'us_macro') },
