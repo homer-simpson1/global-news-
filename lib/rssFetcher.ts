@@ -879,7 +879,7 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
     }
   }
 
-  return `${prefix} ${title}`;
+  return title;
 }
 
 // 核心结论生成引擎：说人话拒绝八股文，强制【硬核观点词】：【一句白话透视】格式，严禁禁忌词库与流水线连接词
