@@ -253,6 +253,7 @@ export default function ShareImageModal({
       war_conflict: '#e11d48',
       china_domestic: '#d97706',
       china_policy: '#4f46e5',
+      china_macro: '#ea580c',
       global_cognition: '#9333ea',
     };
 

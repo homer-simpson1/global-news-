@@ -4,7 +4,8 @@ export type TrackId =
   | 'commodities_shipping'
   | 'war_conflict'
   | 'china_domestic'
-  | 'china_policy' 
+  | 'china_policy'
+  | 'china_macro'
   | 'global_cognition';
 
 export type ImpactLevel = 1 | 2 | 3;

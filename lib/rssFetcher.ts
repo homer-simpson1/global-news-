@@ -323,7 +323,7 @@ export function evaluateCapitalMarketRelevance(
   track: string
 ): MarketRelevanceResult {
   // 某些专属赛道的文章直接豁免（大宗商品、外汇、债券专线已经是纯市场数据）
-  const exemptTracks = ['commodities', 'forex', 'bonds', 'us_macro_data', 'crypto'];
+  const exemptTracks = ['commodities', 'forex', 'bonds', 'us_macro_data', 'crypto', 'china_macro', 'us_macro'];
   if (exemptTracks.includes(track)) {
     return { hasMarketSubstance: true, totalScore: 99, hitCategories: ['track_exempt'], reason: '' };
   }
@@ -798,6 +798,13 @@ export function detectPrimarySource(
       { source: '彭博中国观察 Bloomberg Asia', sourceUrl: 'https://www.bloomberg.com' },
       { source: '英国金融时报 FT China', sourceUrl: 'https://www.ft.com' },
     ],
+    china_macro: [
+      { source: '国家统计局 NBS 官方数据', sourceUrl: 'https://www.stats.gov.cn' },
+      { source: '彭博中国宏观 Bloomberg China', sourceUrl: 'https://www.bloomberg.com/asia' },
+      { source: '路透中国宏观 Reuters China', sourceUrl: 'https://www.reuters.com/markets' },
+      { source: '财新数据 Caixin PMI Data', sourceUrl: 'https://www.caixinglobal.com' },
+      { source: '华尔街日报 WSJ China', sourceUrl: 'https://www.wsj.com/world/china' },
+    ],
     global_cognition: [
       { source: '经济学人 The Economist', sourceUrl: 'https://www.economist.com' },
       { source: '标普全球 S&P Global Intelligence', sourceUrl: 'https://www.spglobal.com' },
@@ -904,11 +911,27 @@ function classifyTrack(item: RawLiveItem): TrackId {
     return 'china_policy';
   }
 
-  // 5. 美股与美元宏观 (精确匹配美债、美联储及美股市场，避免将国内特别国债误判)
+  // 【硬性防线】中国宏观统计数据优先分类门禁（必须在 us_macro 之前执行！）
+  // 中国CPI/PPI/PMI/GDP/社零/工业产出等数据，严禁被 us_macro 关键词误吞
+  const isChinaMacroData = (() => {
+    // 明确含有"中国"主语的宏观数据标题
+    const hasChinaSubject = /中国\s*(?:8月|9月|10月|11月|12月|1月|2月|3月|4月|5月|6月|7月|\d+月|年度|全年|上半年|下半年|一季度|二季度|三季度|四季度|一月|二月|三月|四月|五月|六月|七月|八月|九月|十月)/i.test(item.title);
+    // 国家统计局/NBS/中国央行发布的数据
+    const hasChineseStatsBureau = /国家统计局|nbs|中国人民银行.*数据|央行.*数据|统计局/.test(t);
+    // 中国宏观指标关键词
+    const hasChinaMacroIndicator = /(?:中国|中国.*同比|前值|环比.*|同比.*%|同比增|同比降|同比.*点).*(?:cpi|ppi|pmi|gdp|社零|社会消费品零售|工业增加值|工业产出|固定资产|失业率|外贸顺差|贸易顺差|贸易逆差|外汇储备|m1|m2|信贷|新增贷款|居民消费价格|生产者价格|采购经理)/i.test(t) ||
+      /(?:cpi|ppi|pmi|gdp|社零|工业增加值|社会消费).*(?:同比|环比|前值|预期|超预期|低于预期|持平|回落|回升|上升|下降)/i.test(t) && !/美国|美联储|美债|美股|欧元区|欧洲/.test(t);
+    return hasChinaSubject || hasChineseStatsBureau || hasChinaMacroIndicator;
+  })();
+
+  if (isChinaMacroData && !/美联储|美债|美股|欧元区|非农|美国.*cpi|us.*cpi/.test(t)) {
+    return 'china_macro';
+  }
+
+  // 5. 美股与美元宏观（严格约束：必须有明确的美国/联储主语，不能裸匹配 cpi/通胀 造成中国宏观误归）
   if (
-    /美联储|鲍威尔|标普|纳斯达克|道琼斯|美债|美国国债|10年期美债|2年期美债|美债收益率|非农|cpi|pce|通胀|初请|失业金|美股|华尔街|摩根|高盛|期权|波动率|美元指数/.test(
-      t
-    )
+    /美联储|鲍威尔|标普|纳斯达克|道琼斯|美债|美国国债|10年期美债|2年期美债|美债收益率|非农|美股|华尔街|摩根|高盛|期权|波动率|美元指数/.test(t) ||
+    /美国.*(?:cpi|pce|ppi|通胀|失业金|初请|就业|制造业|服务业pmi)/i.test(t)
   ) {
     return 'us_macro';
   }
@@ -919,6 +942,64 @@ function classifyTrack(item: RawLiveItem): TrackId {
 
 function inferTransmission(track: TrackId, title: string, content: string): string {
   const t = (title + ' ' + content).toLowerCase();
+
+  // ── 中国宏观数据专属传导分析（最高优先级，严防与美股/联储模板串味）──────────────────
+  if (track === 'china_macro') {
+    const val = t.match(/同比\s*([+-]?\d+\.?\d*)\s*%/)?.[1];
+    const num = val ? parseFloat(val) : NaN;
+
+    // CPI：居民消费价格指数
+    if (/cpi|居民消费价格/.test(t)) {
+      if (!isNaN(num) && num < 0) {
+        return `CPI同比${num}%进入通缩区间，内需疲弱信号明确：消费品价格持续下跌压缩企业利润空间，人民银行具备进一步宽松的政策空间，A股消费板块短期受压，国债价格获支撑。`;
+      } else if (!isNaN(num) && num >= 0 && num <= 1.0) {
+        return `CPI同比仅${num}%，通胀压力近乎于无：物价低迷说明终端消费需求仍然不振，人民银行降准降息空间打开，有利于国债与优质债券，消费复苏力度仍需政策刺激。`;
+      } else if (!isNaN(num) && num > 1.0 && num <= 2.5) {
+        return `CPI同比${num}%，温和通胀区间：物价回升说明内需正在修复，A股消费与食品板块获得业绩支撑，人民银行维持稳健货币政策，暂无需大幅降息。`;
+      } else if (!isNaN(num) && num > 2.5) {
+        return `CPI同比${num}%偏高，通胀压力升温：央行降息空间收窄，高负债企业实际债务负担略有下降，但终端消费品成本上升压制居民购买力，债券收益率面临上行压力。`;
+      }
+      return 'CPI数据反映终端消费品价格走势，直接影响人民银行货币政策空间与A股消费、地产板块的业绩预期。';
+    }
+    // PPI：工业生产者出厂价格
+    if (/ppi|生产者价格|工业品出厂价/.test(t)) {
+      if (!isNaN(num) && num < 0) {
+        return `PPI同比${num}%持续负增长，工业通缩延伸至上游：制造业企业利润率被压缩，大宗商品进口价格承压，上游资源与化工板块估值继续受压，债券市场获利。`;
+      }
+      return 'PPI负增长反映工业端通缩压力，上游大宗原材料涨价受抑，对A股资源、化工板块构成压力，利好下游制造业利润率修复。';
+    }
+    // PMI：采购经理人指数
+    if (/pmi|采购经理|制造业.*景气|非制造业.*景气/.test(t)) {
+      if (!isNaN(num) && num > 50) {
+        return `PMI ${num}%站上荣枯线扩张区间：制造业订单回暖、工厂开工率提升，利好A股工业与出口链板块，人民币资产吸引力边际改善。`;
+      } else if (!isNaN(num) && num < 50) {
+        return `PMI ${num}%低于荣枯线50%，制造业仍处收缩区间：新订单疲弱、企业主动去库存，A股周期与制造业板块承压，进一步货币宽松预期升温。`;
+      }
+      return 'PMI景气度是判断工厂开工与订单预期的先行指标，直接影响A股工业、原材料与出口链板块的定价预期。';
+    }
+    // GDP
+    if (/gdp|国内生产总值|经济增速/.test(t)) {
+      return 'GDP增速数据确立中国经济景气基准：超预期利好人民币与A股整体估值，低于预期则强化财政刺激与降息预期，外资机构将据此调整中国资产配置比例。';
+    }
+    // 社零（社会消费品零售总额）
+    if (/社零|社会消费品零售|消费品零售/.test(t)) {
+      return '社零数据是衡量中国终端消费实力的核心指标：超预期利好消费、食品、旅游、免税板块，低于预期则强化内需刺激政策预期，电商与线下零售业绩基准随之重估。';
+    }
+    // 工业增加值/工业产出
+    if (/工业增加值|工业产出|规模以上工业/.test(t)) {
+      return '工业增加值反映实体制造业景气深度：超预期利好A股工业、机械与有色金属板块，低于预期加剧市场对制造业复苏持续性的疑虑，大宗商品需求预期随之修正。';
+    }
+    // 固定资产投资
+    if (/固定资产投资|基建投资|房地产投资/.test(t)) {
+      return '固定资产投资增速是基建与地产景气的先行信号：超预期利好水泥、钢铁、工程机械板块，地产投资持续低迷则加大政策救市预期，银行资产质量压力随之上升。';
+    }
+    // 信贷/M2
+    if (/m1|m2|信贷|新增贷款|社会融资规模/.test(t)) {
+      return '信贷与M2数据直接反映银行体系流动性扩张力度：超预期利好银行股与A股整体流动性预期，新增贷款不及预期则说明实体需求不足，增量宽松政策窗口打开。';
+    }
+    // 通用兜底
+    return '中国宏观数据直接影响人民银行货币政策取向与A股整体流动性预期，国际机构将据此调整人民币资产配置方向。';
+  }
 
   // 1. 台积电 / 先进制程晶圆
   if (/台积电|2nm|先进制程|晶圆/.test(t)) {
@@ -1061,6 +1142,7 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
     war_conflict: '跨国防务安全承包商订单逆势暴增，战区民生商业航道被动承担巨额保费，避险资金持续向大宗硬通货资产迁徙。',
     china_domestic: '逆周期政策协同发力稳固实体经济基本盘，合规骨干实体企业平稳承接结构性需求，高风险投机资本保持审慎观望。',
     china_policy: '具备完全自主可控能力的国产龙头快速吃下替代市场份额，海外依赖型代理商承受出清，合规与技术自立资本持续汇聚。',
+    china_macro: '人民银行货币政策取向随数据动态调整，A股消费与工业板块的业绩预期随之重估，外资机构据此校准中国资产配置比例。',
     global_cognition: '具备跨国多中心布局能力的头部贸易商分散化转移关税风险，单一区域出口商承担滞留损失，对冲资本借机重构头寸。',
   };
   return trackInterestMap[track] || '核心主体享受行业集中与议价溢价，边缘参与者承担成本转嫁，增量资金加速流向高确定性防御资产。';
@@ -1101,6 +1183,7 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
     war_conflict: '【俄乌美伊/战局防务】',
     china_domestic: '【国内重大要闻/治理】',
     china_policy: '【涉华经贸/地缘博弈】',
+    china_macro: '【中国宏观数据/景气】',
     global_cognition: '【全球政经/战略要闻】',
   };
   const prefix = prefixMap[track] || '【决策要闻】';
@@ -1221,6 +1304,7 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
         war_conflict: '一线战区警戒级别全面拉响',
         china_domestic: '相关工作稳步推进落实',
         china_policy: '跨境贸易合规博弈正式打响',
+        china_macro: '央行货币政策空间随之校准',
         global_cognition: '跨国机构紧急启动风险防御',
       };
       suffix = enrichSuffix[track] || '引发全网多空高度聚焦';
@@ -1241,6 +1325,49 @@ function generateCoreTakeaway(
   summary5W1H: Summary5W1H
 ): string {
   const t = (cleanTitle + ' ' + content).toLowerCase();
+
+  // ── 中国宏观数据专属核心结论（最高优先级，通读数值并直接给出判断）────────────────────
+  if (track === 'china_macro') {
+    // 从全文提取同比数值与前值
+    const yoyMatch = t.match(/同比\s*([+-]?\d+\.?\d*)\s*%/);
+    const prevMatch = t.match(/前值\s*([+-]?\d+\.?\d*)\s*%/);
+    const yoy = yoyMatch ? parseFloat(yoyMatch[1]) : NaN;
+    const prev = prevMatch ? parseFloat(prevMatch[1]) : NaN;
+    const trend = !isNaN(yoy) && !isNaN(prev) ? (yoy > prev ? '较前值回升' : yoy < prev ? '较前值回落' : '与前值持平') : '';
+
+    if (/cpi|居民消费价格/.test(t)) {
+      if (!isNaN(yoy) && yoy < 0) {
+        return `【物价负增长警报】：CPI同比${yoy}%${trend}，进入通缩区间——商品价格持续下跌意味着消费需求不足，央行降息空间打开，但通缩螺旋一旦形成将严重压缩企业利润。`;
+      } else if (!isNaN(yoy) && yoy <= 1.0) {
+        return `【物价低迷内需不振】：CPI同比${yoy}%${trend}，处于低通胀区间——这不是好消息，说明居民消费意愿仍弱，政策刺激空间充足，债券市场获利，消费板块复苏节奏存疑。`;
+      } else if (!isNaN(yoy) && yoy <= 2.5) {
+        return `【物价温和回升内需修复】：CPI同比${yoy}%${trend}，进入温和通胀区间——消费需求稳步修复，央行无需激进降息，A股消费与食品板块的业绩基准随之改善。`;
+      } else if (!isNaN(yoy)) {
+        return `【通胀压力升温降息受限】：CPI同比${yoy}%${trend}，通胀偏高——央行宽松空间收窄，债券价格承压，但消费品企业有望借涨价改善利润率。`;
+      }
+      return '【物价信号影响货币政策】：CPI数据直接决定央行降息节奏——低通胀打开宽松窗口，高通胀收窄操作空间，消费与地产板块的业绩预期随之重估。';
+    }
+    if (/ppi|生产者价格/.test(t)) {
+      if (!isNaN(yoy) && yoy < 0) {
+        return `【工厂出厂价持续下跌】：PPI同比${yoy}%${trend}，工业通缩已持续多个月——上游原材料价格压低了大宗商品需求，中游制造业虽然采购成本下降，但售价同样承压，利润率难以明显改善。`;
+      }
+      return `【工业端价格信号】：PPI同比${!isNaN(yoy) ? yoy + '%' : '数据'}${trend}，反映上游工厂出厂价格走势，直接影响制造业利润与大宗商品需求预期。`;
+    }
+    if (/pmi|采购经理/.test(t)) {
+      const pmiMatch = t.match(/(\d+\.?\d*)\s*%/);
+      const pmiVal = pmiMatch ? parseFloat(pmiMatch[1]) : NaN;
+      if (!isNaN(pmiVal) && pmiVal > 50) {
+        return `【制造业扩张信号】：PMI ${pmiVal}%高于荣枯线50%${trend}——工厂订单回暖、开工率提升，是实体经济活力的领先信号，工业与出口链板块受益。`;
+      } else if (!isNaN(pmiVal) && pmiVal < 50) {
+        return `【制造业收缩警示】：PMI ${pmiVal}%低于荣枯线50%${trend}——工厂新订单减少、去库存压力犹存，实体经济复苏节奏放缓，货币宽松预期升温。`;
+      }
+      return '【景气度先行指标】：PMI跨越50%荣枯分界是制造业扩张还是收缩的分水岭，数值与前值的变化方向比绝对值更重要。';
+    }
+    if (/gdp|国内生产总值/.test(t)) {
+      return `【经济增速基准确立】：GDP增速${!isNaN(yoy) ? yoy + '%' : '数据'}${trend}——超预期则外资加仓人民币资产，低于预期则财政刺激与降息预期升温，全年增长目标完成概率随之重估。`;
+    }
+    return `【中国宏观数据发布】：${!isNaN(yoy) ? `同比${yoy}%${trend}，` : ''}该数据直接影响人民银行货币政策取向与A股整体流动性预期。`;
+  }
 
   // 1. 核心主体与商业现实硬核直击
   if (/台积电|2nm|先进制程|晶圆/.test(t)) {
@@ -1379,6 +1506,15 @@ function generateCoreTakeaway(
     war_conflict: '筹码争夺升级',
     china_domestic: '重大治理现实透视',
     china_policy: '自立打破围堵',
+    china_macro: /cpi|居民消费价格/.test(t)
+      ? '物价信号影响货币政策'
+      : /ppi|生产者价格/.test(t)
+      ? '工业端通缩压力'
+      : /pmi|采购经理/.test(t)
+      ? '景气度先行指标'
+      : /gdp|国内生产总值/.test(t)
+      ? '经济增速基准'
+      : '宏观数据校准市场预期',
     global_cognition: '供应链应急防守',
   };
   let tag = hardcoreTagMap[track] || '商业现实透视';
@@ -1493,6 +1629,7 @@ function generateNextWatchlist(title: string, content: string, track: TrackId): 
     war_conflict: '【后续观察哨】：锁定在 战区周边关键能源航运走廊安保警报与多边斡旋停火进展。',
     china_domestic: '【后续观察哨】：锁定在 权威监管部门公布的后续政策执行细则及重点领域阶段性工作通报。',
     china_policy: '【后续观察哨】：锁定在 WTO争端仲裁委员会最新案件通报及双边经贸工作组会议日程。',
+    china_macro: '【后续观察哨】：锁定在 国家统计局下一轮月度宏观数据发布窗口与人民银行货币政策操作信号。',
     global_cognition: '【后续观察哨】：锁定在 国际货币基金组织（IMF）全球经济展望秋季报告更新。',
   };
   return trackMap[track] || '【后续观察哨】：锁定在 下周关键宏观金融指标公布与国际监管机构例行通报。';
@@ -1671,6 +1808,7 @@ function build5W1HSummary(
       commodities_shipping: '国际大宗商品交易所、欧佩克产油国与国际海事航运联盟',
       war_conflict: '冲突战区前方军事指挥部与防务情报部门',
       china_policy: '跨境贸易监管机构与涉外经贸合规部门',
+      china_macro: '国家统计局与中国人民银行宏观数据发布机构',
       global_cognition: '国际权威机构、产业智库与多边经济组织',
     };
     who = trackWhoMap[track] || '相关主管部委与行业决策主体';
@@ -1713,6 +1851,7 @@ function build5W1HSummary(
       commodities_shipping: '全球主要干线航道港口与国际能源大宗集散交割地',
       war_conflict: '全球地缘对抗一线与关键战略安全走廊',
       china_policy: '主要经济体跨国经贸与供应链合作支点',
+      china_macro: '中国北京（国家统计局/人民银行）',
       global_cognition: '全球主要宏观经贸与多边治理治理区域',
     };
     where = trackWhereMap[track] || '全球核心经济金融走廊';
@@ -1757,6 +1896,7 @@ function build5W1HSummary(
       commodities_shipping: '地缘溢价摩擦与关键航道绕行常态化，叠加实体刚性补库重塑运价与交割成本。',
       war_conflict: '大国地缘利益交织对立，前线局势反复演变牵动多边外交与能源航运戒备。',
       china_policy: '全球供应链重组与跨境贸易合规壁垒演进，推动经贸合作模式深层次重塑。',
+      china_macro: '国家统计局发布最新月度宏观经济数据，直接影响人民银行货币政策取向与A股流动性预期。',
       global_cognition: '国际大宗商品周期与宏观政经格局出现结构性分化，引发各方风险预期重构。',
     };
     why = trackWhyMap[track] || '宏观宏图与微观基本面变量共同驱动的市场化与战略性抉择。';
@@ -1817,6 +1957,7 @@ function build5W1HSummary(
       commodities_shipping: '推动全球大宗原材料与集装箱即期运价重估，放大下游制造业与跨国贸易成本链条传导。',
       war_conflict: '加剧地缘风险溢价向全球大宗商品与国际物流外溢，推高防务安全警戒等级。',
       china_policy: '促使涉外经贸主体加快风险分散与多元化市场开拓，重塑双边投资贸易路径。',
+      china_macro: 'A股消费、工业与银行板块据此重估业绩预期，人民币汇率与国债收益率同步响应数据信号。',
       global_cognition: '引导跨国投资机构根据宏观情势审视大类资产配置，提升风险防范针对性。',
     };
     consequence = trackConsequenceMap[track] || '直接影响相关领域中长期战略部署与市场资产定价中枢。';
@@ -2103,6 +2244,7 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
       war_conflict: [],
       china_domestic: [],
       china_policy: [],
+      china_macro: [],
       global_cognition: [],
     };
 
@@ -2128,6 +2270,7 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
       war_conflict: [],
       china_domestic: [],
       china_policy: [],
+      china_macro: [],
       global_cognition: [],
     };
 
@@ -2178,7 +2321,7 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
     }
 
     // 聚合各大不同领域的顶级快讯，确保重点卡片分属不同赛道
-    const targetTracks: TrackId[] = ['us_macro', 'apac_tech', 'commodities_shipping', 'war_conflict', 'china_domestic', 'global_cognition'];
+    const targetTracks: TrackId[] = ['us_macro', 'apac_tech', 'commodities_shipping', 'war_conflict', 'china_domestic', 'china_macro', 'global_cognition'];
     const trackTagMap: Record<TrackId, string> = {
       us_macro: '美股宏观',
       apac_tech: '算力与模型',
@@ -2186,6 +2329,7 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
       war_conflict: '战局防务',
       china_domestic: '国内要闻',
       china_policy: '涉华博弈',
+      china_macro: '中国宏观',
       global_cognition: '全球战略',
     };
 

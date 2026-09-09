@@ -43,6 +43,13 @@ export const TRACK_METADATA: Record<string, TrackMetadata> = {
     iconName: 'Globe',
     badgeColor: 'border-indigo-500 text-indigo-700 bg-indigo-50',
   },
+  china_macro: {
+    id: 'china_macro',
+    title: '中国宏观数据与经济景气',
+    tagline: 'CPI/PPI通胀 · PMI景气 · GDP增速 · 社会消费与工业产出',
+    iconName: 'BarChart2',
+    badgeColor: 'border-orange-500 text-orange-700 bg-orange-50',
+  },
   global_cognition: {
     id: 'global_cognition',
     title: '全球宏观认知与深度要闻',
