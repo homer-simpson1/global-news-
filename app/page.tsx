@@ -276,6 +276,40 @@ function TerminalApp() {
       }
     };
 
+    // ── iOS PWA 独立模式唤醒修复 ────────────────────────────────────────────────
+    // iOS Safari PWA（Standalone）下，visibilitychange 行为不可靠：
+    // 锁屏/切换 App 后系统会彻底挂起 JS 引擎，setInterval 静默失效，
+    // 回到前台时也不一定触发 visibilitychange。
+    // 可靠的唤醒信号：pageshow（含 persisted=true BFCache 还原）+ window focus
+    const handlePageShow = (e: PageTransitionEvent) => {
+      // persisted=true 表示页面从 BFCache 或 iOS 后台快照恢复
+      const now = Date.now();
+      if (now - lastNewsFetchTimeRef.current >= 60 * 1000) {
+        runNewsUpdate();
+      }
+      if (now - lastTickerFetchTimeRef.current >= 15 * 1000) {
+        updateTickerSilently();
+      }
+      startIntervals();
+    };
+
+    const handleWindowFocus = () => {
+      // iOS PWA 切回前台时 window 会收到 focus 事件（比 visibilitychange 更可靠）
+      const now = Date.now();
+      if (now - lastNewsFetchTimeRef.current >= 60 * 1000) {
+        runNewsUpdate();
+      }
+      if (now - lastTickerFetchTimeRef.current >= 15 * 1000) {
+        updateTickerSilently();
+      }
+      startIntervals();
+    };
+
+    const handleWindowBlur = () => {
+      // 失焦时停止轮询，节省电量（iOS PWA 后台会挂起，防止无效唤醒）
+      stopIntervals();
+    };
+
     // 首屏挂载后延迟 60ms 释放浏览器主线程，优先保障首屏秒开渲染
     newsTimer = setTimeout(() => {
       runNewsUpdate();
@@ -283,11 +317,17 @@ function TerminalApp() {
     }, 60);
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('blur', handleWindowBlur);
 
     return () => {
       if (newsTimer) clearTimeout(newsTimer);
       stopIntervals();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('blur', handleWindowBlur);
     };
   }, []);
 

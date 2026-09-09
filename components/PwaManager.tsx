@@ -157,10 +157,8 @@ export default function PwaManager() {
     localStorage.setItem('pwa_ios_guide_dismissed', Date.now().toString());
   };
 
-  // 如果已经在独立 App 全屏中打开，无需任何引导条
-  if (isStandalone) {
-    return null;
-  }
+  // standalone 模式下 JSX 无需渲染任何 UI（SW 注册、缓存管理、刷新逻辑均已在 useEffect 中完成）
+  if (isStandalone) return null;
 
   return (
     <>
