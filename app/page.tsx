@@ -72,7 +72,7 @@ function TerminalApp() {
   const refreshQuotes = async () => {
     setIsVerifyingQuotes(true);
     try {
-      const res = await fetch('/api/ticker?force=true');
+      const res = await fetch(`/api/ticker?force=true&_t=${Date.now()}`, { cache: 'no-store' });
       if (res.ok) {
         const d = await res.json();
         if (d?.success && d.data?.quotes) {
@@ -93,8 +93,18 @@ function TerminalApp() {
   const loadData = async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
 
+    const newsUrl = isManual
+      ? `/api/news?force=true&_t=${Date.now()}`
+      : `/api/news?_t=${Date.now()}`;
+    const tickerUrl = isManual
+      ? `/api/ticker?force=true&_t=${Date.now()}`
+      : `/api/ticker?_t=${Date.now()}`;
+    const fetchOptions: RequestInit = isManual
+      ? { cache: 'no-store' }
+      : {};
+
     // 1. 优先拉取与更新核心资讯数据（不被行情接口拖慢）
-    const fetchNewsPromise = fetch('/api/news')
+    const fetchNewsPromise = fetch(newsUrl, fetchOptions)
       .then((r) => (r.ok ? r.json() : null))
       .then((newsRes) => {
         if (newsRes?.success && newsRes.data) {
@@ -127,7 +137,7 @@ function TerminalApp() {
       });
 
     // 2. 独立拉取与更新多源实时金融行情
-    const fetchTickerPromise = fetch('/api/ticker')
+    const fetchTickerPromise = fetch(tickerUrl, fetchOptions)
       .then((r) => (r.ok ? r.json() : null))
       .then((tickerRes) => {
         if (tickerRes?.success && tickerRes.data?.quotes) {
@@ -173,6 +183,9 @@ function TerminalApp() {
         if (Array.isArray(parsedQ) && parsedQ.length > 0) setQuotes(parsedQ);
       }
     } catch (e) {}
+
+    // 关键：首屏挂载后立即在后台静默发起网络拉取，确保用户打开页面即可即时获取最新发布资讯
+    loadData(false);
   }, []);
 
   // 统一的可见性与刷新时间戳记录，防止后台切换与休眠时的重复或失效调用
