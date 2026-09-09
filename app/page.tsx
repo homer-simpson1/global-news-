@@ -13,7 +13,7 @@ import { Search, SlidersHorizontal, Calendar, Clock, Sparkles, X, ChevronDown } 
 import BackToTopButton from '@/components/BackToTopButton';
 import { autoCorrectAllNews } from '@/lib/selfHealingEngine';
 
-const REFRESH_INTERVAL_SECONDS = 30 * 60; // 30分钟 = 1800秒
+const REFRESH_INTERVAL_SECONDS = 3 * 60; // 3分钟 = 180秒自动静默轮询最新资讯
 
 const HOT_TAGS = [
   { label: '#美债收益率', keyword: '美债' },
@@ -244,7 +244,7 @@ function TerminalApp() {
       if (!tickerInterval) {
         tickerInterval = setInterval(() => {
           updateTickerSilently();
-        }, 30 * 1000);
+        }, 15 * 1000);
       }
     };
 
@@ -264,12 +264,12 @@ function TerminalApp() {
         stopIntervals();
       } else {
         const now = Date.now();
-        // 若切回前台时距离上次行情已超过 30 秒，立即触发一次静默拉取
-        if (now - lastTickerFetchTimeRef.current >= 30 * 1000) {
+        // 若切回前台时距离上次行情已超过 15 秒，立即触发一次静默拉取
+        if (now - lastTickerFetchTimeRef.current >= 15 * 1000) {
           updateTickerSilently();
         }
-        // 若切回前台时距离上次资讯已超过 30 分钟，立即触发全量更新
-        if (now - lastNewsFetchTimeRef.current >= REFRESH_INTERVAL_SECONDS * 1000) {
+        // 若切回前台时离开超过 1 分钟（60秒），立即触发全量网络拉取，杜绝用户看到旧新闻！
+        if (now - lastNewsFetchTimeRef.current >= 60 * 1000) {
           runNewsUpdate();
         }
         startIntervals();

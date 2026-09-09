@@ -18,7 +18,7 @@ export default function PwaManager() {
       if ('caches' in window) {
         caches.keys().then((keys) => {
           keys.forEach((key) => {
-            if (!key.includes('v3.4')) {
+            if (!key.includes('v3.5')) {
               console.log('[PWA] 清除旧版缓存:', key);
               caches.delete(key);
             }
@@ -29,7 +29,7 @@ export default function PwaManager() {
       if ('serviceWorker' in navigator) {
         const initSw = () => {
           navigator.serviceWorker
-            .register('/sw.js?v=3.4')
+            .register('/sw.js?v=3.5')
             .then((registration) => {
               // 主动向服务端比对最新 sw.js 字节，杜绝等待
               registration.update();

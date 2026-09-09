@@ -5,6 +5,7 @@ const { execSync } = require('child_process');
 async function buildNewspaper() {
   let quotes = [];
   let news = [];
+  let flashBriefs = [];
 
   const endpoints = [
     process.env.API_BASE_URL,
@@ -13,36 +14,78 @@ async function buildNewspaper() {
   ].filter(Boolean);
 
   for (const base of endpoints) {
-    try {
-      const cacheBuster = `force=true&_t=${Date.now()}`;
-      const qRes = await fetch(`${base}/api/ticker?${cacheBuster}`, {
-        headers: { 'Cache-Control': 'no-cache' },
-        signal: AbortSignal.timeout(4000)
-      });
-      if (qRes.ok) {
-        const d = await qRes.json();
-        if (d?.data?.quotes?.length) {
-          quotes = d.data.quotes;
+    const cacheBuster = `force=true&_t=${Date.now()}`;
+
+    // 独立拉取行情数据
+    if (quotes.length === 0) {
+      try {
+        const qRes = await fetch(`${base}/api/ticker?${cacheBuster}`, {
+          headers: { 'Cache-Control': 'no-cache' },
+          signal: AbortSignal.timeout(8000)
+        });
+        if (qRes.ok) {
+          const d = await qRes.json();
+          if (d?.data?.quotes?.length) {
+            quotes = d.data.quotes;
+          }
         }
+      } catch (e) {
+        // ticker error silent
       }
-      const nRes = await fetch(`${base}/api/news?${cacheBuster}`, {
-        headers: { 'Cache-Control': 'no-cache' },
-        signal: AbortSignal.timeout(6000)
-      });
-      if (nRes.ok) {
-        const d = await nRes.json();
-        if (d?.data?.news?.length) {
-          news = d.data.news;
-        }
-      }
-      if (news.length > 0 && quotes.length > 0) break;
-    } catch (e) {
-      // 尝试下一个节点
     }
+
+    // 独立拉取资讯与速递数据
+    if (news.length === 0) {
+      try {
+        const nRes = await fetch(`${base}/api/news?${cacheBuster}`, {
+          headers: { 'Cache-Control': 'no-cache' },
+          signal: AbortSignal.timeout(8000)
+        });
+        if (nRes.ok) {
+          const d = await nRes.json();
+          if (d?.data?.news?.length) {
+            news = d.data.news;
+          }
+          if (d?.data?.flashBriefs?.length) {
+            flashBriefs = d.data.flashBriefs;
+          }
+        }
+      } catch (e) {
+        // news error silent
+      }
+    }
+
+    if (news.length > 0 && quotes.length > 0) break;
   }
 
+  // 建立综合候选池：将顶级速递与正文资讯合并，并以发布时间权重（降序）排序，确保头条永远提取当日最新电讯！
+  const normalizedFlash = flashBriefs.map(f => ({
+    id: f.id,
+    track: f.track,
+    title: f.content,
+    source: f.source || '权威电讯直发',
+    publishedAt: f.time,
+    time: f.time,
+    summaryParagraph: f.summaryParagraph || f.content,
+    transmissionImpact: f.transmission || f.transmissionImpact,
+    oneLineTakeaway: f.oneLineTakeaway
+  }));
+
+  const allPool = [...normalizedFlash, ...news];
+
+  const getTimeScore = (item) => {
+    const t = item?.publishedAt || item?.time || '';
+    const m = t.match(/(\d{1,2})月(\d{1,2})日\s*(\d{1,2}):(\d{1,2})/);
+    if (m) {
+      return parseInt(m[1]) * 1000000 + parseInt(m[2]) * 10000 + parseInt(m[3]) * 100 + parseInt(m[4]);
+    }
+    return 0;
+  };
+
+  allPool.sort((a, b) => getTimeScore(b) - getTimeScore(a));
+
   // 1. 国际与地缘防务头条：优先抓取最新战局与涉外博弈
-  let warCandidate = news.find(n => n.track === 'war_conflict') || news[0];
+  let warCandidate = allPool.find(n => n.track === 'war_conflict') || allPool[0];
   const warItem = {
     title: warCandidate?.title || '【俄乌美伊/战局防务】五角大楼先进制程装备涉密引震荡：美军启动最高级安全审查与测谎',
     source: warCandidate?.source || '华尔街日报 WSJ World',
@@ -53,15 +96,15 @@ async function buildNewspaper() {
   };
 
   // 次级防务/航运态势
-  let subWarCandidate = news.find(n => n !== warCandidate && (n.track === 'war_conflict' || n.track === 'commodities_shipping'));
+  let subWarCandidate = allPool.find(n => n !== warCandidate && (n.track === 'war_conflict' || n.track === 'commodities_shipping'));
   const subWarItem = {
     title: subWarCandidate?.title || '中东与红海战局态势：主要航运保费持续高位',
     summary: subWarCandidate?.summaryParagraph || subWarCandidate?.content || '红海航运保费持续高位，避险买盘持续推升WTI原油高位震荡，跨国供应链保持高度防范。'
   };
 
   // 2. 科技与芯片算力头条：硬核算力突破与半导体硬件实盘走势
-  let techCandidate = news.find(n => n !== warCandidate && n !== subWarCandidate && n.track === 'apac_tech');
-  if (!techCandidate) techCandidate = news.find(n => n !== warCandidate && (n.track === 'us_macro' || n.track === 'apac_tech')) || news[1];
+  let techCandidate = allPool.find(n => n !== warCandidate && n !== subWarCandidate && n.track === 'apac_tech');
+  if (!techCandidate) techCandidate = allPool.find(n => n !== warCandidate && (n.track === 'us_macro' || n.track === 'apac_tech')) || allPool[1];
 
   const techItem = {
     title: techCandidate?.title || '【芯片算力/半导体】国产旗舰GPU迎实质破局：沐曦「曦云C600」算力芯片获国家安全测评认证',
@@ -72,8 +115,8 @@ async function buildNewspaper() {
   };
 
   // 3. 宏观治理与主权资本要闻：重大宏观政策，杜绝琐碎杂音
-  let macroCandidate = news.find(n => n !== warCandidate && n !== subWarCandidate && n !== techCandidate && (n.track === 'china_policy' || n.track === 'china_domestic'));
-  if (!macroCandidate) macroCandidate = news.find(n => n !== warCandidate && n !== techCandidate) || news[2];
+  let macroCandidate = allPool.find(n => n !== warCandidate && n !== subWarCandidate && n !== techCandidate && (n.track === 'china_policy' || n.track === 'china_domestic'));
+  if (!macroCandidate) macroCandidate = allPool.find(n => n !== warCandidate && n !== techCandidate) || allPool[2];
 
   const macroItem = {
     title: macroCandidate?.title || '【国内重大要闻/治理】财政部统筹推进政策性金融注资：夯实稳外贸金融底座',
@@ -84,7 +127,7 @@ async function buildNewspaper() {
   };
 
   // 【今日决策速览备忘】动态提取 3 条不同领域的重点短评
-  const quickCandidates = news.filter(n =>
+  const quickCandidates = allPool.filter(n =>
     n !== warCandidate &&
     n !== subWarCandidate &&
     n !== techCandidate &&

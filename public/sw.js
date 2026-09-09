@@ -1,5 +1,5 @@
 // 全球决策情报终端 - 生产级 Service Worker (PWA)
-const CACHE_VERSION = 'git-pwa-v3.4';
+const CACHE_VERSION = 'git-pwa-v3.5';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 
@@ -46,44 +46,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 策略 A: API 动态数据 (/api/news, /api/ticker 等)
-  // 若包含 force=true、时间戳 _t 或 no-cache，直接放行直连网络，严禁拦截，保证每次打开与刷新获取最新真实现货/资讯！
+  // 策略 A: API 动态数据 (/api/*) 100% 直连网络，Service Worker 严禁拦截或缓存，杜绝数据冻结
   if (url.pathname.startsWith('/api/')) {
-    if (
-      url.searchParams.has('force') ||
-      url.searchParams.has('_t') ||
-      req.cache === 'no-store' ||
-      req.headers.get('Cache-Control')?.includes('no-cache')
-    ) {
-      return; // 浏览器直连网络
-    }
-
-    event.respondWith(
-      fetch(req)
-        .then((networkRes) => {
-          if (networkRes && networkRes.status === 200) {
-            const clone = networkRes.clone();
-            caches.open(DYNAMIC_CACHE).then((cache) => cache.put(req, clone));
-          }
-          return networkRes;
-        })
-        .catch(() => {
-          return caches.open(DYNAMIC_CACHE).then((cache) =>
-            cache.match(req).then((cachedRes) => {
-              if (cachedRes) return cachedRes;
-              return new Response(
-                JSON.stringify({
-                  success: false,
-                  offline: true,
-                  message: '当前处于离线模式，正在展示本地离线情报。',
-                }),
-                { headers: { 'Content-Type': 'application/json; charset=utf-8' } }
-              );
-            })
-          );
-        })
-    );
-    return;
+    return; // 浏览器原生直连网络
   }
 
   // 策略 B: 静态资源 (_next/static, 字体, 图片, svg, png) -> Cache-First 极速响应

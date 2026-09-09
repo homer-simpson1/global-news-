@@ -9,29 +9,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const force = searchParams.get('force') === 'true';
 
-    // Cloudflare Edge Cache API: 极速边缘机房毫秒级响应 (5-20ms)
-    // @ts-ignore
-    const edgeCache = typeof caches !== 'undefined' ? (caches.default || null) : null;
-    const cacheUrl = new URL(request.url);
-    cacheUrl.search = '';
-    const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
-
-    if (!force && edgeCache) {
-      try {
-        const cachedRes = await edgeCache.match(cacheKey);
-        if (cachedRes) {
-          return cachedRes;
-        }
-      } catch (err) {
-        // silent
-      }
-    }
-
     const { quotes, verificationSummary } = await fetchVerifiedMarketQuotes(force);
 
     const cacheControl = force
       ? 'no-cache, no-store, must-revalidate'
-      : 'public, max-age=15, s-maxage=30, stale-while-revalidate=60';
+      : 'public, max-age=10, s-maxage=15, stale-while-revalidate=30';
 
     const response = NextResponse.json(
       {
@@ -49,14 +31,6 @@ export async function GET(request: NextRequest) {
         },
       }
     );
-
-    if (!force && edgeCache) {
-      try {
-        await edgeCache.put(cacheKey, response.clone());
-      } catch (err) {
-        // silent
-      }
-    }
 
     return response;
   } catch (error) {

@@ -370,9 +370,13 @@ export function autoCorrectTimeAndWindow(
   let finalWindow: TimeWindow = currentTimeWindow || 'TODAY';
   let wasCorrected = false;
 
-  // 格式自愈：若只有小时分钟，自动拼补“9月8日”
+  // 格式自愈：若只有小时分钟，动态拼补当前北京时间的月日（杜绝硬编码死日期）
   if (/^\d{1,2}:\d{2}$/.test(finalTime)) {
-    finalTime = `9月8日 ${finalTime}`;
+    const now = new Date();
+    const beijingTime = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+    const m = beijingTime.getMonth() + 1;
+    const d = beijingTime.getDate();
+    finalTime = `${m}月${d}日 ${finalTime}`;
     wasCorrected = true;
   }
 
