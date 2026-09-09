@@ -18,6 +18,8 @@ import {
   DisasterTracker,
 } from './types';
 import { getTimeDiffHours } from './timeUtils';
+import { evaluateCapitalMarketRelevance } from './rssFetcher';
+
 
 // 权威机构官方安全站点映射字典
 const CANONICAL_AUTHORITY_URLS: Record<string, string> = {
@@ -604,18 +606,27 @@ export function autoCorrectAllNews(
   newsList: NewsItem[],
   flashList: FlashBrief[]
 ): { news: NewsItem[]; flashBriefs: FlashBrief[] } {
-  // 核心防线：坚决过滤政界私人花边、自掏腰包送礼打赏与非资本市场生活琐事
-  const isTrivia = (t: string) => {
-    const text = (t || '').toLowerCase();
-    return (
-      /自掏腰包|送钱|赠送现金|奖金|发红包|小费|打赏|私生活|八卦|绯闻|宠物|私人宴请|私人聚会|打高尔夫|给助理|行政助理.*(?:送|现金|自掏腰包|奖金)|总统.*(?:自掏腰包|送钱|给助理|小费|发红包)/.test(
-        text
-      ) && !/受贿|立案|贪腐|落马|公诉|起诉|判决|违纪|弹劾|非法行贿/.test(text)
-    );
+  // 核心防线【双层】：
+  // 第1层（输入端，rssFetcher.ts）：processSingleItemIsolated 内的语义评分门禁已过滤大部分无关内容
+  // 第2层（输出端，本处）：对已通过第1层但仍漏网的杂音做最后拦截，用同一语义评分器保持一致性
+  const semanticFilter = (title: string, content: string, track: string) => {
+    // 快速关键词路径：政界私人花边
+    const text = ((title || '') + ' ' + (content || '')).toLowerCase();
+    const isObviousTrivia =
+      /自掏腰包|送钱|赠送现金|发红包|小费|打赏|私生活|八卦|绯闻|宠物|私人宴请|私人聚会|给助理|行政助理.*(?:送|现金)|总统.*(?:自掏腰包|送钱|给助理)/.test(text) &&
+      !/受贿|立案|贪腐|落马|公诉|起诉|判决|违纪|弹劾/.test(text);
+    if (isObviousTrivia) return false;
+    // 语义评分路径（调用与输入端一致的8大类别评分器）
+    const rel = evaluateCapitalMarketRelevance(title || '', content || '', track || '');
+    return rel.hasMarketSubstance;
   };
 
-  const cleanFlashList = (flashList || []).filter((f) => !isTrivia(f.content + ' ' + (f.summaryParagraph || '')));
-  const cleanNewsList = (newsList || []).filter((n) => !isTrivia(n.title + ' ' + (n.summaryParagraph || '')));
+  const cleanFlashList = (flashList || []).filter((f) =>
+    semanticFilter(f.content, f.summaryParagraph || '', 'flash')
+  );
+  const cleanNewsList = (newsList || []).filter((n) =>
+    semanticFilter(n.title, (n.summaryParagraph || '') + ' ' + (n.oneLineTakeaway || ''), n.track || '')
+  );
 
   const healedFlash = cleanFlashList.map(autoCorrectFlashBrief);
   const healedNews = cleanNewsList.map(autoCorrectNewsItem);

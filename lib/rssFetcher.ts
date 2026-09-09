@@ -272,7 +272,7 @@ export function isStockTapeSpam(title: string, content: string): boolean {
   return STOCK_TAPE_SPAM_REGEX.test(text);
 }
 
-// 纯政界私人琐事、生活花边与非资本市场杂音拦截
+// 纯政界私人琐事、生活花边与非资本市场杂音拦截（保留作第一道快速过滤）
 export function isNonMarketTrivia(title: string, content: string): boolean {
   const text = (title + ' ' + content).toLowerCase();
   if (
@@ -286,6 +286,170 @@ export function isNonMarketTrivia(title: string, content: string): boolean {
     }
   }
   return false;
+}
+
+// =============================================================================
+// 【语义资本市场相关性评分引擎】
+// 核心理念：通读全文，按"传导向量类别"打分，需至少命中 1 个实质类别才放行。
+// 彻底解决"只识别关键词、不阅读文章"的根本缺陷。
+// =============================================================================
+
+export interface MarketRelevanceResult {
+  hasMarketSubstance: boolean;    // 是否具备资本市场实质内容
+  totalScore: number;             // 总得分（≥1 放行）
+  hitCategories: string[];        // 命中的传导类别（供日志诊断）
+  reason: string;                 // 丢弃原因（供日志诊断）
+}
+
+/**
+ * 评估一篇文章是否具备真实的资本市场传导内容。
+ *
+ * 评分逻辑（每类最多贡献 2 分，总分 ≥ 1 即放行）：
+ *   A. 货币/财政政策       — 央行、利率、降息/加息、QE、财政预算、国债发行
+ *   B. 资产价格运动        — 股指点位、债券收益率、具体汇率数字、大宗商品价格
+ *   C. 供应链/贸易         — 制裁、关税、出口管制、断供、脱钩、供应链中断
+ *   D. 主权军事升级        — 战争、空袭、导弹、封锁、能源/粮食走廊受威胁
+ *   E. 企业/行业事件       — 业绩、裁员、并购、破产、重大合同、IPO、融资
+ *   F. 宏观数据发布        — CPI/PPI/PCE、非农、GDP、PMI、就业率、通胀
+ *   G. 监管/政策冲击       — 立法、监管新规、牌照、反垄断、行业整顿
+ *   H. 主权信用/债务风险   — 评级下调、违约、债务重组、主权风险
+ *
+ * 反向排除（无论以上多少分，强制丢弃）：
+ *   - 文章全文 ≥ 80% 篇幅是个人行为描述（送礼、约会、人事八卦）且无一个数字型金融指标
+ */
+export function evaluateCapitalMarketRelevance(
+  title: string,
+  content: string,
+  track: string
+): MarketRelevanceResult {
+  // 某些专属赛道的文章直接豁免（大宗商品、外汇、债券专线已经是纯市场数据）
+  const exemptTracks = ['commodities', 'forex', 'bonds', 'us_macro_data', 'crypto'];
+  if (exemptTracks.includes(track)) {
+    return { hasMarketSubstance: true, totalScore: 99, hitCategories: ['track_exempt'], reason: '' };
+  }
+
+  const fullText = (title + ' ' + content);
+  const text = fullText.toLowerCase();
+  const len = text.length || 1;
+
+  const hitCategories: string[] = [];
+  let totalScore = 0;
+
+  // ── A. 货币 / 财政政策 ──────────────────────────────────────────────────
+  const monetaryHits = (text.match(
+    /央行|美联储|欧央行|日本银行|英格兰银行|中国人民银行|联储|fed\b|ecb\b|boj\b|boe\b|降息|加息|升息|息率|基准利率|政策利率|隔夜|repo|逆回购|qe\b|量化宽松|量化紧缩|qt\b|财政刺激|财政赤字|债务上限|国债发行|赤字|预算案|财政部|treasury\b|财政政策|货币政策|流动性|通货膨胀目标|通胀预期/g
+  ) || []).length;
+  if (monetaryHits >= 1) {
+    const score = Math.min(monetaryHits >= 3 ? 2 : 1, 2);
+    totalScore += score;
+    hitCategories.push(`A.货币财政政策(${monetaryHits}处)`);
+  }
+
+  // ── B. 资产价格运动 ──────────────────────────────────────────────────────
+  // 必须有具体数字或涨跌幅描述，不能只是泛泛提到"股市"
+  const priceHits = (text.match(
+    /[0-9]+\.?[0-9]*\s*(?:点|bp|基点|%|美元|元|欧元|英镑|日元|亿|万亿)|道琼斯|纳斯达克|标普|恒生|日经|沪深300|上证|收益率|yield|汇率|美元指数|dxy\b|原油价格|黄金价格|铜价|铁矿石|lme\b|cme\b|nymex\b|布伦特|wti\b|涨跌幅|升值|贬值|突破.*关口|下破.*关口|创.*新高|创.*新低|跌至.*年低|涨至.*年高/g
+  ) || []).length;
+  if (priceHits >= 1) {
+    const score = Math.min(priceHits >= 2 ? 2 : 1, 2);
+    totalScore += score;
+    hitCategories.push(`B.资产价格运动(${priceHits}处)`);
+  }
+
+  // ── C. 供应链 / 贸易 ─────────────────────────────────────────────────────
+  const tradeHits = (text.match(
+    /制裁|关税|出口管制|进口禁令|断供|脱钩|供应链|产业链转移|贸易战|贸易摩擦|保护主义|反倾销|反补贴|出口限制|进口限制|禁运|封锁港口|港口关闭|航运中断|集装箱|商品短缺|芯片禁令|半导体管制|稀土管制|sanctions|tariff|export.?control|supply.?chain/gi
+  ) || []).length;
+  if (tradeHits >= 1) {
+    const score = Math.min(tradeHits >= 2 ? 2 : 1, 2);
+    totalScore += score;
+    hitCategories.push(`C.供应链贸易(${tradeHits}处)`);
+  }
+
+  // ── D. 主权军事升级（影响能源/粮食走廊） ─────────────────────────────────
+  const militaryHits = (text.match(
+    /空袭|导弹|战争|交战|军事打击|封锁|霍尔木兹|曼德海峡|红海|苏伊士|黑海|波斯湾|能源走廊|粮食走廊|油田|炼油厂.*袭击|管道.*爆炸|核威胁|核武器|核弹|escalat|military.?strike|airstrike|blockade|strait.?of/gi
+  ) || []).length;
+  if (militaryHits >= 1) {
+    const score = Math.min(militaryHits >= 2 ? 2 : 1, 2);
+    totalScore += score;
+    hitCategories.push(`D.主权军事升级(${militaryHits}处)`);
+  }
+
+  // ── E. 企业 / 行业重大事件 ──────────────────────────────────────────────
+  const corpHits = (text.match(
+    /业绩|营收|净利润|裁员|并购|收购|合并|分拆|破产|重组|倒闭|IPO|上市|退市|融资|增发|回购|分红|股息|大合同|中标|失标|召回|监管罚款|巨额罚款|反垄断|违规|造假|欺诈|暴雷|违约|earnings|revenue|profit|layoff|merger|acquisition|bankruptcy|restructur|IPO\b|ipo\b|financing|dividend|buyback/gi
+  ) || []).length;
+  if (corpHits >= 1) {
+    const score = Math.min(corpHits >= 3 ? 2 : 1, 2);
+    totalScore += score;
+    hitCategories.push(`E.企业行业事件(${corpHits}处)`);
+  }
+
+  // ── F. 宏观数据发布 ───────────────────────────────────────────────────────
+  const macroDataHits = (text.match(
+    /CPI|PPI|PCE|非农|nonfarm|就业数据|失业率|GDP|PMI|采购经理|通胀率|核心通胀|工业产出|零售销售|贸易顺差|贸易逆差|经常账户|国际收支|外汇储备|居民收入|消费者信心|密歇根|ISM\b|ADP\b|JOLTs|gdp\b|inflation|deflation|unemployment|payroll/gi
+  ) || []).length;
+  if (macroDataHits >= 1) {
+    const score = Math.min(macroDataHits >= 2 ? 2 : 1, 2);
+    totalScore += score;
+    hitCategories.push(`F.宏观数据(${macroDataHits}处)`);
+  }
+
+  // ── G. 监管 / 政策冲击 ─────────────────────────────────────────────────
+  const regulatoryHits = (text.match(
+    /监管新规|新法规|立法|法案通过|法案否决|牌照|吊销|暂停营业|行业整顿|专项整治|反垄断调查|处罚令|整改通知|强制退市|资本要求|巴塞尔|银行业监管|证监会|SEC\b|CFTC\b|金融稳定|系统性风险|压力测试|regulation|legislation|enforcement|compliance|penalty\b/gi
+  ) || []).length;
+  if (regulatoryHits >= 1) {
+    const score = Math.min(regulatoryHits >= 2 ? 2 : 1, 2);
+    totalScore += score;
+    hitCategories.push(`G.监管政策冲击(${regulatoryHits}处)`);
+  }
+
+  // ── H. 主权信用 / 债务风险 ──────────────────────────────────────────────
+  const sovereignHits = (text.match(
+    /信用评级|评级下调|评级上调|穆迪|标普|惠誉|Moody|S&P|Fitch|主权债|国债违约|债务危机|债务重组|债务上限|违约风险|CDS|信用违约互换|主权风险|sovereign.?debt|credit.?rating|default.?risk/gi
+  ) || []).length;
+  if (sovereignHits >= 1) {
+    const score = Math.min(sovereignHits >= 2 ? 2 : 1, 2);
+    totalScore += score;
+    hitCategories.push(`H.主权信用债务(${sovereignHits}处)`);
+  }
+
+  // ── 反向排除：文章以个人行为为核心且无数字型金融指标 ──────────────────────
+  // 判断文章是否以纯私人社会事件为主体（篇幅占比大于等于 60%）
+  const personalEventDensity = (() => {
+    const personalMatches = (text.match(
+      /送给|赠予|收到礼物|个人账户|私人账户|私人聚餐|个人行为|个人生活|出轨|婚外|情人|约会|聚会|庆生|宴会|家庭纠纷|家庭矛盾|子女|宠物|个人捐款|个人慈善|健身|减肥|购物|度假|旅游|个人评论|发推|发帖|接受采访谈私事|受访谈生活/g
+    ) || []).length;
+    return personalMatches / (len / 50); // 每50字出现1次以上算高密度
+  })();
+
+  // 没有任何数字型金融指标（价格/数据/比率）
+  const hasAnyFinancialNumber = /[0-9]+\.?[0-9]*\s*(?:%|bp|基点|亿|万亿|美元|元|点位|bps)/.test(text);
+
+  const isCorePersonalEvent =
+    personalEventDensity >= 2 &&
+    !hasAnyFinancialNumber &&
+    totalScore === 0;
+
+  if (isCorePersonalEvent) {
+    return {
+      hasMarketSubstance: false,
+      totalScore: 0,
+      hitCategories: [],
+      reason: `纯私人社会事件，无任何资本市场传导向量 (个人行为密度=${personalEventDensity.toFixed(1)})`,
+    };
+  }
+
+  const hasMarketSubstance = totalScore >= 1;
+
+  return {
+    hasMarketSubstance,
+    totalScore,
+    hitCategories,
+    reason: hasMarketSubstance ? '' : `全文无有效资本市场传导内容 (score=${totalScore}, len=${len}字)`,
+  };
 }
 
 // 获取全网实时真实现场快讯 (接入中立华文雷达：联合早报 + 财新网 + 路透/彭博中国专线 + 全球宏观电讯管道)
@@ -1769,7 +1933,7 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
     return null;
   }
 
-  // 0. 坚决过滤政界私人花边、自掏腰包送礼打赏与非市场杂音
+  // 0. 快速拦截：政界私人花边、自掏腰包送礼打赏与非市场杂音（关键词快速路径）
   if (isNonMarketTrivia(raw.title, raw.content)) {
     console.warn(`[TRIVIA FILTER] 物理丢弃非资本市场私人花边: "${raw.title}"`);
     return null;
@@ -1777,6 +1941,21 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
 
   // 1. 变量零污染硬性要求：每次进入单篇处理前，全新初始化所有分析变量，严禁复用全局/上一轮循环对象！
   let track: TrackId = classifyTrack(raw);
+
+  // 0-B. 【语义资本市场相关性评分门禁】——通读全文，按8大传导向量类别打分
+  // 这是真正的"阅读全文"过滤层，替代纯关键词匹配的根本性升级
+  // 豁免赛道（外汇/大宗/债券）直接放行；其余需至少命中1个传导类别
+  const relevance = evaluateCapitalMarketRelevance(raw.title, raw.content, track);
+  if (!relevance.hasMarketSubstance) {
+    console.warn(
+      `[SEMANTIC GATE] 无资本市场传导实质，物理丢弃: "${raw.title}" | 原因: ${relevance.reason}`
+    );
+    return null;
+  } else if (relevance.hitCategories.length > 0 && !relevance.hitCategories.includes('track_exempt')) {
+    console.log(
+      `[SEMANTIC GATE ✓] 放行 (score=${relevance.totalScore}): "${raw.title}" | 命中: ${relevance.hitCategories.join(', ')}`
+    );
+  }
   let cleanRawTitle = '';
   let cleanRawContent = '';
   let primary: PrimarySourceInfo | null = null;
