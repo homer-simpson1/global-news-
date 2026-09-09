@@ -1,5 +1,5 @@
 // 全球决策情报终端 - 生产级 Service Worker (PWA)
-const CACHE_VERSION = 'git-pwa-v3.3';
+const CACHE_VERSION = 'git-pwa-v3.4';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 

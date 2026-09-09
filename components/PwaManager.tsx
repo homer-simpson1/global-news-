@@ -18,7 +18,8 @@ export default function PwaManager() {
       if ('caches' in window) {
         caches.keys().then((keys) => {
           keys.forEach((key) => {
-            if (!key.includes('v3.2')) {
+            if (!key.includes('v3.4')) {
+              console.log('[PWA] 清除旧版缓存:', key);
               caches.delete(key);
             }
           });
@@ -26,9 +27,9 @@ export default function PwaManager() {
       }
 
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
+        const initSw = () => {
           navigator.serviceWorker
-            .register('/sw.js')
+            .register('/sw.js?v=3.4')
             .then((registration) => {
               // 主动向服务端比对最新 sw.js 字节，杜绝等待
               registration.update();
@@ -63,7 +64,13 @@ export default function PwaManager() {
             .catch((err) => {
               console.warn('[PWA] Service Worker 注册状态:', err);
             });
-        });
+        };
+
+        if (document.readyState === 'complete') {
+          initSw();
+        } else {
+          window.addEventListener('load', initSw);
+        }
       }
     }
 

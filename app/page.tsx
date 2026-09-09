@@ -166,6 +166,24 @@ function TerminalApp() {
       let parsedN = cachedNews ? JSON.parse(cachedNews) : null;
       let parsedB = cachedBriefs ? JSON.parse(cachedBriefs) : null;
 
+      // 关键防守：如果本地缓存中的新闻全都是今天以前的旧日期（例如 9月5日/9月7日），直接彻底清空旧缓存，绝不把死数据推给界面！
+      const today = new Date();
+      const beijingTime = new Date(today.getTime() + (today.getTimezoneOffset() + 480) * 60000);
+      const todayStr = `${beijingTime.getMonth() + 1}月${beijingTime.getDate()}日`;
+      if (Array.isArray(parsedN) && parsedN.length > 0) {
+        const hasTodayNews = parsedN.some((n: any) =>
+          (n.publishedAt && n.publishedAt.includes(todayStr)) ||
+          (n.time && n.time.includes(todayStr))
+        );
+        if (!hasTodayNews) {
+          console.log('[Cache] 本地缓存均为旧日期新闻，主动清空旧缓存并由网络实时拉取');
+          localStorage.removeItem('git_cached_news');
+          localStorage.removeItem('git_cached_briefs');
+          parsedN = null;
+          parsedB = null;
+        }
+      }
+
       if (!Array.isArray(parsedN) || parsedN.length < 16) parsedN = SEED_NEWS_ITEMS;
       if (!Array.isArray(parsedB) || parsedB.length === 0) parsedB = SEED_FLASH_BRIEFS;
 
