@@ -604,8 +604,21 @@ export function autoCorrectAllNews(
   newsList: NewsItem[],
   flashList: FlashBrief[]
 ): { news: NewsItem[]; flashBriefs: FlashBrief[] } {
-  const healedFlash = flashList.map(autoCorrectFlashBrief);
-  const healedNews = newsList.map(autoCorrectNewsItem);
+  // 核心防线：坚决过滤政界私人花边、自掏腰包送礼打赏与非资本市场生活琐事
+  const isTrivia = (t: string) => {
+    const text = (t || '').toLowerCase();
+    return (
+      /自掏腰包|送钱|赠送现金|奖金|发红包|小费|打赏|私生活|八卦|绯闻|宠物|私人宴请|私人聚会|打高尔夫|给助理|行政助理.*(?:送|现金|自掏腰包|奖金)|总统.*(?:自掏腰包|送钱|给助理|小费|发红包)/.test(
+        text
+      ) && !/受贿|立案|贪腐|落马|公诉|起诉|判决|违纪|弹劾|非法行贿/.test(text)
+    );
+  };
+
+  const cleanFlashList = (flashList || []).filter((f) => !isTrivia(f.content + ' ' + (f.summaryParagraph || '')));
+  const cleanNewsList = (newsList || []).filter((n) => !isTrivia(n.title + ' ' + (n.summaryParagraph || '')));
+
+  const healedFlash = cleanFlashList.map(autoCorrectFlashBrief);
+  const healedNews = cleanNewsList.map(autoCorrectNewsItem);
 
   // 确保吉隆口岸特大灾害卡片永久置顶在 china_domestic 专区首位
   const disasterItem = healedNews.find(

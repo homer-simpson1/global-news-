@@ -272,6 +272,22 @@ export function isStockTapeSpam(title: string, content: string): boolean {
   return STOCK_TAPE_SPAM_REGEX.test(text);
 }
 
+// 纯政界私人琐事、生活花边与非资本市场杂音拦截
+export function isNonMarketTrivia(title: string, content: string): boolean {
+  const text = (title + ' ' + content).toLowerCase();
+  if (
+    /自掏腰包|送钱|赠送现金|奖金|发红包|小费|打赏|私生活|八卦|绯闻|宠物|私人宴请|私人聚会|打高尔夫|给助理|行政助理.*(?:送|现金|自掏腰包|奖金)|总统.*(?:自掏腰包|送钱|给助理|小费|发红包)/.test(
+      text
+    )
+  ) {
+    // 除非涉及严肃的司法受贿、贪腐立案、追责公诉
+    if (!/受贿|立案|贪腐|落马|公诉|起诉|判决|违纪|弹劾|非法行贿/.test(text)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // 获取全网实时真实现场快讯 (接入中立华文雷达：联合早报 + 财新网 + 路透/彭博中国专线 + 全球宏观电讯管道)
 // 严禁接入新华社、人民日报等官方综合全量流，严防内宣公关污染；严禁 A 股盘中行情流水账
 async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
@@ -437,16 +453,16 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
 
   // 严格过滤低信噪比杂音与股票盘中异动：
   // 无论属于哪个板块，凡纯属股票分时行情、个股拉升跌停、IPO 券商造势者，一律剔除！
-  // 只有命中【通用重大外溢冲击收录标准】的重特大事件除外。
   const seen = new Set<string>();
   const deduped: RawLiveItem[] = [];
-  const noiseRegex = /摩托车|锦标赛|排球|足球|篮球|马拉松|选美|车展|博览会闭幕|闭幕式|开幕式|演唱会|明星|彩票|中奖|电视剧|电影节|见闻早餐|早报\s*\||连板|早盘必读|盘中异动/;
+  const noiseRegex = /摩托车|锦标赛|排球|足球|篮球|马拉松|选美|车展|博览会闭幕|闭幕式|开幕式|演唱会|明星|彩票|中奖|电视剧|电影节|见闻早餐|早报\s*\||连板|早盘必读|盘中异动|自掏腰包|送钱|赠送现金|发红包|小费|打赏|私生活|八卦|绯闻|打高尔夫|给助理/;
 
   for (const item of items) {
     const spillover = evaluateSpilloverImpact(item.title, item.content);
     // 只要命中外溢冲击指标之一，严禁过滤，强制收录！
     if (!spillover.isSpilloverMajor) {
       if (noiseRegex.test(item.title + ' ' + item.content)) continue;
+      if (isNonMarketTrivia(item.title, item.content)) continue;
       if (isStockTapeSpam(item.title, item.content)) continue;
     }
     const key = item.title.slice(0, 16);
@@ -864,8 +880,18 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
   }
 
   // 兜底真实利益链条逻辑 (针对未命中具体事件时的赛道基础逻辑，拒绝假大空与张冠李戴)
+  if (track === 'us_macro') {
+    if (/利率|美联储|加息|降息|国债|美债|收益率|流动性|借贷|通胀|cpi|非农/.test(t)) {
+      return '手握充足现金的跨国巨头坐享无风险高息，高负债中小企业承受借贷抽血，避险资本持续流向高确定性短久期资产。';
+    }
+    if (/美股|纳斯达克|标普|道琼斯|期指|科技股|财报/.test(t)) {
+      return '宏观估值中枢与企业盈利预期交互博弈，避险资金向具备稳健现金流的龙头资产靠拢，高估值标的承压波动。';
+    }
+    return '宏观政策预期与基本面数据多空博弈，引导资本在不同风险偏好资产之间动态再平衡。';
+  }
+
   const trackInterestMap: Record<TrackId, string> = {
-    us_macro: '手握充足现金的跨国巨头坐享无风险高息，高负债中小企业承受借贷抽血，避险资本持续流向高确定性短久期资产。',
+    us_macro: '宏观政策预期与基本面数据多空博弈，引导资本在不同风险偏好资产之间动态再平衡。',
     apac_tech: '核心卡位代工厂与设备原厂赚取超额垄断溢价，缺乏议价权的下游装配厂商硬吞涨价，风投资金加速涌向成熟商业化算力项目。',
     commodities_shipping: '上游资源矿山与班轮船东躺赚超额现货升水，中下游加工与外贸货主承担成本重压，热钱正在衍生品端加码做多。',
     war_conflict: '跨国防务安全承包商订单逆势暴增，战区民生商业航道被动承担巨额保费，避险资金持续向大宗硬通货资产迁徙。',
@@ -1179,7 +1205,11 @@ function generateCoreTakeaway(
   }
 
   const hardcoreTagMap: Record<TrackId, string> = {
-    us_macro: '借贷成本高企',
+    us_macro: /利率|借贷|美债|收益率|加息|降息|贷款/.test(t)
+      ? '借贷成本高企'
+      : /美股|纳指|标普|道指|财报/.test(t)
+      ? '资产估值再定价'
+      : '宏观流动性再平衡',
     apac_tech: '产能极度紧缺',
     commodities_shipping: '运力周转受限',
     war_conflict: '筹码争夺升级',
@@ -1445,6 +1475,12 @@ function build5W1HSummary(
     who = '国产DRAM存储芯片龙头「长鑫存储」管理层与行业分析机构';
   } else if (/美联储|鲍威尔|沃勒|威廉姆斯|fomc/.test(t)) {
     who = '美联储（Federal Reserve）货币政策委员会（FOMC）及华尔街一级交易商';
+  } else if (/美国财政部|耶伦/.test(t)) {
+    who = '美国财政部（U.S. Treasury）与主权债务发债管理机构';
+  } else if (/美国商务部|雷蒙多/.test(t)) {
+    who = '美国商务部工业与安全局（BIS）';
+  } else if (/白宫|美国总统|拜登|特朗普/.test(t)) {
+    who = '美国总统行政办公室与联邦决策团队';
   } else if (/五角大楼|美军|美国国防部/.test(t)) {
     who = '美国国防部（五角大楼）及联合战区指挥部';
   } else if (/俄罗斯|俄军|普京|克里姆林宫/.test(t)) {
@@ -1552,7 +1588,7 @@ function build5W1HSummary(
   } else {
     const trackWhyMap: Record<TrackId, string> = {
       china_domestic: '宏观逆周期调节与深化改革政策协同发力，激发微观市场主体内生增长动能。',
-      us_macro: '宏观基本面数据表现与利率政策预期多空博弈，引导全球资本资金借贷成本动态调整。',
+      us_macro: '国际宏观基本面数据表现与政策预期多空博弈，引导全球资本在跨资产大类中动态再平衡。',
       apac_tech: '先进制程代工稼动率与AI硬件终端需求共振，驱动产业链加紧资本开支布局。',
       commodities_shipping: '地缘溢价摩擦与关键航道绕行常态化，叠加实体刚性补库重塑运价与交割成本。',
       war_conflict: '大国地缘利益交织对立，前线局势反复演变牵动多边外交与能源航运戒备。',
@@ -1612,7 +1648,7 @@ function build5W1HSummary(
   } else {
     const trackConsequenceMap: Record<TrackId, string> = {
       china_domestic: '稳固实体经济与内需循环底色，增强微观市场主体中长期发展信心与确定性。',
-      us_macro: '加剧跨市场资产在债券、外汇与科技成长股之间的资金再平衡与波动率扩散。',
+      us_macro: '引导全球资金在债券、外汇与成长资产中重新寻找确定性估值锚点与流动性平衡。',
       apac_tech: '带动上游设备原厂订单与晶圆代工资本开支，带动整个半导体板块景气预期。',
       commodities_shipping: '推动全球大宗原材料与集装箱即期运价重估，放大下游制造业与跨国贸易成本链条传导。',
       war_conflict: '加剧地缘风险溢价向全球大宗商品与国际物流外溢，推高防务安全警戒等级。',
@@ -1730,6 +1766,12 @@ export function evaluateCrossVerification(
  */
 export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveItem[]): NewsItem | null {
   if (!raw || !raw.title || !raw.content) {
+    return null;
+  }
+
+  // 0. 坚决过滤政界私人花边、自掏腰包送礼打赏与非市场杂音
+  if (isNonMarketTrivia(raw.title, raw.content)) {
+    console.warn(`[TRIVIA FILTER] 物理丢弃非资本市场私人花边: "${raw.title}"`);
     return null;
   }
 
