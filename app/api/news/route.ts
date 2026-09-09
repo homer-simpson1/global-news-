@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 
     const cacheControl = force
       ? 'no-cache, no-store, must-revalidate'
-      : 'public, max-age=60, s-maxage=300, stale-while-revalidate=86400';
+      : 'public, max-age=30, s-maxage=60, stale-while-revalidate=120';
 
     const response = NextResponse.json(
       {

@@ -1,5 +1,5 @@
 // 全球决策情报终端 - 生产级 Service Worker (PWA)
-const CACHE_VERSION = 'git-pwa-v3.2';
+const CACHE_VERSION = 'git-pwa-v3.3';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 
@@ -46,19 +46,30 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 策略 A: API 动态数据 (/api/news, /api/ticker 等) -> Stale-While-Revalidate 毫秒级秒开 + 后台静默保鲜
+  // 策略 A: API 动态数据 (/api/news, /api/ticker 等)
+  // 若包含 force=true、时间戳 _t 或 no-cache，直接放行直连网络，严禁拦截，保证每次打开与刷新获取最新真实现货/资讯！
   if (url.pathname.startsWith('/api/')) {
+    if (
+      url.searchParams.has('force') ||
+      url.searchParams.has('_t') ||
+      req.cache === 'no-store' ||
+      req.headers.get('Cache-Control')?.includes('no-cache')
+    ) {
+      return; // 浏览器直连网络
+    }
+
     event.respondWith(
-      caches.open(DYNAMIC_CACHE).then((cache) => {
-        return cache.match(req).then((cachedRes) => {
-          const fetchPromise = fetch(req)
-            .then((networkRes) => {
-              if (networkRes && networkRes.status === 200) {
-                cache.put(req, networkRes.clone());
-              }
-              return networkRes;
-            })
-            .catch(() => {
+      fetch(req)
+        .then((networkRes) => {
+          if (networkRes && networkRes.status === 200) {
+            const clone = networkRes.clone();
+            caches.open(DYNAMIC_CACHE).then((cache) => cache.put(req, clone));
+          }
+          return networkRes;
+        })
+        .catch(() => {
+          return caches.open(DYNAMIC_CACHE).then((cache) =>
+            cache.match(req).then((cachedRes) => {
               if (cachedRes) return cachedRes;
               return new Response(
                 JSON.stringify({
@@ -68,12 +79,9 @@ self.addEventListener('fetch', (event) => {
                 }),
                 { headers: { 'Content-Type': 'application/json; charset=utf-8' } }
               );
-            });
-
-          // 核心优化：若本地已有缓存，0ms 立即瞬时返回展示；网络静默更新缓存
-          return cachedRes || fetchPromise;
-        });
-      })
+            })
+          );
+        })
     );
     return;
   }

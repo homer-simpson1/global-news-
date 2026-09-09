@@ -93,15 +93,10 @@ function TerminalApp() {
   const loadData = async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
 
-    const newsUrl = isManual
-      ? `/api/news?force=true&_t=${Date.now()}`
-      : `/api/news?_t=${Date.now()}`;
-    const tickerUrl = isManual
-      ? `/api/ticker?force=true&_t=${Date.now()}`
-      : `/api/ticker?_t=${Date.now()}`;
-    const fetchOptions: RequestInit = isManual
-      ? { cache: 'no-store' }
-      : {};
+    const cacheBuster = `force=true&_t=${Date.now()}`;
+    const newsUrl = `/api/news?${cacheBuster}`;
+    const tickerUrl = `/api/ticker?${cacheBuster}`;
+    const fetchOptions: RequestInit = { cache: 'no-store' };
 
     // 1. 优先拉取与更新核心资讯数据（不被行情接口拖慢）
     const fetchNewsPromise = fetch(newsUrl, fetchOptions)
