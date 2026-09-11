@@ -11,7 +11,7 @@ export const FOREIGN_ENTITIES = {
   AUSTRALIA: /澳洲|澳大利亚|澳联储|澳洲联储|rba|hunter|布洛克|澳元|悉尼/i,
   EUROPE_ECB: /欧洲央行|欧央行|拉加德|ecb|欧元区|欧元/i,
   UK_BOE: /英国央行|英央行|贝利|boe|英格兰银行|英镑/i,
-  US_MACRO: /美联储|鲍威尔|美债|美国国债|耶伦|美国财政部|华尔街|纳斯达克|道琼斯|标普500|非农|初请|失业金|美股三大|fomc|(?:白宫|美国总统).*(?:预算|法案|关税|财政|赤字|行政令|经济顾问|债务上限|贸易|制裁|通胀|芯片)/i,
+  US_MACRO: /美联储|沃什|凯文·沃什|warsh|鲍威尔|美债|美国国债|耶伦|美国财政部|华尔街|纳斯达克|道琼斯|标普500|非农|初请|失业金|美股三大|fomc|(?:白宫|美国总统).*(?:预算|法案|关税|财政|赤字|行政令|经济顾问|债务上限|贸易|制裁|通胀|芯片)/i,
   WAR_DEFENSE: /五角大楼|防卫省|以军|俄军|乌军|克里姆林宫|北约|泽连斯基|普京|内塔尼亚胡|哈马斯|真主党|黎巴嫩|加沙|也门胡塞|霍尔木兹/i,
 };
 
@@ -138,7 +138,7 @@ export function checkCrossContamination(
 
   // 3. 检测国内要闻赛道被国外央行/政治实体污染
   if (/反腐|中纪委|吉隆口岸|重特大事故|中央财政|地方债/.test(titleText)) {
-    const foreignMatches = bodyText.match(/日元加息|植田和男|鲍威尔降息|美联储议息/g) || [];
+    const foreignMatches = bodyText.match(/日元加息|植田和男|沃什降息|鲍威尔降息|美联储议息/g) || [];
     if (foreignMatches.length >= 1) {
       return {
         isClean: false,
@@ -194,7 +194,7 @@ export function validateTitleSummaryEntityConsistency(
 
   // 2. 特大自然灾害标题 vs 科技/央行小结（防张冠李戴）
   if (/吉隆口岸|泥石流|冰岩崩|山洪|山体滑坡|搜救|遇难|受灾/.test(titleText)) {
-    if (/美联储|鲍威尔|美债收益率|日元加息|植田和男|2nm|先进制程|变压器排队|买显卡/.test(bodyText)) {
+    if (/美联储|沃什|凯文·沃什|鲍威尔|美债收益率|日元加息|植田和男|2nm|先进制程|变压器排队|买显卡/.test(bodyText)) {
       return {
         isClean: false,
         contaminationScore: 10,
@@ -216,7 +216,7 @@ export function validateTitleSummaryEntityConsistency(
 
   // 4. 澳洲联储 / 欧洲央行 / 英国央行 标题 vs 美联储 / 美债 / FOMC 小结（防跨国央行严重杂交）
   if (FOREIGN_ENTITIES.AUSTRALIA.test(titleText) || FOREIGN_ENTITIES.EUROPE_ECB.test(titleText) || FOREIGN_ENTITIES.UK_BOE.test(titleText)) {
-    if (!/美联储|鲍威尔|fomc|美债/.test(titleText) && /美联储利率政策追踪委员会|华盛顿联邦决策中枢|9月\s*fomc\s*议息决议|美债收益率曲线/.test(bodyText)) {
+    if (!/美联储|沃什|凯文·沃什|鲍威尔|fomc|美债/.test(titleText) && /美联储利率政策追踪委员会|华盛顿联邦决策中枢|9月\s*fomc\s*议息决议|美债收益率曲线/.test(bodyText)) {
       return {
         isClean: false,
         contaminationScore: 10,

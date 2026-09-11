@@ -896,7 +896,7 @@ export function detectPrimarySource(
   if (/(?:中国人民银行|我国央行)/.test(combined) && !/日本|美国|欧洲|韩国|英国/.test(combined) && (track === 'china_domestic' || /人民币|降准|逆回购/.test(combined))) {
     return { source: '中国人民银行 PBOC', sourceUrl: 'http://www.pbc.gov.cn' };
   }
-  if (/美联储|fomc|鲍威尔|沃勒/.test(combined)) {
+  if (/美联储|fomc|沃什|凯文·沃什|warsh|鲍威尔|沃勒/.test(combined)) {
     return { source: '美联储 FOMC 声明', sourceUrl: 'https://www.federalreserve.gov' };
   }
   if (/五角大楼|美国国防部|美军指挥部/.test(combined)) {
@@ -1081,7 +1081,7 @@ function classifyTrack(item: RawLiveItem): TrackId {
 
   // 5. 美股与美元宏观（严格约束：必须有明确的美国/联储主语，不能裸匹配 cpi/通胀 造成中国宏观误归）
   if (
-    /美联储|鲍威尔|标普|纳斯达克|道琼斯|美债|美国国债|10年期美债|2年期美债|美债收益率|非农|美股|华尔街|摩根|高盛|期权|波动率|美元指数/.test(t) ||
+    /美联储|沃什|凯文·沃什|warsh|鲍威尔|标普|纳斯达克|道琼斯|美债|美国国债|10年期美债|2年期美债|美债收益率|非农|美股|华尔街|摩根|高盛|期权|波动率|美元指数/.test(t) ||
     /美国.*(?:cpi|pce|ppi|通胀|失业金|初请|就业|制造业|服务业pmi)/i.test(t)
   ) {
     return 'us_macro';

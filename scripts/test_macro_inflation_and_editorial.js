@@ -68,7 +68,7 @@ const goodsComp = breakdown?.components.find(c => c.category === 'CORE_GOODS');
 assert('住房通胀 (Shelter / OER) 已纳入拆解，权重超35%', shelterComp !== undefined && shelterComp.weight.includes('36'));
 assert('住房通胀读数包含环比与粘性分析', shelterComp && shelterComp.reading.includes('环比') && shelterComp.stickiness === 'STICKY');
 
-assert('超级核心服务通胀 (Supercore) 已纳入拆解，标明鲍威尔核心盯防', supercoreComp !== undefined && supercoreComp.name.includes('超级核心'));
+assert('超级核心服务通胀 (Supercore) 已纳入拆解，标明联储沃什核心盯防', supercoreComp !== undefined && supercoreComp.name.includes('超级核心'));
 assert('超级核心通胀读数与折合年化明确', supercoreComp && supercoreComp.reading.includes('环比'));
 
 assert('食品通胀 (Food) 已纳入拆解', foodComp !== undefined && foodComp.category === 'FOOD');

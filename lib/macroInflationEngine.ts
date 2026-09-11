@@ -163,11 +163,11 @@ export function getMacroInflationBreakdown(
         id: 'supercore',
         name: '超级核心通胀 / 核心服务类 (Supercore: Services ex-housing)',
         category: 'SUPERCORE_SERVICES',
-        weight: '约 27.5% (鲍威尔最紧盯指标)',
+        weight: '约 27.5% (联储主席沃什核心盯防指标)',
         reading: '环比 +0.33% / 折合年化约 3.8%',
-        analysis: '剔除住房后的核心服务价格受劳动力成本与交通服务（车险、医疗保健）驱动；该分项增速未显著加速，但仍具韧性，支持美联储以每次 25 个基点的稳健节奏启动降息，而非危机式大幅降息。',
+        analysis: '剔除住房后的核心服务价格受劳动力成本与交通服务（车险、医疗保健）驱动；该分项增速未显著加速，但仍具韧性，支持美联储主席沃什与FOMC以每次 25 个基点的稳健节奏启动降息，而非危机式大幅降息。',
         stickiness: 'STICKY',
-        tagLabel: '鲍威尔核心盯防',
+        tagLabel: '联储沃什核心盯防',
       },
       {
         id: 'food',
@@ -403,7 +403,7 @@ export function sanitizeFedRatePolicyWording(text: string): string {
 
   // 严格限定上下文：涉及美联储/FOMC/鲍威尔，或掉期/利率互换追踪美联储降息路径
   const isFedContext =
-    /美联储|fomc|鲍威尔|华尔街见闻.*利率|利率互换.*美联储|交易员.*美联储|下周.*美联储|基准利率.*25个基点/i.test(text) ||
+    /美联储|fomc|沃什|凯文·沃什|warsh|鲍威尔|华尔街见闻.*利率|利率互换.*美联储|交易员.*美联储|下周.*美联储|基准利率.*25个基点/i.test(text) ||
     (/利率互换|互换市场|掉期市场/.test(text) && /上调|加息|基准利率|年底前/.test(text)) ||
     (/交易员预计.*美联储/.test(text)) ||
     (/年底前两次加息|年内两次加息|年底前.*加息|下周加息概率/.test(text));
