@@ -11,6 +11,7 @@ import {
   getMacroInflationTransmission,
   buildMacroInflationFactParagraph,
   getMacroInflationNextWatchlist,
+  sanitizeFedRatePolicyWording,
 } from './macroInflationEngine';
 
 let cachedNews: NewsItem[] | null = null;
@@ -735,14 +736,18 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
     // 解析全球宏观、外汇、大宗商品电讯
     if (data?.data?.items) {
       for (const raw of data.data.items) {
-        const text = (raw.content_text || '').trim();
+        let text = (raw.content_text || '').trim();
         if (!text) continue;
         // 严防官方宣传通篇口号内宣污染：若含有纯新华社/人民日报口号且无硬核事实则剔除
         if (/新华社|人民日报/.test(text) && /高度重视|众志成城|坚决贯彻/.test(text) && !/判决|违约|事故|注资|立案|死/.test(text)) {
           continue;
         }
 
-        const title = (raw.title || text.split('\n')[0].replace(/【.*?】/, '')).trim().slice(0, 70);
+        // 核心守卫：修复财经快讯对美联储降息周期 "Rate Cut" 的灾难性机翻颠倒（加息/上调 -> 降息/下调）
+        text = sanitizeFedRatePolicyWording(text);
+
+        let title = (raw.title || text.split('\n')[0].replace(/【.*?】/, '')).trim();
+        title = sanitizeFedRatePolicyWording(title).slice(0, 70);
         const time = formatIntelDateTime(raw.display_time);
 
         // 识别路透与彭博中国专项电讯
@@ -2377,8 +2382,8 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
 
   // 2. 执行【国内重大资讯去伪与去宣传除杂指令】“三剥离、三保留”脱水规范
   const isDomestic = track === 'china_domestic' || track === 'china_policy';
-  cleanRawTitle = isDomestic ? sanitizeDomesticNewsText(raw.title) : raw.title;
-  cleanRawContent = isDomestic ? sanitizeDomesticNewsText(raw.content) : raw.content;
+  cleanRawTitle = sanitizeFedRatePolicyWording(isDomestic ? sanitizeDomesticNewsText(raw.title) : raw.title);
+  cleanRawContent = sanitizeFedRatePolicyWording(isDomestic ? sanitizeDomesticNewsText(raw.content) : raw.content);
 
   // 3. 规则 2：【信源物理继承】严格从爬虫只读字段继承信源，严禁 AI/正则脑补
   primary = detectPrimarySource(cleanRawTitle, cleanRawContent, track, raw.source, raw.url);

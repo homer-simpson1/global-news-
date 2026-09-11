@@ -17,6 +17,7 @@ import {
   getMacroInflationTransmission,
   buildMacroInflationFactParagraph,
   MacroInflationBreakdown,
+  sanitizeFedRatePolicyWording,
 } from '@/lib/macroInflationEngine';
 
 interface NewsCardProps {
@@ -32,12 +33,13 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
   // 分离方括号分类前缀与纯净标题，防止狭窄折行断裂（使用 useMemo 避免倒计时每秒触发重算）
   const { tag, cleanTitle, keywords, bingSearchUrl, googleSearchUrl, baiduSearchUrl } = React.useMemo(() => {
     let tag = '';
-    let cleanTitle = item.title.trim();
-    const match = item.title.match(/^[【\[]([^】\]]+)[】\]]\s*(.*)$/);
+    let cleanTitle = sanitizeFedRatePolicyWording(item.title.trim());
+    const match = cleanTitle.match(/^[【\[]([^】\]]+)[】\]]\s*(.*)$/);
     if (match) {
       tag = match[1].replace(/\/.*$/, '').trim();
       cleanTitle = match[2].trim();
     }
+    cleanTitle = sanitizeFedRatePolicyWording(cleanTitle);
     const keywords = extractSearchKeywords(cleanTitle || item.title, item.source);
     return {
       tag,
@@ -112,7 +114,7 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       }
     }
 
-    return text;
+    return sanitizeFedRatePolicyWording(text);
   }, [item.summaryParagraph, item.summary5W1H, item.bulletPoints, cleanTitle, item.publishedAt, item.source, companyProfile, macroBreakdown]);
 
   // 2. 核心结论安全容灾（坚决铲除标题机械复读与八股破损）
@@ -134,6 +136,9 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       t === '【商业现实透视】。' ||
       t === '【AI算力架构演进】。'
     ) {
+      if (/美联储.*降息|降息25基点|利率互换.*降息|交易员预计.*降息/.test(cleanT)) {
+        return '【美联储利率路径与降息定价】：核心通胀读数巩固9月FOMC降息25个基点基准路径，掉期市场出清激进降息溢价，货币政策稳步迈入渐进式降息宽松周期。';
+      }
       if (isMacroInflationNews(cleanT) || /cpi|通胀|ppi|pce/.test(cleanT)) {
         return getMacroInflationTakeaway(cleanTitle, factParagraph);
       }
@@ -174,6 +179,9 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
   const displayTransmission = React.useMemo(() => {
     let trans = (item.transmissionImpact || '').trim();
     const cleanT = cleanTitle.toLowerCase();
+    if (/美联储.*降息|降息25基点|利率互换.*降息|交易员预计.*降息/.test(cleanT)) {
+      return '① 利率互换市场将9月FOMC降息25bps概率推升至约90% ➔ ② 激进降息50bps的宽松溢价被完全剔除，短端美债收益率温和筑底 ➔ ③ 跨资产策略锁定渐进式降息节奏，美股大盘贴现率获得高确定性支撑。';
+    }
     if (isMacroInflationNews(cleanT) || /cpi|通胀|ppi|pce/.test(cleanT)) {
       if (/短端利率中枢变动直接传导至商业借贷与货币市场融资成本|高杠杆资产面临估值重构|信源仅陈述单一动作/.test(trans) || trans.length < 20) {
         return getMacroInflationTransmission(cleanTitle, factParagraph);

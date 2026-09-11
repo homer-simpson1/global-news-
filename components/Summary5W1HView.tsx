@@ -9,6 +9,7 @@ import {
   isMacroInflationNews,
   buildMacroInflationFactParagraph,
   MacroInflationBreakdown,
+  sanitizeFedRatePolicyWording,
 } from '@/lib/macroInflationEngine';
 
 interface Summary5W1HViewProps {
@@ -85,6 +86,11 @@ export default function Summary5W1HView({
   // 若属于宏观通胀且段落单薄，执行事实强化补全
   if (title && isMacroInflationNews(title.toLowerCase()) && (!paragraph || !paragraph.includes('环比') || !paragraph.includes('分项'))) {
     paragraph = buildMacroInflationFactParagraph(title, paragraph || '', source, time);
+  }
+
+  // 修复美联储降息周期机翻倒错 (加息/上调 -> 降息/下调)
+  if (paragraph) {
+    paragraph = sanitizeFedRatePolicyWording(paragraph);
   }
 
   // 提取核心后果一句话提示（用于在段落下方醒目强调）

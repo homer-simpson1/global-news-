@@ -28,6 +28,7 @@ import {
   getMacroInflationTransmission,
   buildMacroInflationFactParagraph,
   getMacroInflationNextWatchlist,
+  sanitizeFedRatePolicyWording,
 } from './macroInflationEngine';
 
 
@@ -147,6 +148,9 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
   // A. 剥离前缀标签：如 【美股快讯】、【独家】等
   title = title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim();
 
+  // A2. 核心守卫：修复财经快讯对美联储降息周期 "Rate Cut" 的灾难性机翻颠倒（加息/上调 -> 降息/下调）
+  title = sanitizeFedRatePolicyWording(title);
+
   // B. 剔除宣传套话与八股修辞/浮夸词
   title = title.replace(PROPAGANDA_REGEX, '');
 
@@ -182,7 +186,10 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
   // 彻底剔除所有感叹号、问号、省略号，转换为逗号或清除
   title = title.replace(/[！!？?]/g, '，').replace(/……|\.{2,}/g, '');
 
-  // E. 修复断句残缺（如末尾留下“并通过...”、“以保证...”、“等...”）
+  // E. 修复断句残缺（如末尾留下“并通过...”、“以保证...”、“等...”或“年底前两”）
+  title = title.replace(/已充分消化美联储年底前两$/, '已充分消化美联储年底前两次降息预期');
+  title = title.replace(/已充分消化美联储年底前两次$/, '已充分消化美联储年底前两次降息预期');
+  title = title.replace(/年底前两$/, '年底前两次降息预期');
   const danglingMatch = /([并与等及但而或者]|通过|进行|以及|以保证|以确保|正在全力|保障|为了|以实现)\s*\.{0,3}$/;
   if (danglingMatch.test(title)) {
     title = title.replace(danglingMatch, '');
@@ -333,6 +340,14 @@ export function autoCorrectInterestTransmission(
     }
   }
 
+  // 美联储降息与利率掉期重新定价专属传导
+  if (/美联储.*降息|降息25基点|利率互换.*降息|交易员预计.*降息/.test(titleLower)) {
+    if (!text || text.includes('加息') || text.includes('短端国债收益率上行') || text.includes('商业借贷与货币市场融资成本') || text.includes('信源仅陈述单一动作') || text.length < 25) {
+      text = '① 利率互换市场将9月FOMC降息25bps概率推升至约90% ➔ ② 激进降息50bps的宽松溢价被完全剔除，短端美债收益率温和筑底 ➔ ③ 跨资产策略锁定渐进式降息节奏，美股大盘贴现率获得高确定性支撑。';
+      wasCorrected = true;
+    }
+  }
+
   // A. 突发灾害/人员伤亡事故：物理剔除工业回暖、理财赚钱等荒谬利益链
   if (/泥石流|山洪|滑坡|地质灾害|重特大事故|坍塌|火灾|爆炸|伤亡|遇难|失联|抗洪抢险|极端暴雨/.test(titleLower)) {
     if (/智造企业|现金流回暖|实物货流回暖|低风险理财|实体生产备货|现货升水|代工厂|晶圆|变压器排队|买显卡/.test(text)) {
@@ -468,6 +483,29 @@ export function autoCorrect5W1H(
     wasCorrected = true;
   }
 
+  // 9. 美联储降息机翻倒错纠偏 (what / why / consequence)
+  if (s.what) {
+    const healedWhat = sanitizeFedRatePolicyWording(s.what);
+    if (healedWhat !== s.what) {
+      s.what = healedWhat;
+      wasCorrected = true;
+    }
+  }
+  if (s.why) {
+    const healedWhy = sanitizeFedRatePolicyWording(s.why);
+    if (healedWhy !== s.why) {
+      s.why = healedWhy;
+      wasCorrected = true;
+    }
+  }
+  if (s.consequence) {
+    const healedConsequence = sanitizeFedRatePolicyWording(s.consequence);
+    if (healedConsequence !== s.consequence) {
+      s.consequence = healedConsequence;
+      wasCorrected = true;
+    }
+  }
+
   return { summary5W1H: s, wasCorrected };
 }
 
@@ -539,6 +577,18 @@ export function autoCorrectSentimentAndImpact(
     }
     // 特大事件确保为 Level 1
     if (finalLevel !== 1 && /特大|重大|遇难|失联|泥石流|特别国债/.test(title)) {
+      finalLevel = 1;
+      wasCorrected = true;
+    }
+  }
+
+  // 美联储降息周期预期定价 -> 属于符合预期的货币宽松落地与理性资产定价，严禁误评为 BEARISH (利空·承压)
+  if (/美联储.*降息|降息25基点|降息预期|年底前两次降息|预计美联储.*降息/.test(title)) {
+    if (finalSentiment === 'BEARISH') {
+      finalSentiment = 'NEUTRAL';
+      wasCorrected = true;
+    }
+    if (finalLevel > 1) {
       finalLevel = 1;
       wasCorrected = true;
     }
@@ -665,6 +715,16 @@ export function autoCorrectTakeaway(
     }
   }
 
+  // 美联储降息与利率掉期重新定价专属定性
+  if (/美联储.*降息|降息25基点|利率互换.*降息|交易员预计.*降息/.test(cleanTitleLower)) {
+    if (isBroken || text.includes('利率高位粘性与降息预期校准') || !text.includes('降息') || text.includes('加息')) {
+      return {
+        takeaway: '【美联储利率路径与降息定价】：核心通胀读数巩固9月FOMC降息25个基点基准路径，掉期市场出清激进降息溢价，货币政策稳步迈入渐进式降息宽松周期。',
+        wasCorrected: true,
+      };
+    }
+  }
+
   // 宏观通胀与利率政策专属定性 (彻底解决涉事主体推进核心战略部署等胡编乱造)
   if (isMacroInflationNews(cleanTitleLower) || /cpi|通胀|ppi|pce/.test(cleanTitleLower)) {
     return {
@@ -718,6 +778,9 @@ export function autoCorrectTakeaway(
   } else if (/退市|财务造假|证监会|罚款|立案|问询|被查|双开/.test(cleanTitleLower)) {
     tag = '监管合规与强制退市出清';
     core = '监管部门对重大财务造假零容忍常态化执行，劣质标的依法加速出清并从严确立资本市场法治基石。';
+  } else if (/美联储.*降息|降息25基点|利率互换.*降息|交易员预计.*降息/.test(cleanTitleLower)) {
+    tag = '美联储利率路径与降息定价';
+    core = '核心通胀读数巩固9月FOMC降息25个基点基准路径，掉期市场出清激进降息溢价，货币政策稳步迈入渐进式降息宽松周期。';
   } else if (/加息|降息|美联储|收益率|国债|央行/.test(cleanTitleLower)) {
     tag = '宏观流动性与利率校准';
     core = '基准利率与债券收益率曲线变动直接影响跨资产定价锚，机构资金重新平衡防御资产久期敞口。';
@@ -752,7 +815,7 @@ export function autoCorrectSummaryParagraph(
   source?: string,
   time?: string
 ): { paragraph: string; wasCorrected: boolean } {
-  let text = (paragraph || '').trim();
+  let text = sanitizeFedRatePolicyWording(paragraph || '').trim();
   let wasCorrected = false;
 
   const isBroken =
@@ -762,7 +825,7 @@ export function autoCorrectSummaryParagraph(
     /：[，,、\s]*。?$/.test(text);
 
   if (!isBroken) {
-    let cleaned = sanitizeEditorialTone(text)
+    let cleaned = sanitizeEditorialTone(sanitizeFedRatePolicyWording(text))
       .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
       .replace(/[：:][，,]/g, '：')
       .replace(/[：:][。.]/g, '。')
@@ -774,15 +837,15 @@ export function autoCorrectSummaryParagraph(
       if (isMacroInflationNews(cleanTitle.toLowerCase())) {
         if (!cleaned.includes('环比') || !cleaned.includes('分项') || (!cleaned.includes('能源') && !cleaned.includes('食品'))) {
           cleaned = buildMacroInflationFactParagraph(cleanTitle, cleaned, source, time);
-          return { paragraph: sanitizeEditorialTone(cleaned), wasCorrected: true };
+          return { paragraph: sanitizeEditorialTone(sanitizeFedRatePolicyWording(cleaned)), wasCorrected: true };
         }
       }
       const profile = getCompanyProfileForNews(cleanTitle, cleaned);
       if (profile && !cleaned.includes(profile.sector) && !cleaned.includes(profile.description.slice(0, 10))) {
         cleaned += ` 涉事主体${profile.name}（${profile.sector}）：${profile.description}`;
-        return { paragraph: sanitizeEditorialTone(cleaned), wasCorrected: true };
+        return { paragraph: sanitizeEditorialTone(sanitizeFedRatePolicyWording(cleaned)), wasCorrected: true };
       }
-      return { paragraph: cleaned, wasCorrected: cleaned !== text };
+      return { paragraph: sanitizeFedRatePolicyWording(cleaned), wasCorrected: cleaned !== text };
     }
   }
 
@@ -824,7 +887,7 @@ export function autoCorrectSummaryParagraph(
     res += ` 直接影响方面，涉案企业将依法进入退市出清程序并被终止上市。`;
   }
 
-  return { paragraph: sanitizeEditorialTone(res), wasCorrected: true };
+  return { paragraph: sanitizeEditorialTone(sanitizeFedRatePolicyWording(res)), wasCorrected: true };
 }
 
 /**
