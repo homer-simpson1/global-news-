@@ -18,7 +18,6 @@ import {
   DisasterTracker,
 } from './types';
 import { getTimeDiffHours } from './timeUtils';
-import { evaluateCapitalMarketRelevance } from './rssFetcher';
 
 
 // 权威机构官方安全站点映射字典
@@ -141,52 +140,7 @@ export function autoCorrectTrack(
   title: string,
   content?: string
 ): { track: TrackId; wasCorrected: boolean; reason?: string } {
-  const text = `${title} ${content || ''}`.toLowerCase();
-
-  // A. 日本实体绝不能归入中国国内赛道
-  if (/日本|日元|日银|东证|财务省|财务大臣|加藤胜信|植田和男|岸田|石破茂|东京|日经225|丰田|索尼|软银/.test(text)) {
-    if (currentTrack === 'china_domestic') {
-      return {
-        track: 'apac_tech',
-        wasCorrected: true,
-        reason: '检测到日本主权实体，自动纠偏转轨至亚太科技赛道',
-      };
-    }
-  }
-
-  // B. 美联储/美债实体绝不能归入中国国内赛道
-  if (/美联储|鲍威尔|美债|美国国债|白宫|耶伦|美国财政部|华尔街|纳斯达克|道琼斯|标普500|非农|fomc/.test(text) && !/涉华|对华|中美/.test(text)) {
-    if (currentTrack === 'china_domestic') {
-      return {
-        track: 'us_macro',
-        wasCorrected: true,
-        reason: '检测到美联储/美债实体，自动纠偏转轨至美股宏观赛道',
-      };
-    }
-  }
-
-  // C. 国际战局防务实体绝不能归入国内赛道
-  if (/五角大楼|以军|俄军|乌军|克里姆林宫|北约|泽连斯基|普京|内塔尼亚胡|哈马斯|真主党|黎巴嫩|加沙|也门胡塞|霍尔木兹/.test(text)) {
-    if (currentTrack === 'china_domestic') {
-      return {
-        track: 'war_conflict',
-        wasCorrected: true,
-        reason: '检测到战局防务实体，自动纠偏转轨至战局博弈赛道',
-      };
-    }
-  }
-
-  // D. 国内反腐/中央财政/特别国债/遂川抢险/吉隆口岸，确保归入国内赛道
-  if (/中纪委|国家监委|反腐|中央纪委|超长期特别国债|吉隆口岸|遂川|抗洪抢险|选址论证/.test(text)) {
-    if (currentTrack !== 'china_domestic') {
-      return {
-        track: 'china_domestic',
-        wasCorrected: true,
-        reason: '检测到国内反腐/灾害抢险主体，自动纠偏锚定在国内治理赛道',
-      };
-    }
-  }
-
+  // 赛道分类已由 classifyTrack() 唯一权威执行，此处不再重复判断
   return { track: currentTrack, wasCorrected: false };
 }
 
@@ -606,30 +560,9 @@ export function autoCorrectAllNews(
   newsList: NewsItem[],
   flashList: FlashBrief[]
 ): { news: NewsItem[]; flashBriefs: FlashBrief[] } {
-  // 核心防线【双层】：
-  // 第1层（输入端，rssFetcher.ts）：processSingleItemIsolated 内的语义评分门禁已过滤大部分无关内容
-  // 第2层（输出端，本处）：对已通过第1层但仍漏网的杂音做最后拦截，用同一语义评分器保持一致性
-  const semanticFilter = (title: string, content: string, track: string) => {
-    // 快速关键词路径：政界私人花边
-    const text = ((title || '') + ' ' + (content || '')).toLowerCase();
-    const isObviousTrivia =
-      /自掏腰包|送钱|赠送现金|发红包|小费|打赏|私生活|八卦|绯闻|宠物|私人宴请|私人聚会|给助理|行政助理.*(?:送|现金)|总统.*(?:自掏腰包|送钱|给助理)/.test(text) &&
-      !/受贿|立案|贪腐|落马|公诉|起诉|判决|违纪|弹劾/.test(text);
-    if (isObviousTrivia) return false;
-    // 语义评分路径（调用与输入端一致的8大类别评分器）
-    const rel = evaluateCapitalMarketRelevance(title || '', content || '', track || '');
-    return rel.hasMarketSubstance;
-  };
-
-  const cleanFlashList = (flashList || []).filter((f) =>
-    semanticFilter(f.content, f.summaryParagraph || '', 'flash')
-  );
-  const cleanNewsList = (newsList || []).filter((n) =>
-    semanticFilter(n.title, (n.summaryParagraph || '') + ' ' + (n.oneLineTakeaway || ''), n.track || '')
-  );
-
-  const healedFlash = cleanFlashList.map(autoCorrectFlashBrief);
-  const healedNews = cleanNewsList.map(autoCorrectNewsItem);
+  // 数据已由 processSingleItemIsolated 完成全部过滤（杂音/语义/赛道），此处只做润色纠偏，不再重复过滤
+  const healedFlash = (flashList || []).map(autoCorrectFlashBrief);
+  const healedNews = (newsList || []).map(autoCorrectNewsItem);
 
   // 确保吉隆口岸特大灾害卡片永久置顶在 china_domestic 专区首位
   const disasterItem = healedNews.find(

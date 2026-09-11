@@ -272,9 +272,17 @@ export function isStockTapeSpam(title: string, content: string): boolean {
   return STOCK_TAPE_SPAM_REGEX.test(text);
 }
 
-// 纯政界私人琐事、生活花边与非资本市场杂音拦截（保留作第一道快速过滤）
+// 唯一的杂音过滤器：政界私人花边 + 体育娱乐 + 非市场杂音
+// （合并了原 noiseRegex 中的体育/娱乐关键词，消除重复过滤层）
 export function isNonMarketTrivia(title: string, content: string): boolean {
   const text = (title + ' ' + content).toLowerCase();
+  // 体育、娱乐、生活花边
+  if (
+    /摩托车|锦标赛|排球|足球|篮球|马拉松|选美|车展|博览会闭幕|闭幕式|开幕式|演唱会|明星|彩票|中奖|电视剧|电影节/.test(text)
+  ) {
+    return true;
+  }
+  // 政界私人琐事
   if (
     /自掏腰包|送钱|赠送现金|奖金|发红包|小费|打赏|私生活|八卦|绯闻|宠物|私人宴请|私人聚会|打高尔夫|给助理|行政助理.*(?:送|现金|自掏腰包|奖金)|总统.*(?:自掏腰包|送钱|给助理|小费|发红包)/.test(
       text
@@ -615,17 +623,14 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
     }
   }
 
-  // 严格过滤低信噪比杂音与股票盘中异动：
-  // 无论属于哪个板块，凡纯属股票分时行情、个股拉升跌停、IPO 券商造势者，一律剔除！
+  // 过滤低信噪比杂音（isNonMarketTrivia 是唯一杂音过滤器，isStockTapeSpam 拦截股票分时噪声）
   const seen = new Set<string>();
   const deduped: RawLiveItem[] = [];
-  const noiseRegex = /摩托车|锦标赛|排球|足球|篮球|马拉松|选美|车展|博览会闭幕|闭幕式|开幕式|演唱会|明星|彩票|中奖|电视剧|电影节|见闻早餐|早报\s*\||连板|早盘必读|盘中异动|自掏腰包|送钱|赠送现金|发红包|小费|打赏|私生活|八卦|绯闻|打高尔夫|给助理/;
 
   for (const item of items) {
     const spillover = evaluateSpilloverImpact(item.title, item.content);
     // 只要命中外溢冲击指标之一，严禁过滤，强制收录！
     if (!spillover.isSpilloverMajor) {
-      if (noiseRegex.test(item.title + ' ' + item.content)) continue;
       if (isNonMarketTrivia(item.title, item.content)) continue;
       if (isStockTapeSpam(item.title, item.content)) continue;
     }

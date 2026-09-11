@@ -45,64 +45,45 @@ export function enforceCountryEntityGuardrails(
 ): GuardrailPreCheckResult {
   const text = (title + ' ' + content).toLowerCase();
 
-  let correctedTrack = currentTrack;
   let correctedSource = { ...currentSource };
   let isInterceptionTriggered = false;
   let interceptionReason = '';
 
-  // 1. 检查是否为日本主权实体
+  // 赛道分类已由 classifyTrack() 唯一权威执行，此处只做信源标签纠偏：
+  // 外国实体报道不能挂中国官方信源标签
+
   if (FOREIGN_ENTITIES.JAPAN.test(text)) {
-    if (correctedTrack === 'china_domestic') {
-      correctedTrack = 'apac_tech';
-      isInterceptionTriggered = true;
-      interceptionReason = '【实体词拦截】标题/正文含有日本主权实体（如日元/财务省/植田和男），一票否决国内赛道，强行纠偏至亚太宏观与科技';
-    }
-    // 强制拨正信源：严禁打上中国官方信源标签
     if (CHINESE_OFFICIAL_SOURCE_REGEX.test(correctedSource.source) || correctedSource.source.includes('中国')) {
       correctedSource = {
         source: inheritedRawSource && !CHINESE_OFFICIAL_SOURCE_REGEX.test(inheritedRawSource) ? inheritedRawSource : '日经亚洲 Nikkei Asia',
         sourceUrl: 'https://asia.nikkei.com',
       };
       isInterceptionTriggered = true;
-      interceptionReason += ' | 物理剥离虚假中国官方信源，拨正为日经亚洲/海外电讯';
+      interceptionReason = '物理剥离虚假中国官方信源，拨正为日经亚洲/海外电讯';
     }
-  }
-
-  // 2. 检查是否为美联储/美债/美国宏观实体
-  else if (FOREIGN_ENTITIES.US_MACRO.test(text) && !/涉华|对华|中美博弈/.test(text)) {
-    if (correctedTrack === 'china_domestic') {
-      correctedTrack = 'us_macro';
-      isInterceptionTriggered = true;
-      interceptionReason = '【实体词拦截】标题/正文含有美联储/美债/鲍威尔实体，一票否决国内赛道，强行纠偏至美股与美元宏观';
-    }
+  } else if (FOREIGN_ENTITIES.US_MACRO.test(text) && !/涉华|对华|中美博弈/.test(text)) {
     if (CHINESE_OFFICIAL_SOURCE_REGEX.test(correctedSource.source)) {
       correctedSource = {
         source: '华尔街日报 WSJ Markets',
         sourceUrl: 'https://www.wsj.com',
       };
       isInterceptionTriggered = true;
+      interceptionReason = '物理剥离虚假中国官方信源，拨正为华尔街日报';
     }
-  }
-
-  // 3. 检查是否为海外战局/五角大楼防务实体
-  else if (FOREIGN_ENTITIES.WAR_DEFENSE.test(text)) {
-    if (correctedTrack === 'china_domestic') {
-      correctedTrack = 'war_conflict';
-      isInterceptionTriggered = true;
-      interceptionReason = '【实体词拦截】标题/正文含有五角大楼/以军/俄乌防务实体，一票否决国内赛道，强行纠偏至战局防务';
-    }
+  } else if (FOREIGN_ENTITIES.WAR_DEFENSE.test(text)) {
     if (CHINESE_OFFICIAL_SOURCE_REGEX.test(correctedSource.source)) {
       correctedSource = {
         source: '路透社防务专电 Reuters Defense',
         sourceUrl: 'https://www.reuters.com',
       };
       isInterceptionTriggered = true;
+      interceptionReason = '物理剥离虚假中国官方信源，拨正为路透社防务';
     }
   }
 
   return {
     passed: true,
-    correctedTrack,
+    correctedTrack: currentTrack, // 不再覆写赛道
     correctedSource,
     isInterceptionTriggered,
     interceptionReason: interceptionReason || undefined,
