@@ -47,13 +47,21 @@ const coreMoM = breakdown?.headlineMetrics.find(m => m.name.includes('核心CPI 
 const headlineMoM = breakdown?.headlineMetrics.find(m => m.name.includes('总体CPI (环比)'));
 const coreYoY = breakdown?.headlineMetrics.find(m => m.name.includes('核心CPI (同比)'));
 
-assert('核心CPI环比已明确披露且读数准确 (0.2%)', coreMoM !== undefined && coreMoM.actual === '0.2%');
+assert('核心CPI环比已明确披露且读数准确 (0.3%)', coreMoM !== undefined && coreMoM.actual === '0.3%');
 assert('总体CPI环比已明确披露且读数准确 (0.2%)', headlineMoM !== undefined && headlineMoM.actual === '0.2%');
 assert('核心CPI同比已明确提取且读数准确 (2.4%)', coreYoY !== undefined && coreYoY.actual === '2.4%');
 
 console.log('   核心CPI (同比):', coreYoY?.actual, '预期:', coreYoY?.expected, '前值:', coreYoY?.prior);
 console.log('   核心CPI (环比):', coreMoM?.actual, '预期:', coreMoM?.expected);
 console.log('   总体CPI (环比):', headlineMoM?.actual);
+
+// 动态文本抽取检验: 包含核心CPI环比0.3%与总体环比0.2%的文本
+const dynamicContent = '美国8月核心CPI环比上涨0.3%，预期0.2%；总体CPI环比上涨0.2%。';
+const dynamicBreakdown = getMacroInflationBreakdown('美国8月通胀数据发布', dynamicContent, 'us_macro');
+const dynCoreMoM = dynamicBreakdown?.headlineMetrics.find(m => m.name.includes('核心CPI (环比)'));
+const dynHeadlineMoM = dynamicBreakdown?.headlineMetrics.find(m => m.name.includes('总体CPI (环比)'));
+assert('动态提取核心CPI环比0.3%成功', dynCoreMoM !== undefined && dynCoreMoM.actual === '0.3%');
+assert('动态提取总体CPI环比0.2%成功', dynHeadlineMoM !== undefined && dynHeadlineMoM.actual === '0.2%');
 
 // ─────────────────────────────────────────────────────────────
 // 测试 2: 关键分项深度穿透 (解决“核心/服务类/食品类通胀不说”痛点)
@@ -124,7 +132,7 @@ console.log('   自愈后利益链传导:', transmission.transmission);
 console.log('\n--- 6. 事实通报 5W1H 深度补全 (讲清环比、分项与大背景) ---');
 const fact = autoCorrectSummaryParagraph(userContent, userHeadline, undefined, '华尔街日报 WSJ Markets', '9月11日 20:30');
 
-assert('事实通报包含环比数据', fact.paragraph.includes('环比上涨0.2%'));
+assert('事实通报包含核心环比0.3%与总体环比0.2%', fact.paragraph.includes('核心环比上涨0.3%') && fact.paragraph.includes('环比上涨0.2%'));
 assert('事实通报包含能源与汽油价格拖累说明', fact.paragraph.includes('能源') || fact.paragraph.includes('汽油'));
 assert('事实通报包含住房与核心服务粘性说明', fact.paragraph.includes('住房') && fact.paragraph.includes('服务'));
 assert('事实通报包含美联储9月降息25bps政策结论', fact.paragraph.includes('降息25个基点'));
@@ -165,7 +173,7 @@ assert('NewsItem 成功挂载 macroInflationBreakdown', healed.macroInflationBre
 assert('NewsItem 核心结论已纠偏为高盛/大摩级定性', healed.oneLineTakeaway.includes('【宏观通胀与降息路径】'));
 assert('NewsItem 利益链传导已纠偏为真实跨资产逻辑', healed.transmissionImpact.includes('利率掉期') && healed.transmissionImpact.includes('85%'));
 assert('NewsItem 观察哨已消除过去时间倒流', healed.nextWatchlist.includes('9月18日 FOMC'));
-assert('NewsItem 事实通报已补充双环比与分项数据', healed.summaryParagraph.includes('环比上涨0.2%') && healed.summaryParagraph.includes('能源'));
+assert('NewsItem 事实通报已补充双环比与分项数据', healed.summaryParagraph.includes('核心环比上涨0.3%') && healed.summaryParagraph.includes('环比上涨0.2%') && healed.summaryParagraph.includes('能源'));
 
 console.log('===========================================================');
 if (testFailures === 0) {

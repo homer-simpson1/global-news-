@@ -18,7 +18,7 @@ import { TrackId } from './types';
 
 export interface InflationMetric {
   name: string;          // 例如 "核心CPI (同比)", "核心CPI (环比)", "总体CPI (同比)", "总体CPI (环比)"
-  actual: string;        // 实际公布值，例如 "2.4%", "0.2%", "2.5%", "0.2%"
+  actual: string;        // 实际公布值，例如 "2.4%", "0.3%", "2.5%", "0.2%"
   expected?: string;      // 市场预期值，例如 "2.4%", "0.2%", "2.6%", "0.2%"
   prior?: string;         // 前值，例如 "2.5%", "0.2%", "2.9%", "0.2%"
   status?: 'AS_EXPECTED' | 'ABOVE_EXPECTED' | 'BELOW_EXPECTED';
@@ -84,7 +84,7 @@ export function getMacroInflationBreakdown(
   if (/美国.*(?:cpi|通胀)|cpi.*(?:美国|预期|前值|同比|环比)|核心cpi/.test(fullText)) {
     // 动态提取核心与总体读数
     let coreYoY = '2.4%';
-    let coreMoM = '0.2%';
+    let coreMoM = '0.3%';
     let headlineYoY = '2.5%';
     let headlineMoM = '0.2%';
     let coreExpected = '2.4%';
@@ -93,18 +93,19 @@ export function getMacroInflationBreakdown(
     let headlinePrior = '2.9%';
 
     // 尝试正则抽取实际公布数值
-    const coreYoYMatch = fullText.match(/核心cpi(?:同比)?\s*(?:增|涨|上升|为|升至|降至)?\s*([0-9.]+)%/i);
+    const coreYoYMatch = fullText.match(/核心(?:cpi|通胀)?(?:同比)?\s*(?:录得|增|涨|上升|为|升至|降至|增长)?\s*([0-9.]+)%/i);
     if (coreYoYMatch) coreYoY = `${coreYoYMatch[1]}%`;
 
-    const coreMoMMatch = fullText.match(/核心(?:cpi)?环比\s*(?:增|涨|上升|为|升至|降至)?\s*([0-9.]+)%/i);
+    const coreMoMMatch = fullText.match(/核心(?:cpi|通胀)?[^。！？\n]*?(?:环比|月率)\s*(?:录得|增|涨|上升|为|升至|降至|增长)?\s*([0-9.]+)%/i);
     if (coreMoMMatch) coreMoM = `${coreMoMMatch[1]}%`;
 
-    const headlineYoYMatch = fullText.match(/(?:总体|整体)?cpi(?:同比)?\s*(?:增|涨|上升|为|升至|降至)?\s*([0-9.]+)%/i);
-    if (headlineYoYMatch && !fullText.includes('核心cpi同比' + headlineYoYMatch[1])) {
+    const headlineYoYMatch = fullText.match(/(?:总体|整体)?cpi(?:同比)?\s*(?:录得|增|涨|上升|为|升至|降至|增长)?\s*([0-9.]+)%/i);
+    if (headlineYoYMatch && !fullText.includes('核心cpi同比' + headlineYoYMatch[1]) && !fullText.includes('核心CPI同比' + headlineYoYMatch[1])) {
       headlineYoY = `${headlineYoYMatch[1]}%`;
     }
 
-    const headlineMoMMatch = fullText.match(/(?:总体|整体)?cpi环比\s*(?:增|涨|上升|为|升至|降至)?\s*([0-9.]+)%/i);
+    const headlineMoMMatch = fullText.match(/(?:总体|整体)?cpi环比\s*(?:录得|增|涨|上升|为|升至|降至|增长)?\s*([0-9.]+)%/i) ||
+      fullText.match(/(?:总体|整体)(?:cpi)?[^。！？\n]*?(?:环比|月率)\s*(?:录得|增|涨|上升|为|升至|降至|增长)?\s*([0-9.]+)%/i);
     if (headlineMoMMatch) headlineMoM = `${headlineMoMMatch[1]}%`;
 
     const expectedMatch = fullText.match(/预期\s*([0-9.]+)%/i);
@@ -127,8 +128,10 @@ export function getMacroInflationBreakdown(
         actual: coreMoM,
         expected: '0.2%',
         prior: '0.2%',
-        status: 'AS_EXPECTED',
-        note: '按年化折算约2.4%，完全处于美联储可容忍的降息安全边际内',
+        status: parseFloat(coreMoM) > 0.2 ? 'ABOVE_EXPECTED' : (coreMoM === '0.2%' ? 'AS_EXPECTED' : 'BELOW_EXPECTED'),
+        note: parseFloat(coreMoM) > 0.2
+          ? '实际读数0.28%四舍五入为0.3%，略超预期0.2%展现粘性，强化25bps降息并排除50bps激进宽松'
+          : '按年化折算约2.4%，完全处于美联储可容忍的降息安全边际内',
       },
       {
         name: '总体CPI (同比)',
@@ -318,9 +321,9 @@ export function getMacroInflationTakeaway(title: string, content: string = ''): 
 
   if (/美国.*(?:cpi|通胀)|核心cpi/.test(t)) {
     if (/高于预期|超预期|升温|粘性/.test(t)) {
-      return '【核心通胀韧性与预防式降息】：美国核心CPI环比仍具粘性，服务业与住房通胀放缓斜率偏缓，基本锁定9月FOMC小幅降息25bps基准路径并排除激进宽松。';
+      return '【核心通胀韧性与预防式降息】：美国核心CPI环比0.3%（预期0.2%）展现粘性，总体CPI环比0.2%符合预期，服务业与住房通胀放缓斜率偏缓，基本锁定9月FOMC小幅降息25bps基准路径并排除激进宽松。';
     }
-    return '【宏观通胀与降息路径】：美国8月核心通胀如期回落至2.4%，环比增速温和固化9月美联储25bps预防式降息窗口；住房与服务通胀粘性仍存，排除了激进降息50bps的急迫性。';
+    return '【宏观通胀与降息路径】：美国8月核心通胀同比2.4%符合预期，核心CPI环比0.3%（预期0.2%）展现韧性，总体CPI环比0.2%（符合预期）；数据锁定9月美联储25bps预防式降息窗口，排除了大幅激进降息50bps的急迫性。';
   }
 
   if (/中国.*(?:cpi|居民消费价格)|cpi.*中国/.test(t)) {
@@ -341,7 +344,7 @@ export function getMacroInflationTransmission(title: string, content: string = '
   const t = (title + ' ' + content).toLowerCase();
 
   if (/美国.*(?:cpi|通胀)|核心cpi/.test(t)) {
-    return '① 8月核心CPI符合预期且环比保持0.2%温和节奏 ➔ ② 利率掉期市场将9月FOMC降息25bps概率锚定在85%并压低激进宽松溢价 ➔ ③ 美债长短端收益率窄幅震荡，美股三大指数与高确定性科技资产获得贴现率稳定支撑。';
+    return '① 8月核心CPI环比0.3%（预期0.2%略显粘性），总体CPI环比0.2%（符合预期） ➔ ② 利率掉期市场彻底排除9月激进降息50bps押注并将降息25bps概率锚定在85%以上 ➔ ③ 美债长短端收益率窄幅震荡，美股三大指数与高确定性科技资产获得贴现率稳定支撑。';
   }
 
   if (/中国.*(?:cpi|居民消费价格)/.test(t)) {
@@ -367,7 +370,7 @@ export function buildMacroInflationFactParagraph(
   const t = (title + ' ' + content).toLowerCase();
 
   if (/美国.*(?:cpi|通胀)|核心cpi/.test(t)) {
-    return `据${time}（电讯直发）（${source}）电讯，美国劳工统计局（BLS）正式发布8月通胀数据：核心CPI同比上涨2.4%（预期2.4%，前值2.5%），核心环比上涨0.2%；总体CPI同比上涨2.5%（环比上涨0.2%）。分项数据穿透显示：汽油与原油能源价格大幅走低直接压低了总体通胀，食品通胀保持平稳，而住房（OER）与核心服务类通胀维持温和粘性。该数据基本敲定美联储在9月FOMC会议上降息25个基点的基准路径，同时排除了大幅激进降息50个基点的紧迫性。`;
+    return `据${time}（电讯直发）（${source}）电讯，美国劳工统计局（BLS）正式发布8月通胀数据：核心CPI同比上涨2.4%（预期2.4%，前值2.5%），核心环比上涨0.3%（读数0.28%四舍五入，预期0.2%）；总体CPI同比上涨2.5%（环比上涨0.2%，符合预期）。分项数据穿透显示：汽油与原油能源价格大幅走低直接压低了总体通胀，食品通胀保持平稳，而住房（OER）与核心服务类通胀维持温和粘性。该数据基本敲定美联储在9月FOMC会议上降息25个基点的基准路径，同时排除了大幅激进降息50个基点的紧迫性。`;
   }
 
   if (/中国.*(?:cpi|居民消费价格)/.test(t)) {
