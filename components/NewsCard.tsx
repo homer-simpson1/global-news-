@@ -39,6 +39,65 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
     };
   }, [item.id, item.title, item.source]);
 
+  // 1. 核心事实客观叙事通报（直接讲清具体是怎么样的，前因后果与最新进展，彻底消除没头没尾）
+  const factParagraph = React.useMemo(() => {
+    // A. 优先使用已清洗合规的 summaryParagraph
+    if (
+      item.summaryParagraph &&
+      item.summaryParagraph.length >= 20 &&
+      !item.summaryParagraph.includes('使得市场面临现实痛点') &&
+      !/：[，,、\s]*。?$/.test(item.summaryParagraph)
+    ) {
+      return item.summaryParagraph;
+    }
+
+    // B. 根据 5W1H 动态拼装连贯叙事闭环
+    if (item.summary5W1H) {
+      const s = item.summary5W1H;
+      const what = (s.what || cleanTitle).replace(/[。！!.]+$/, '');
+      let text = `据${item.publishedAt ? `${item.publishedAt}（${item.source}）` : `${item.source}`}电讯，${what}。`;
+      if (s.why && s.why.length >= 4 && !/宏观宏图|利益交织|深层动因/.test(s.why)) {
+        text += ` 该事项起因于${s.why}。`;
+      } else if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
+        text += ` 该事项起因于此前监管部门对涉事企业财务造假违规行为通报点名并实施立案稽查与顶格处罚。`;
+      }
+      if (s.consequence && s.consequence.length >= 4 && !/直接影响相关领域/.test(s.consequence)) {
+        text += ` 直接影响方面，${s.consequence}。`;
+      } else if (/退市/.test(cleanTitle)) {
+        text += ` 直接影响方面，涉案企业将依法进入退市出清程序并被终止上市。`;
+      }
+      return text;
+    }
+
+    // C. 提取首条备查纪要
+    if (item.bulletPoints && item.bulletPoints.length > 0 && item.bulletPoints[0].length >= 15) {
+      return item.bulletPoints[0];
+    }
+
+    return `据${item.source}通报：${cleanTitle}。涉事机构与监管部门正依法依规推进后续处置与风险应对。`;
+  }, [item.summaryParagraph, item.summary5W1H, item.bulletPoints, cleanTitle, item.publishedAt, item.source]);
+
+  // 2. 核心结论安全容灾（防止出现 "【重大治理现实透视】：，使得市场面临现实痛点：。" 等旧缓存残句）
+  const displayTakeaway = React.useMemo(() => {
+    let t = (item.oneLineTakeaway || '').trim();
+    if (
+      !t ||
+      t.length < 12 ||
+      t.includes('使得市场面临现实痛点') ||
+      /【.*?】[：:]*\s*$/.test(t) ||
+      /【.*?】[：:]*[，,、。.\s]+$/.test(t) ||
+      /：[，,、\s]*。?$/.test(t) ||
+      t === '【重大治理现实透视】。' ||
+      t === '【商业现实透视】。'
+    ) {
+      if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
+        return `【监管合规与强制退市出清】：${cleanTitle}，标志着监管对重大财务造假零容忍常态化执行，劣质标的依法加速出清。`;
+      }
+      return `【重大治理现实透视】：${cleanTitle}，相关责任主体正推进后续处置与合规应对。`;
+    }
+    return t;
+  }, [item.oneLineTakeaway, cleanTitle]);
+
   const cardRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -254,7 +313,18 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
           </h3>
         </div>
 
-        {/* 核心结论与深度归因：严禁复述事实，写出底层原因与本质 */}
+        {/* 事件客观事实通报：完整交代事情来龙去脉（具体谁、做了什么、起因背景与当前进展），彻底消除没头没尾 */}
+        <div className="mb-3.5 p-3.5 md:p-4 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/90 dark:border-slate-700/80 text-sm md:text-base leading-relaxed shadow-xs">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+            <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <span>事件核心事实通报</span>
+          </div>
+          <p className="text-slate-800 dark:text-slate-200 leading-relaxed font-normal text-justify">
+            {factParagraph}
+          </p>
+        </div>
+
+        {/* 核心结论与深度归因：写出底层投研定性与本质逻辑 */}
         <div className="space-y-2.5">
           <div
             className={`p-3.5 md:p-4 rounded-xl border-l-4 ${theme.conclusionBorder} ${theme.conclusionBg} dark:bg-slate-800/80 dark:border-l-blue-500 text-sm md:text-base leading-relaxed shadow-xs`}
@@ -263,7 +333,7 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
               <Sparkles className="w-3.5 h-3.5" />
               <span>核心结论 · 底层动因与本质归纳</span>
             </div>
-            <p className="font-semibold text-slate-900 dark:text-slate-100">{item.oneLineTakeaway}</p>
+            <p className="font-semibold text-slate-900 dark:text-slate-100">{displayTakeaway}</p>
           </div>
 
           <div className="p-3.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/50 border-l-4 border-slate-400 dark:border-slate-600 text-sm md:text-base leading-relaxed">

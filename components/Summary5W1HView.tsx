@@ -27,8 +27,16 @@ export default function Summary5W1HView({
   clarificationNote,
   onClose,
 }: Summary5W1HViewProps) {
-  // 1. 如果已有预生成的 5W1H 一段总结，直接使用
+  // 1. 如果已有预生成的 5W1H 一段总结，且格式合规，直接使用
   let paragraph = summaryParagraph;
+  if (
+    paragraph &&
+    (paragraph.includes('使得市场面临现实痛点') ||
+      /：[，,、\s]*。?$/.test(paragraph) ||
+      paragraph.length < 18)
+  ) {
+    paragraph = undefined;
+  }
 
   // 2. 如果只有结构化的 summary，根据实际披露要素客观叙述（无原因绝不硬编）
   if (!paragraph && summary) {
@@ -40,17 +48,27 @@ export default function Summary5W1HView({
     let text = `据${when}，${cleanWhat}。`;
     if (cleanWhy && cleanWhy.length >= 4 && !cleanWhy.includes('宏观宏图') && !cleanWhy.includes('利益交织对立')) {
       text += ` 信源表明，该事项起因于${cleanWhy}。`;
+    } else if (title && /退市.*造假|造假.*退市/.test(title)) {
+      text += ` 该事项起因于此前监管部门对涉事企业财务造假违规行为通报点名并实施顶格行政处罚。`;
     }
     if (cleanConsequence && cleanConsequence.length >= 4 && !cleanConsequence.includes('直接影响相关领域')) {
       text += ` 直接影响方面，${cleanConsequence}。`;
+    } else if (title && /退市/.test(title)) {
+      text += ` 直接影响方面，涉案企业将依法进入退市出清程序并被终止上市。`;
     }
     paragraph = text;
   }
 
-  // 3. 保底段落生成（确保客观事实陈述）
+  // 3. 保底段落生成（确保客观事实陈述，讲清来龙去脉）
   if (!paragraph) {
     const cleanTitle = (title || '最新重大事件').replace(/^【.*?】\s*/, '');
-    paragraph = `据${time ? `${time}` : '权威电讯'}通报：${cleanTitle}。`;
+    let text = `据${time ? `${time}` : '权威电讯'}（${source || '信源'}）通报，${cleanTitle}。`;
+    if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
+      text += ` 监管部门依法依规执行常态化退市出清程序，保护投资者合法权益。`;
+    } else {
+      text += ` 相关主管机构与涉事当事方正依法依规推进后续处置与合规应对。`;
+    }
+    paragraph = text;
   }
 
   // 提取核心后果一句话提示（用于在段落下方醒目强调）

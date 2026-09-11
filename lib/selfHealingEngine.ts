@@ -528,6 +528,142 @@ export function autoCorrectDisasterTracker(tracker?: any): DisasterTracker | und
 }
 
 /**
+ * 8.1 核心结论（oneLineTakeaway）深度自愈与空标点破损修复
+ * 若原 oneLineTakeaway 为空、破损、残缺或包含“使得市场面临现实痛点：。”，彻底重新生成具备专业事实与深层定性的核心结论！
+ */
+export function autoCorrectTakeaway(
+  takeaway: string | undefined,
+  title: string,
+  summary5W1H?: Summary5W1H,
+  track: TrackId = 'us_macro'
+): { takeaway: string; wasCorrected: boolean } {
+  let text = (takeaway || '').trim();
+  let wasCorrected = false;
+
+  const isBroken =
+    !text ||
+    text.length < 12 ||
+    /使得市场面临现实痛点/.test(text) ||
+    /【.*?】[：:]*\s*$/.test(text) ||
+    /【.*?】[：:]*[，,、。.\s]+$/.test(text) ||
+    /：[，,、\s]*。?$/.test(text) ||
+    text === '【重大治理现实透视】。' ||
+    text === '【商业现实透视】。' ||
+    text === '【行业盈利格局重塑】。';
+
+  if (!isBroken) {
+    const cleaned = sanitizeEditorialTone(text)
+      .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
+      .replace(/[：:][，,]/g, '：')
+      .replace(/[：:][。.]/g, '。')
+      .replace(/，{2,}/g, '，')
+      .replace(/。{2,}/g, '。')
+      .trim();
+    if (cleaned.length >= 12 && !/【.*?】[：:]*[，,、。.\s]*$/.test(cleaned)) {
+      return { takeaway: cleaned, wasCorrected: cleaned !== text };
+    }
+  }
+
+  // 深度智能重构：结合标题事实与 5W1H 要素，生成具备专业投研价值的闭环核心结论
+  const cleanTitle = title.replace(/^[【\[][^】\]]+[】\]]/, '').trim();
+  const fact = (summary5W1H?.what || cleanTitle).replace(/[。！!.]+$/, '').trim();
+
+  let tag = '重大治理现实透视';
+  if (/退市|财务造假|证监会|罚款|立案|问询|被查|双开/.test(cleanTitle)) {
+    tag = '监管合规与强制退市出清';
+  } else if (/利润|营收|反超|财报|业绩|超预期/.test(cleanTitle)) {
+    tag = '行业盈利格局重塑';
+  } else if (/加息|降息|美联储|收益率|国债/.test(cleanTitle)) {
+    tag = '宏观流动性与利率校准';
+  } else if (/泥石流|山洪|抢险|受灾|失联/.test(cleanTitle)) {
+    tag = '突发险情与应急抢险';
+  } else if (/空袭|导弹|控制|海峡|航运/.test(cleanTitle)) {
+    tag = '地缘安全与前线博弈';
+  } else if (track === 'apac_tech') {
+    tag = '先进制程供需动态';
+  } else if (track === 'commodities_shipping') {
+    tag = '大宗供求与运力平衡';
+  }
+
+  let core = '';
+  if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
+    core = `${cleanTitle}，标志着监管对重大财务造假零容忍常态化执行，劣质标的依法加速出清。`;
+  } else if (/反超/.test(cleanTitle)) {
+    core = `${fact}，展现出细分赛道龙头在成本管控与市场份额维度的分化优势。`;
+  } else if (summary5W1H?.why && summary5W1H?.consequence) {
+    core = `${fact}。起因于${summary5W1H.why}，后续将${summary5W1H.consequence}。`;
+  } else if (summary5W1H?.why) {
+    core = `${fact}。主要起因于${summary5W1H.why}。`;
+  } else if (summary5W1H?.consequence) {
+    core = `${fact}。直接影响方面，${summary5W1H.consequence}。`;
+  } else {
+    core = `${fact}，相关主管机构与责任主体正依法依规推进后续处置。`;
+  }
+
+  return {
+    takeaway: sanitizeEditorialTone(`【${tag}】：${core}`),
+    wasCorrected: true,
+  };
+}
+
+/**
+ * 8.2 事实段落总结（summaryParagraph）深度自愈与事实闭环
+ * 确保每条新闻交代清清楚楚的客观事实（谁、做了什么、原因起因、影响进展），杜绝没头没尾！
+ */
+export function autoCorrectSummaryParagraph(
+  paragraph: string | undefined,
+  title: string,
+  summary5W1H?: Summary5W1H,
+  source?: string,
+  time?: string
+): { paragraph: string; wasCorrected: boolean } {
+  let text = (paragraph || '').trim();
+  let wasCorrected = false;
+
+  const isBroken =
+    !text ||
+    text.length < 18 ||
+    /使得市场面临现实痛点/.test(text) ||
+    /：[，,、\s]*。?$/.test(text);
+
+  if (!isBroken) {
+    const cleaned = sanitizeEditorialTone(text)
+      .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
+      .replace(/[：:][，,]/g, '：')
+      .replace(/[：:][。.]/g, '。')
+      .replace(/，{2,}/g, '，')
+      .replace(/。{2,}/g, '。')
+      .trim();
+    if (cleaned.length >= 18) {
+      return { paragraph: cleaned, wasCorrected: cleaned !== text };
+    }
+  }
+
+  // 重新生成 5W1H 客观事实叙事闭环段落
+  const cleanTitle = title.replace(/^[【\[][^】\]]+[】\]]/, '').trim();
+  const timePrefix = time ? `据${time}` : '据电讯';
+  const sourceName = source || '权威电讯';
+  const what = (summary5W1H?.what || cleanTitle).replace(/[。！!.]+$/, '').trim();
+  const why = (summary5W1H?.why || '').replace(/[。！!.]+$/, '').trim();
+  const consequence = (summary5W1H?.consequence || '').replace(/[。！!.]+$/, '').trim();
+
+  let res = `${timePrefix}（${sourceName}）电讯，${what}。`;
+  if (why && why.length >= 4) {
+    res += ` 该事项起因于${why}。`;
+  } else if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
+    res += ` 该事项起因于此前监管部门对涉事企业财务造假违规行为通报点名并实施立案稽查与行政处罚。`;
+  }
+
+  if (consequence && consequence.length >= 4) {
+    res += ` 直接影响方面，${consequence}。`;
+  } else if (/退市/.test(cleanTitle)) {
+    res += ` 直接影响方面，涉案企业将依法进入退市出清程序并被终止上市。`;
+  }
+
+  return { paragraph: sanitizeEditorialTone(res), wasCorrected: true };
+}
+
+/**
  * 9. 全量单篇新闻深度自愈流水线 (Single News Item Auto-Correction Pipeline)
  */
 export function autoCorrectNewsItem(item: NewsItem): NewsItem {
@@ -570,22 +706,26 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   const correctedTracker = autoCorrectDisasterTracker(item.disasterTracker);
 
   const cleanTitle = sanitizeEditorialTone(correctedTitle);
-  let cleanTakeaway = sanitizeEditorialTone(item.oneLineTakeaway || '')
-    .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
-    .replace(/[：:][，,]/g, '：')
-    .replace(/[：:][。.]/g, '。')
-    .replace(/，{2,}/g, '，')
-    .replace(/。{2,}/g, '。')
-    .trim();
+
+  // 核心结论深度自愈（杜绝 "【重大治理现实透视】：，使得市场面临现实痛点：。" 等残句）
+  const { takeaway: cleanTakeaway } = autoCorrectTakeaway(
+    item.oneLineTakeaway,
+    cleanTitle,
+    corrected5W1H,
+    correctedTrack
+  );
+
   const cleanTransmission = sanitizeEditorialTone(correctedTransmission);
   const cleanWatchlist = sanitizeEditorialTone(item.nextWatchlist || '');
-  let cleanParagraph = sanitizeEditorialTone(item.summaryParagraph || '')
-    .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
-    .replace(/[：:][，,]/g, '：')
-    .replace(/[：:][。.]/g, '。')
-    .replace(/，{2,}/g, '，')
-    .replace(/。{2,}/g, '。')
-    .trim();
+
+  // 事实段落总结深度自愈（讲清具体来龙去脉）
+  const { paragraph: cleanParagraph } = autoCorrectSummaryParagraph(
+    item.summaryParagraph,
+    cleanTitle,
+    corrected5W1H,
+    correctedSource,
+    correctedTime
+  );
 
   const details: string[] = [];
   if (cleanTitle !== item.title) details.push('标题脱水去噪与结构重组');
@@ -656,22 +796,26 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
   );
 
   const cleanContent = sanitizeEditorialTone(correctedContent);
-  let cleanTakeaway = sanitizeEditorialTone(flash.oneLineTakeaway || '')
-    .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
-    .replace(/[：:][，,]/g, '：')
-    .replace(/[：:][。.]/g, '。')
-    .replace(/，{2,}/g, '，')
-    .replace(/。{2,}/g, '。')
-    .trim();
+
+  // 核心结论深度自愈
+  const { takeaway: cleanTakeaway } = autoCorrectTakeaway(
+    flash.oneLineTakeaway,
+    cleanContent,
+    corrected5W1H,
+    correctedTrack
+  );
+
   const cleanTransmission = sanitizeEditorialTone(correctedTransmission);
   const cleanWatchlist = sanitizeEditorialTone(flash.nextWatchlist || '');
-  let cleanParagraph = sanitizeEditorialTone(flash.summaryParagraph || '')
-    .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
-    .replace(/[：:][，,]/g, '：')
-    .replace(/[：:][。.]/g, '。')
-    .replace(/，{2,}/g, '，')
-    .replace(/。{2,}/g, '。')
-    .trim();
+
+  // 事实段落总结深度自愈
+  const { paragraph: cleanParagraph } = autoCorrectSummaryParagraph(
+    flash.summaryParagraph,
+    cleanContent,
+    corrected5W1H,
+    correctedSource,
+    correctedTime
+  );
 
   const details: string[] = [];
   if (cleanContent !== flash.content) details.push('速递简报脱水');

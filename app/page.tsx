@@ -190,6 +190,10 @@ function TerminalApp() {
       const healed = autoCorrectAllNews(parsedN, parsedB);
       setNews(healed.news);
       setFlashBriefs(healed.flashBriefs);
+      try {
+        localStorage.setItem('git_cached_news', JSON.stringify(healed.news));
+        localStorage.setItem('git_cached_briefs', JSON.stringify(healed.flashBriefs));
+      } catch (e) {}
 
       if (cachedQuotes) {
         const parsedQ = JSON.parse(cachedQuotes);
