@@ -3,11 +3,13 @@
 import React, { useState } from 'react';
 import { NewsItem } from '@/lib/types';
 import { TrackVisualTheme, TRACK_THEMES } from '@/lib/trackThemes';
-import { ExternalLink, BookOpen, Sparkles, ChevronDown, ChevronUp, Award, Search, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { ExternalLink, BookOpen, Sparkles, ChevronDown, ChevronUp, Award, Search, AlertTriangle, ShieldAlert, Building2 } from 'lucide-react';
 import Summary5W1HView from './Summary5W1HView';
 import DisasterTrackerView from './DisasterTrackerView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
 import { isWithin24Hours, calculateTrackedDays } from '@/lib/timeUtils';
+import { getCompanyProfileForNews, CompanyProfile } from '@/lib/companyProfiles';
+import { isHeadlineEcho } from '@/lib/selfHealingEngine';
 
 interface NewsCardProps {
   item: NewsItem;
@@ -39,23 +41,30 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
     };
   }, [item.id, item.title, item.source]);
 
+  // 涉事主体/企业背景速览检索 (解答“为什么不简单介绍这家公司”)
+  const companyProfile: CompanyProfile | null = React.useMemo(() => {
+    return (
+      item.companyProfile ||
+      getCompanyProfileForNews(cleanTitle, item.summaryParagraph || (item.bulletPoints && item.bulletPoints.join(' ')))
+    );
+  }, [item.companyProfile, cleanTitle, item.summaryParagraph, item.bulletPoints]);
+
   // 1. 核心事实客观叙事通报（直接讲清具体是怎么样的，前因后果与最新进展，彻底消除没头没尾）
   const factParagraph = React.useMemo(() => {
     // A. 优先使用已清洗合规的 summaryParagraph
+    let text = '';
     if (
       item.summaryParagraph &&
       item.summaryParagraph.length >= 20 &&
       !item.summaryParagraph.includes('使得市场面临现实痛点') &&
       !/：[，,、\s]*。?$/.test(item.summaryParagraph)
     ) {
-      return item.summaryParagraph;
-    }
-
-    // B. 根据 5W1H 动态拼装连贯叙事闭环
-    if (item.summary5W1H) {
+      text = item.summaryParagraph;
+    } else if (item.summary5W1H) {
+      // B. 根据 5W1H 动态拼装连贯叙事闭环
       const s = item.summary5W1H;
       const what = (s.what || cleanTitle).replace(/[。！!.]+$/, '');
-      let text = `据${item.publishedAt ? `${item.publishedAt}（${item.source}）` : `${item.source}`}电讯，${what}。`;
+      text = `据${item.publishedAt ? `${item.publishedAt}（${item.source}）` : `${item.source}`}电讯，${what}。`;
       if (s.why && s.why.length >= 4 && !/宏观宏图|利益交织|深层动因/.test(s.why)) {
         text += ` 该事项起因于${s.why}。`;
       } else if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
@@ -66,37 +75,105 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       } else if (/退市/.test(cleanTitle)) {
         text += ` 直接影响方面，涉案企业将依法进入退市出清程序并被终止上市。`;
       }
-      return text;
+    } else if (item.bulletPoints && item.bulletPoints.length > 0 && item.bulletPoints[0].length >= 15) {
+      // C. 提取首条备查纪要
+      text = item.bulletPoints[0];
+    } else {
+      text = `据${item.source}通报：${cleanTitle}。涉事机构与监管部门正依法依规推进后续处置与风险应对。`;
     }
 
-    // C. 提取首条备查纪要
-    if (item.bulletPoints && item.bulletPoints.length > 0 && item.bulletPoints[0].length >= 15) {
-      return item.bulletPoints[0];
+    // 若本卡片未独立展示【涉事主体速览】展位，且事实文本尚未介绍企业背景，无缝融入企业业务定位
+    // 若已独立展示【涉事主体速览】展位，则客观事实通报专注叙述5W1H客观事件本身，杜绝上下相邻两栏机械复读
+    if (!companyProfile && !text.includes('核心业务概况方面')) {
+      const fallbackProfile = getCompanyProfileForNews(cleanTitle, text);
+      if (fallbackProfile && !text.includes(fallbackProfile.description.slice(0, 10)) && !text.includes(fallbackProfile.sector)) {
+        text += ` 核心业务概况方面，${fallbackProfile.name}系${fallbackProfile.description}`;
+      }
     }
 
-    return `据${item.source}通报：${cleanTitle}。涉事机构与监管部门正依法依规推进后续处置与风险应对。`;
-  }, [item.summaryParagraph, item.summary5W1H, item.bulletPoints, cleanTitle, item.publishedAt, item.source]);
+    return text;
+  }, [item.summaryParagraph, item.summary5W1H, item.bulletPoints, cleanTitle, item.publishedAt, item.source, companyProfile]);
 
-  // 2. 核心结论安全容灾（防止出现 "【重大治理现实透视】：，使得市场面临现实痛点：。" 等旧缓存残句）
+  // 2. 核心结论安全容灾（坚决铲除标题机械复读与八股破损）
   const displayTakeaway = React.useMemo(() => {
     let t = (item.oneLineTakeaway || '').trim();
+    const cleanT = cleanTitle.toLowerCase();
+    const isEcho = isHeadlineEcho(t, cleanTitle);
+
     if (
       !t ||
       t.length < 12 ||
+      isEcho ||
       t.includes('使得市场面临现实痛点') ||
       /【.*?】[：:]*\s*$/.test(t) ||
       /【.*?】[：:]*[，,、。.\s]+$/.test(t) ||
       /：[，,、\s]*。?$/.test(t) ||
       t === '【重大治理现实透视】。' ||
-      t === '【商业现实透视】。'
+      t === '【商业现实透视】。' ||
+      t === '【AI算力架构演进】。'
     ) {
-      if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
-        return `【监管合规与强制退市出清】：${cleanTitle}，标志着监管对重大财务造假零容忍常态化执行，劣质标的依法加速出清。`;
+      if (/上市|ipo|挂牌|首日|开盘涨|市值约|科创板|港交所/.test(cleanT)) {
+        const sector = (companyProfile?.sector || '').toLowerCase();
+        if (/存储|dram|nand|长鑫|长存|海力士|美光|兆易/.test(cleanT) || /存储|dram|nand/.test(sector)) {
+          return '【存储芯片资本重估与扩产】：自主先进制程存储芯片获资本市场流动性赋能，加速高密度DRAM/3D NAND与高带宽内存产线扩产与终端客户导入。';
+        }
+        if (/晶圆|代工|中芯|华虹|台积电/.test(cleanT) || /晶圆代工/.test(sector)) {
+          return '【晶圆代工产能重构与资本支持】：纯晶圆制造龙头依托二级市场融资扩充先进制程与特色工艺晶圆产能，筑牢半导体全产业链硬件制造底座。';
+        }
+        if (/设备|刻蚀|薄膜|清洗|北方华创|中微|拓荆|盛美|光刻|asml/.test(cleanT) || /设备|装备/.test(sector)) {
+          return '【半导体关键设备国产化加速】：核心半导体设备与关键零组件龙头资本化提速，攻坚前道制程卡脖子环节并推动客户产线全流程验证交付。';
+        }
+        if (/芯片|算力|gpu|半导体|燧原|沐曦|摩尔线程|壁仞|寒武纪|天数智芯|昆仑芯|地平线/.test(cleanT) || /算力|gpu|ai芯片/.test(sector)) {
+          return '【国产算力资本化重估】：国产云端AI芯片迎来资本市场高溢价定价，资金高度聚焦自主全栈大模型集群算力底座，加速先进制程流片与商业化交付。';
+        }
+        if (/新能源|锂电|电池|储能|光伏|宁德时代|比亚迪/.test(cleanT) || /新能源|电池/.test(sector)) {
+          return '【绿色能源资本重估】：先进电池与储能龙头登陆资本市场获取高流动性支持，助推产业规模效应释放与全球化出海交付。';
+        }
+        return '【资本市场定价与流动性溢价】：标的企业完成上市并获二级市场流动性重估，募集资金直接扩充资本实力并加速核心业务扩张交付。';
       }
-      return `【重大治理现实透视】：${cleanTitle}，相关责任主体正推进后续处置与合规应对。`;
+      if (/利润|营收|反超|财报|业绩|超预期|净利润|毛利率/.test(cleanT)) {
+        return '【行业盈利格局重塑】：细分赛道龙头在成本管控、技术溢价与市场份额维度展现分化优势，机构资金向具备确定性现金流韧性的标的集中。';
+      }
+      if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
+        return `【监管合规与强制退市出清】：监管部门对重大财务造假零容忍常态化执行，劣质标的依法加速出清，全面夯实法治监管基石。`;
+      }
+      return `【产业格局深度透视】：涉事主体推进核心战略部署，产业链上下游关联方根据市场信号与合规框架重新评估供求与估值敞口。`;
     }
     return t;
-  }, [item.oneLineTakeaway, cleanTitle]);
+  }, [item.oneLineTakeaway, cleanTitle, companyProfile]);
+
+  // 3. 利益链传导安全容灾（坚决铲除机械式敷衍免责套话与张冠李戴）
+  const displayTransmission = React.useMemo(() => {
+    let trans = (item.transmissionImpact || '').trim();
+    if (/信源仅陈述单一动作|未披露上下游合同与转嫁细节|不做无依据推测/.test(trans)) {
+      const cleanT = cleanTitle.toLowerCase();
+      const sector = (companyProfile?.sector || '').toLowerCase();
+
+      if (/上市|ipo|挂牌|首日|开盘涨|市值约|科创板|港交所|纳斯达克/.test(cleanT)) {
+        if (/存储|dram|nand|长鑫|长存|海力士|美光|兆易/.test(cleanT) || /存储|dram|nand/.test(sector)) {
+          return '① 资本运作募集资金直接支持先进制程存储晶圆厂扩产与研发开支 ➔ ② 下游服务器、智能终端与汽车电子客户加速导入国产高密度存储颗粒 ➔ ③ 提升高带宽与主流存储器自主供给自给率与供应链安全。';
+        }
+        if (/晶圆|代工|中芯|华虹|台积电/.test(cleanT) || /晶圆代工/.test(sector)) {
+          return '① 募集资金直接投入先进制程与特色工艺晶圆代生产线建设 ➔ ② 芯片设计厂商获得稳定代工产能保障并压缩新产品流片周期 ➔ ③ 夯实国内集成电路物理微缩制造与自主代工中枢。';
+        }
+        if (/设备|刻蚀|薄膜|清洗|北方华创|中微|拓荆|盛美|光刻|asml/.test(cleanT) || /设备|装备/.test(sector)) {
+          return '① 融资资金直达前道制程装备研发与关键核心零部件自研验证 ➔ ② 境内晶圆制造厂加快对国产刻蚀、薄膜与清洗设备的产线验证与采购 ➔ ③ 半导体上游硬核装备与基础底座国产化率稳步提升。';
+        }
+        if (/芯片|算力|gpu|半导体|燧原|沐曦|摩尔线程|壁仞|寒武纪|天数智芯|昆仑芯|地平线/.test(cleanT) || /算力|gpu|ai芯片/.test(sector)) {
+          return '① IPO募集资金直接支持先进制程芯片研发与流片开支 ➔ ② 下游数据中心与云厂商加大国产算力卡采购与适配验证 ➔ ③ 推动国内AI大模型硬件基础设施供应链生态自主可控。';
+        }
+        if (/新能源|锂电|光伏|电池|储能|宁德时代|比亚迪/.test(cleanT) || /新能源|电池/.test(sector)) {
+          return '① IPO与资本增量注入直接扩充企业先进产能与研发投入 ➔ ② 整车厂与储能运营商获得高质量多元化核心部件供应保障 ➔ ③ 推动绿色新能源产业链降本增效与自主配套。';
+        }
+        return '① IPO募集资金直接扩充企业资本公积并强化核心研发与运营实力 ➔ ② 产业链上下游合作伙伴增强长协合作信心与协同采购 ➔ ③ 细分赛道龙头竞争壁垒与市场份额进一步稳固。';
+      }
+      if (/芯片|算力|半导体|晶圆|代工|hbm/.test(cleanT)) {
+        return '① 核心芯片技术突破与先进制程供给扩容直接缓解下游采购瓶颈 ➔ ② 云厂商与智能终端加速软硬件协同适配以降低综合运营成本 ➔ ③ 自主可控硬件供应链生态整体成熟度与交付韧性提升。';
+      }
+      return '① 事件冲击直接影响核心当事方的资产与负债结构 ➔ ② 产业链与合作方依据合同与市场规则传导成本收益 ➔ ③ 边际供求关系与资产风险溢价完成动态重定价。';
+    }
+    return trans;
+  }, [item.transmissionImpact, cleanTitle, companyProfile]);
 
   const cardRef = React.useRef<HTMLDivElement>(null);
   const [isNavHighlighted, setIsNavHighlighted] = React.useState(false);
@@ -347,6 +424,37 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
           </h3>
         </div>
 
+        {/* 涉事主体速览 / 企业核心业务概况（彻底解决“为什么不简单介绍这家公司”核心痛点） */}
+        {companyProfile && (
+          <div className="mb-3.5 p-3.5 md:p-4 rounded-xl bg-gradient-to-r from-blue-50/95 via-indigo-50/60 to-purple-50/40 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-slate-900 border border-blue-200/90 dark:border-blue-800/60 shadow-xs">
+            <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-blue-950 dark:text-blue-300 flex items-center gap-1.5 text-xs md:text-sm">
+                  <Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                  <span>【涉事主体速览 · {companyProfile.name}】</span>
+                </span>
+                <span className="px-2.5 py-0.5 rounded-lg bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 font-bold text-[11px] border border-blue-200 dark:border-blue-800">
+                  {companyProfile.sector}
+                </span>
+              </div>
+              {companyProfile.marketRole && (
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">
+                  产业链生态定位
+                </span>
+              )}
+            </div>
+            <p className="text-slate-800 dark:text-slate-200 leading-relaxed text-xs md:text-sm font-normal">
+              {companyProfile.description}
+            </p>
+            {companyProfile.marketRole && (
+              <div className="mt-2 pt-2 border-t border-blue-100/90 dark:border-blue-900/40 text-xs text-slate-600 dark:text-slate-400 flex items-start gap-1">
+                <span className="font-semibold text-blue-700 dark:text-blue-400 flex-shrink-0">生态定位：</span>
+                <span>{companyProfile.marketRole}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 事件客观事实通报：完整交代事情来龙去脉（具体谁、做了什么、起因背景与当前进展），彻底消除没头没尾 */}
         <div className="mb-3.5 p-3.5 md:p-4 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/90 dark:border-slate-700/80 text-sm md:text-base leading-relaxed shadow-xs">
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
@@ -374,7 +482,7 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
             <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
               🎯 市场传导与资产定价
             </div>
-            <p className="text-slate-700 dark:text-slate-300">{item.transmissionImpact}</p>
+            <p className="text-slate-700 dark:text-slate-300">{displayTransmission}</p>
           </div>
 
           {/* 下一步观察哨（关键时间窗口 / 待验证指标） */}
@@ -440,6 +548,7 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
               verificationBadge={item.verificationBadge}
               hasClarification={item.hasClarification}
               clarificationNote={item.clarificationNote}
+              companyProfile={companyProfile || undefined}
               onClose={() => setExpanded(false)}
             />
 

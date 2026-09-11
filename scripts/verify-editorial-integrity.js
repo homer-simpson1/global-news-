@@ -239,9 +239,12 @@ check('Gate 7: 深度传导 1-Hop 一级直接因果与 5W1H 结论定性审校'
     const transMatches = [...content.matchAll(/["']?transmission(?:Impact)?["']?\s*:\s*['"]([^'"]+)['"]/g)];
     transMatches.forEach((m, idx) => {
       const trans = m[1];
-      const is1Hop = /①.*➔.*②.*➔.*③/.test(trans) || trans.includes('信源仅陈述单一动作');
+      if (trans.includes('信源仅陈述单一动作')) {
+        errors.push(`[${relName}] 传导链 #${idx + 1} 严禁包含敷衍机械免责套话: "${trans}"`);
+      }
+      const is1Hop = /①.*➔.*②.*➔.*③/.test(trans);
       if (!is1Hop) {
-        errors.push(`[${relName}] 传导链 #${idx + 1} 不符合 1-Hop 一级直接因果标准（格式必须为 "①... ➔ ②... ➔ ③..." 或退避句）: "${trans}"`);
+        errors.push(`[${relName}] 传导链 #${idx + 1} 不符合 1-Hop 一级直接因果标准（格式必须为 "①... ➔ ②... ➔ ③..."）: "${trans}"`);
       }
     });
 

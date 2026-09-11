@@ -3,10 +3,12 @@
 import React, { useState } from 'react';
 import { FlashBrief } from '@/lib/types';
 import { TRACK_THEMES } from '@/lib/trackThemes';
-import { Zap, ChevronDown, ChevronUp, ExternalLink, Sparkles, Search, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Zap, ChevronDown, ChevronUp, ExternalLink, Sparkles, Search, AlertTriangle, ShieldAlert, Building2 } from 'lucide-react';
 import Summary5W1HView from './Summary5W1HView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
 import { isWithin24Hours } from '@/lib/timeUtils';
+import { getCompanyProfileForNews, CompanyProfile } from '@/lib/companyProfiles';
+import { autoCorrectTakeaway, autoCorrectInterestTransmission } from '@/lib/selfHealingEngine';
 
 interface FlashBriefingProps {
   briefs: FlashBrief[];
@@ -259,27 +261,56 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                   </h3>
                 </div>
 
-                {/* 核心结论 / 底层本质透视 */}
-                {brief.oneLineTakeaway && (
-                  <div className="mb-2.5 p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-xs sm:text-sm text-amber-950 dark:text-amber-200 leading-relaxed flex items-start gap-2">
-                    <span className="font-bold text-amber-800 dark:text-amber-300 flex-shrink-0 flex items-center gap-1">
-                      <Zap className="w-3.5 h-3.5 inline text-amber-600 dark:text-amber-400" />
-                      核心结论:
-                    </span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">{brief.oneLineTakeaway}</span>
-                  </div>
-                )}
+                {/* 涉事主体速览 / 核心业务概况（彻底解决“为什么不简单介绍这家公司”痛点） */}
+                {(() => {
+                  const companyProfile = brief.companyProfile || getCompanyProfileForNews(parsed.title, brief.content);
+                  if (!companyProfile) return null;
+                  return (
+                    <div className="mb-2.5 p-2.5 rounded-xl bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-purple-50/40 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-slate-900 border border-blue-200/80 dark:border-blue-800/60 text-xs">
+                      <div className="flex items-center gap-1.5 font-extrabold text-blue-900 dark:text-blue-300 mb-1">
+                        <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                        <span>【涉事主体速览 · {companyProfile.name}】</span>
+                        <span className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 font-bold text-[10px] border border-blue-200 dark:border-blue-800">
+                          {companyProfile.sector}
+                        </span>
+                      </div>
+                      <p className="text-slate-700 dark:text-slate-300 font-normal leading-relaxed">
+                        {companyProfile.description}
+                      </p>
+                    </div>
+                  );
+                })()}
 
-                {/* 决策与市场传导条 */}
-                <div
-                  className={`flex items-start gap-2 p-3 rounded-xl border ${theme.conclusionBorder} ${theme.conclusionBg} dark:bg-slate-800/80 dark:border-slate-700 text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed`}
-                >
-                  <span className={`font-bold ${theme.conclusionText} dark:text-blue-400 flex-shrink-0 flex items-center gap-1`}>
-                    <Sparkles className="w-3.5 h-3.5 inline" />
-                    利益链传导:
-                  </span>
-                  <span>{brief.transmission}</span>
-                </div>
+                {/* 核心结论 / 底层本质透视（彻底杜绝标题机械复读） */}
+                {(() => {
+                  const { takeaway } = autoCorrectTakeaway(brief.oneLineTakeaway, parsed.title, brief.summary5W1H, brief.track);
+                  if (!takeaway) return null;
+                  return (
+                    <div className="mb-2.5 p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-xs sm:text-sm text-amber-950 dark:text-amber-200 leading-relaxed flex items-start gap-2">
+                      <span className="font-bold text-amber-800 dark:text-amber-300 flex-shrink-0 flex items-center gap-1">
+                        <Zap className="w-3.5 h-3.5 inline text-amber-600 dark:text-amber-400" />
+                        核心结论:
+                      </span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">{takeaway}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 决策与市场传导条（彻底杜绝机械免责套话） */}
+                {(() => {
+                  const { transmission } = autoCorrectInterestTransmission(parsed.title, brief.transmission, brief.oneLineTakeaway);
+                  return (
+                    <div
+                      className={`flex items-start gap-2 p-3 rounded-xl border ${theme.conclusionBorder} ${theme.conclusionBg} dark:bg-slate-800/80 dark:border-slate-700 text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed`}
+                    >
+                      <span className={`font-bold ${theme.conclusionText} dark:text-blue-400 flex-shrink-0 flex items-center gap-1`}>
+                        <Sparkles className="w-3.5 h-3.5 inline" />
+                        利益链传导:
+                      </span>
+                      <span>{transmission}</span>
+                    </div>
+                  );
+                })()}
 
                 {/* 下一步观察哨 */}
                 {brief.nextWatchlist && (
@@ -302,6 +333,7 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                       verificationBadge={brief.verificationBadge}
                       hasClarification={brief.hasClarification}
                       clarificationNote={brief.clarificationNote}
+                      companyProfile={brief.companyProfile || getCompanyProfileForNews(parsed.title, brief.content) || undefined}
                       onClose={() => toggleExpand(brief.id)}
                     />
 

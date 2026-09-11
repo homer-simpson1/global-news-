@@ -19,8 +19,10 @@ import {
   Moon,
   Image as ImageIcon,
   X,
+  Building2,
 } from 'lucide-react';
 import { FlashBrief, MarketQuote, NewsItem } from '@/lib/types';
+import { getCompanyProfileForNews } from '@/lib/companyProfiles';
 import dynamic from 'next/dynamic';
 
 const ShareImageModal = dynamic(() => import('./ShareImageModal'), {
@@ -509,6 +511,7 @@ export default function Header({
                         const summary = matchedNews?.summaryParagraph || matchedNews?.summary5W1H?.what || item.summaryParagraph || item.summary5W1H?.what;
                         const impact = matchedNews?.transmissionImpact || item.transmissionImpact;
                         const trackId = item.track || matchedNews?.track;
+                        const profile = matchedNews?.companyProfile || getCompanyProfileForNews(item.title, summary || takeaway);
 
                         return (
                           <div
@@ -560,6 +563,21 @@ export default function Header({
                             {/* 原地展开的深度信息透视 */}
                             {isExpandedInPlace && (
                               <div className="mt-2.5 pt-2.5 border-t border-slate-200/80 dark:border-slate-700/80 space-y-2 text-xs animate-in fade-in duration-150">
+                                {profile && (
+                                  <div className="p-2 rounded-lg bg-blue-50/80 dark:bg-blue-950/50 border border-blue-200/60 dark:border-blue-800/50 text-[11px]">
+                                    <div className="flex items-center gap-1.5 font-bold text-blue-900 dark:text-blue-300 mb-0.5">
+                                      <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                                      <span>【涉事主体速览 · {profile.name}】</span>
+                                      <span className="px-1.5 py-0.2 rounded bg-blue-100 dark:bg-blue-900/60 text-[10px] font-semibold">
+                                        {profile.sector}
+                                      </span>
+                                    </div>
+                                    <p className="text-slate-700 dark:text-slate-300 leading-relaxed font-normal">
+                                      {profile.description}
+                                    </p>
+                                  </div>
+                                )}
+
                                 {takeaway && (
                                   <div className="p-2 rounded-lg bg-amber-50/80 dark:bg-amber-950/50 border border-amber-200/60 dark:border-amber-800/50">
                                     <span className="font-bold text-amber-900 dark:text-amber-300">核心透视：</span>

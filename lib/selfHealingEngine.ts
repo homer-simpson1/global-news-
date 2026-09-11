@@ -16,8 +16,10 @@ import {
   MarketSentiment,
   Summary5W1H,
   DisasterTracker,
+  CompanyProfile,
 } from './types';
 import { getTimeDiffHours, calculateTrackedDays } from './timeUtils';
+import { getCompanyProfileForNews } from './companyProfiles';
 
 
 // 权威机构官方安全站点映射字典
@@ -276,6 +278,41 @@ export function autoCorrectInterestTransmission(
   const titleLower = title.toLowerCase();
   let wasCorrected = false;
 
+  // 0. 彻底铲除机械敷衍免责套话 (Eradicate mechanical evasive disclaimer)
+  if (/信源仅陈述单一动作|未披露上下游合同与转嫁细节|不做无依据推测/.test(text)) {
+    const profile = getCompanyProfileForNews(title);
+    const sector = (profile?.sector || '').toLowerCase();
+
+    if (/上市|ipo|挂牌|首日|开盘涨|市值约|科创板|港交所|纳斯达克/.test(titleLower)) {
+      if (/存储|dram|nand|长鑫|长存|海力士|美光|兆易/.test(titleLower) || /存储|dram|nand/.test(sector)) {
+        text = '① 资本运作募集资金直接支持先进制程存储晶圆厂扩产与研发开支 ➔ ② 下游服务器、智能终端与汽车电子客户加速导入国产高密度存储颗粒 ➔ ③ 提升高带宽与主流存储器自主供给自给率与供应链安全。';
+      } else if (/晶圆|代工|中芯|华虹|台积电/.test(titleLower) || /晶圆代工/.test(sector)) {
+        text = '① 募集资金直接投入先进制程与特色工艺晶圆代生产线建设 ➔ ② 芯片设计厂商获得稳定代工产能保障并压缩新产品流片周期 ➔ ③ 夯实国内集成电路物理微缩制造与自主代工中枢。';
+      } else if (/设备|刻蚀|薄膜|清洗|北方华创|中微|拓荆|盛美|光刻|asml/.test(titleLower) || /设备|装备/.test(sector)) {
+        text = '① 融资资金直达前道制程装备研发与关键核心零部件自研验证 ➔ ② 境内晶圆制造厂加快对国产刻蚀、薄膜与清洗设备的产线验证与采购 ➔ ③ 半导体上游硬核装备与基础底座国产化率稳步提升。';
+      } else if (/芯片|算力|gpu|半导体|燧原|沐曦|摩尔线程|壁仞|寒武纪|天数智芯|昆仑芯|地平线/.test(titleLower) || /算力|gpu|ai芯片/.test(sector)) {
+        text = '① IPO募集资金直接支持先进制程芯片研发与流片开支 ➔ ② 下游数据中心与云厂商加大国产算力卡采购与适配验证 ➔ ③ 推动国内AI大模型硬件基础设施供应链生态自主可控。';
+      } else if (/新能源|锂电|光伏|电池|储能|宁德时代|比亚迪/.test(titleLower) || /新能源|电池/.test(sector)) {
+        text = '① IPO与资本增量注入直接扩充企业先进产能与研发投入 ➔ ② 整车厂与储能运营商获得高质量多元化核心部件供应保障 ➔ ③ 推动绿色新能源产业链降本增效与自主配套。';
+      } else {
+        text = '① IPO募集资金直接扩充企业资本公积并强化核心研发与运营实力 ➔ ② 产业链上下游合作伙伴增强长协合作信心与协同采购 ➔ ③ 细分赛道龙头竞争壁垒与市场份额进一步稳固。';
+      }
+      wasCorrected = true;
+    } else if (/存储|dram|nand|长鑫|长存/.test(titleLower)) {
+      text = '① 先进制程存储颗粒技术突破直接缓解下游整机厂供应敞口 ➔ ② 云服务与智能硬件厂商加快导入本土高密度DRAM/NAND测试认证 ➔ ③ 存储器供应链本土配套能力与价格博弈话语权显著提升。';
+      wasCorrected = true;
+    } else if (/晶圆|代工|中芯|华虹/.test(titleLower)) {
+      text = '① 本土晶圆代工产能扩张直接降低芯片设计企业跨境流片依赖 ➔ ② 境内Fabless厂商获得更加弹性的排产周期与配套封测支持 ➔ ③ 提升国内先进制程与特色工艺综合制造自给率。';
+      wasCorrected = true;
+    } else if (/芯片|算力|半导体|晶圆|代工|hbm/.test(titleLower)) {
+      text = '① 核心芯片技术突破与先进制程供给扩容直接缓解下游采购瓶颈 ➔ ② 云厂商与智能终端加速软硬件协同适配以降低综合运营成本 ➔ ③ 自主可控硬件供应链生态整体成熟度与交付韧性提升。';
+      wasCorrected = true;
+    } else {
+      text = '① 事件冲击直接影响核心当事方的资产与负债结构 ➔ ② 产业链与合作方依据合同与市场规则传导成本收益 ➔ ③ 边际供求关系与资产风险溢价完成动态重定价。';
+      wasCorrected = true;
+    }
+  }
+
   // A. 突发灾害/人员伤亡事故：物理剔除工业回暖、理财赚钱等荒谬利益链
   if (/泥石流|山洪|滑坡|地质灾害|重特大事故|坍塌|火灾|爆炸|伤亡|遇难|失联|抗洪抢险|极端暴雨/.test(titleLower)) {
     if (/智造企业|现金流回暖|实物货流回暖|低风险理财|实体生产备货|现货升水|代工厂|晶圆|变压器排队|买显卡/.test(text)) {
@@ -528,8 +565,46 @@ export function autoCorrectDisasterTracker(tracker?: any): DisasterTracker | und
 }
 
 /**
+ * 校验核心结论是否沦为对标题的机械盲目复读 (Headline-Echo Anti-Pattern Checker)
+ */
+export function isHeadlineEcho(takeawayText: string, title: string): boolean {
+  if (!takeawayText || !title) return false;
+  const cleanT = title
+    .replace(/^[【\[][^】\]]+[】\]]/, '')
+    .replace(/[\s，,。！!？?：:·]/g, '')
+    .toLowerCase();
+  const cleanTake = takeawayText
+    .replace(/^[【\[][^】\]]+[】\]][：:]?/, '')
+    .replace(/^(?:今日|快讯|电讯|消息称|据报道|消息|最新)[，,：:\s]*/, '')
+    .replace(/[\s，,。！!？?：:·]/g, '')
+    .toLowerCase();
+  if (!cleanTake) return true;
+  if (cleanTake === cleanT) return true;
+  if (cleanTake.startsWith(cleanT) || cleanT.startsWith(cleanTake)) return true;
+  if (cleanTake.endsWith(cleanT) || cleanT.endsWith(cleanTake)) return true;
+  if (cleanTake.includes(cleanT) && cleanTake.length <= cleanT.length + 12) return true;
+  if (cleanT.includes(cleanTake) && cleanT.length <= cleanTake.length + 12) return true;
+  // 计算公共重合比例
+  let maxCommon = 0;
+  for (let i = 0; i < cleanT.length; i++) {
+    for (let j = 8; j <= cleanT.length - i; j++) {
+      const sub = cleanT.slice(i, i + j);
+      if (cleanTake.includes(sub) && sub.length > maxCommon) {
+        maxCommon = sub.length;
+      }
+    }
+  }
+  if (maxCommon >= 14 && (maxCommon / cleanT.length >= 0.72 || maxCommon / cleanTake.length >= 0.72)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * 8.1 核心结论（oneLineTakeaway）深度自愈与空标点破损修复
- * 若原 oneLineTakeaway 为空、破损、残缺或包含“使得市场面临现实痛点：。”，彻底重新生成具备专业事实与深层定性的核心结论！
+ * 若原 oneLineTakeaway 为空、破损、残缺、包含“使得市场面临现实痛点：。”，
+ * 或沦为对标题的机械复读（如“【AI算力架构演进】：AI芯片公司燧原上市开盘涨188% 市值约1700亿元”），
+ * 彻底重新生成具备专业事实与机构投研深度定性的核心结论！
  */
 export function autoCorrectTakeaway(
   takeaway: string | undefined,
@@ -538,18 +613,23 @@ export function autoCorrectTakeaway(
   track: TrackId = 'us_macro'
 ): { takeaway: string; wasCorrected: boolean } {
   let text = (takeaway || '').trim();
+  const cleanTitle = title.replace(/^[【\[][^】\]]+[】\]]/, '').trim();
+  const cleanTitleLower = cleanTitle.toLowerCase();
   let wasCorrected = false;
 
+  const isEcho = isHeadlineEcho(text, cleanTitle);
   const isBroken =
     !text ||
     text.length < 12 ||
+    isEcho ||
     /使得市场面临现实痛点/.test(text) ||
     /【.*?】[：:]*\s*$/.test(text) ||
     /【.*?】[：:]*[，,、。.\s]+$/.test(text) ||
     /：[，,、\s]*。?$/.test(text) ||
     text === '【重大治理现实透视】。' ||
     text === '【商业现实透视】。' ||
-    text === '【行业盈利格局重塑】。';
+    text === '【行业盈利格局重塑】。' ||
+    text === '【AI算力架构演进】。';
 
   if (!isBroken) {
     const cleaned = sanitizeEditorialTone(text)
@@ -559,45 +639,71 @@ export function autoCorrectTakeaway(
       .replace(/，{2,}/g, '，')
       .replace(/。{2,}/g, '。')
       .trim();
-    if (cleaned.length >= 12 && !/【.*?】[：:]*[，,、。.\s]*$/.test(cleaned)) {
+    if (cleaned.length >= 12 && !/【.*?】[：:]*[，,、。.\s]*$/.test(cleaned) && !isHeadlineEcho(cleaned, cleanTitle)) {
       return { takeaway: cleaned, wasCorrected: cleaned !== text };
     }
   }
 
-  // 深度智能重构：结合标题事实与 5W1H 要素，生成具备专业投研价值的闭环核心结论
-  const cleanTitle = title.replace(/^[【\[][^】\]]+[】\]]/, '').trim();
-  const fact = (summary5W1H?.what || cleanTitle).replace(/[。！!.]+$/, '').trim();
-
-  let tag = '重大治理现实透视';
-  if (/退市|财务造假|证监会|罚款|立案|问询|被查|双开/.test(cleanTitle)) {
-    tag = '监管合规与强制退市出清';
-  } else if (/利润|营收|反超|财报|业绩|超预期/.test(cleanTitle)) {
-    tag = '行业盈利格局重塑';
-  } else if (/加息|降息|美联储|收益率|国债/.test(cleanTitle)) {
-    tag = '宏观流动性与利率校准';
-  } else if (/泥石流|山洪|抢险|受灾|失联/.test(cleanTitle)) {
-    tag = '突发险情与应急抢险';
-  } else if (/空袭|导弹|控制|海峡|航运/.test(cleanTitle)) {
-    tag = '地缘安全与前线博弈';
-  } else if (track === 'apac_tech') {
-    tag = '先进制程供需动态';
-  } else if (track === 'commodities_shipping') {
-    tag = '大宗供求与运力平衡';
-  }
-
+  // 深度智能重构：基于事件本质与机构投研视角，生成真正的定性结论（绝不无脑抄标题！）
+  let tag = '产业格局深度透视';
   let core = '';
-  if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
-    core = `${cleanTitle}，标志着监管对重大财务造假零容忍常态化执行，劣质标的依法加速出清。`;
-  } else if (/反超/.test(cleanTitle)) {
-    core = `${fact}，展现出细分赛道龙头在成本管控与市场份额维度的分化优势。`;
+
+  // 1. 企业IPO / 上市首日 / 资本重估专属深度定性 (彻底根除标题复读与张冠李戴)
+  if (/上市|ipo|挂牌|首日|开盘涨|市值约|科创板|港交所|纳斯达克/.test(cleanTitleLower)) {
+    const profile = getCompanyProfileForNews(cleanTitle);
+    const sector = (profile?.sector || '').toLowerCase();
+
+    if (/存储|dram|nand|长鑫|长存|海力士|美光|兆易/.test(cleanTitleLower) || /存储|dram|nand/.test(sector)) {
+      tag = '存储芯片资本重估与扩产';
+      core = '自主先进制程存储芯片获资本市场流动性赋能，加速高密度DRAM/3D NAND与高带宽内存产线扩产与终端客户导入。';
+    } else if (/晶圆|代工|中芯|华虹|台积电/.test(cleanTitleLower) || /晶圆代工/.test(sector)) {
+      tag = '晶圆代工产能重构与资本支持';
+      core = '纯晶圆制造龙头依托二级市场融资扩充先进制程与特色工艺晶圆产能，筑牢半导体全产业链硬件制造底座。';
+    } else if (/设备|刻蚀|薄膜|清洗|北方华创|中微|拓荆|盛美|光刻|asml/.test(cleanTitleLower) || /设备|装备/.test(sector)) {
+      tag = '半导体关键设备国产化加速';
+      core = '核心半导体设备与关键零组件龙头资本化提速，攻坚前道制程卡脖子环节并推动客户产线全流程验证交付。';
+    } else if (/芯片|算力|gpu|半导体|燧原|沐曦|摩尔线程|壁仞|寒武纪|天数智芯|昆仑芯|地平线/.test(cleanTitleLower) || /算力|gpu|ai芯片/.test(sector)) {
+      tag = '国产算力资本化重估';
+      core = '国产云端AI芯片迎来资本市场高溢价定价，资金高度聚焦自主全栈大模型集群算力底座，加速先进制程流片与商业化交付。';
+    } else if (/新能源|锂电|电池|储能|光伏|宁德时代|比亚迪/.test(cleanTitleLower) || /新能源|电池/.test(sector)) {
+      tag = '绿色能源资本重估';
+      core = '先进电池与储能龙头登陆资本市场获取高流动性支持，助推产业规模效应释放与全球化出海交付。';
+    } else {
+      tag = '资本市场定价与流动性溢价';
+      core = '标的企业完成上市并获二级市场流动性重估，募集资金直接扩充资本实力并加速核心业务扩张交付。';
+    }
+  } else if (/利润|营收|反超|财报|业绩|超预期|净利润|毛利率/.test(cleanTitleLower)) {
+    if (/芯片|半导体|存储|长鑫|中芯|海力士|三星|台积电/.test(cleanTitleLower)) {
+      tag = '半导体周期回暖与毛利修复';
+      core = '存储器与先进制程晶圆需求稳步复苏，行业龙头凭借产品结构升级与高附加值产品出货实现盈利能力跨越。';
+    } else {
+      tag = '行业盈利格局重塑';
+      core = '细分赛道龙头在成本管控、技术溢价与市场份额维度展现分化优势，机构资金向具备确定性现金流韧性的标的集中。';
+    }
+  } else if (/台积电|2nm|先进制程|晶圆|光刻|代工|hbm/.test(cleanTitleLower)) {
+    tag = '先进制程供需动态';
+    core = '先进制程晶圆代工产能紧平衡支撑核心制造方定价权，前沿芯片设计商全额锁定首批晶圆配额以保障硬件交付。';
+  } else if (/模型|算力|推理|大模型|ai|算法|openai|agent/.test(cleanTitleLower)) {
+    tag = 'AI算力架构演进';
+    core = '前沿大模型加速向长思考思维链与高吞吐推理架构迁移，底层算力设施向异构智算集群与高效互联拓扑演进。';
+  } else if (/退市|财务造假|证监会|罚款|立案|问询|被查|双开/.test(cleanTitleLower)) {
+    tag = '监管合规与强制退市出清';
+    core = '监管部门对重大财务造假零容忍常态化执行，劣质标的依法加速出清并从严确立资本市场法治基石。';
+  } else if (/加息|降息|美联储|收益率|国债|央行/.test(cleanTitleLower)) {
+    tag = '宏观流动性与利率校准';
+    core = '基准利率与债券收益率曲线变动直接影响跨资产定价锚，机构资金重新平衡防御资产久期敞口。';
+  } else if (/泥石流|山洪|抢险|受灾|失联|极端暴雨|地质灾害/.test(cleanTitleLower)) {
+    tag = '突发险情与应急抢险';
+    core = '国家应急管理与专业抢险部队火速开辟救援生命通道，财政救灾资金全额拨付托底受灾区域恢复重建。';
+  } else if (/空袭|导弹|控制|海峡|航运|交火|红海/.test(cleanTitleLower)) {
+    tag = '地缘安全与前线博弈';
+    core = '关键地缘节点博弈升级推升区域商业航运战险费率，跨国产业链供应链加速构建多中心备份网络。';
   } else if (summary5W1H?.why && summary5W1H?.consequence) {
-    core = `${fact}。起因于${summary5W1H.why}，后续将${summary5W1H.consequence}。`;
-  } else if (summary5W1H?.why) {
-    core = `${fact}。主要起因于${summary5W1H.why}。`;
-  } else if (summary5W1H?.consequence) {
-    core = `${fact}。直接影响方面，${summary5W1H.consequence}。`;
+    tag = track === 'apac_tech' ? '硬核科技前沿进展' : (track === 'commodities_shipping' ? '大宗供求与运力平衡' : '产业格局深度透视');
+    core = `该事项深层起因于${summary5W1H.why}；后续将直接推动${summary5W1H.consequence}。`;
   } else {
-    core = `${fact}，相关主管机构与责任主体正依法依规推进后续处置。`;
+    tag = track === 'apac_tech' ? '硬核科技前沿进展' : (track === 'commodities_shipping' ? '大宗供求与运力平衡' : '产业格局深度透视');
+    core = '涉事主体推进核心战略部署，产业链上下游关联方根据市场信号与制度合规框架重构中长期供求估值中枢。';
   }
 
   return {
@@ -627,7 +733,7 @@ export function autoCorrectSummaryParagraph(
     /：[，,、\s]*。?$/.test(text);
 
   if (!isBroken) {
-    const cleaned = sanitizeEditorialTone(text)
+    let cleaned = sanitizeEditorialTone(text)
       .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
       .replace(/[：:][，,]/g, '：')
       .replace(/[：:][。.]/g, '。')
@@ -635,6 +741,12 @@ export function autoCorrectSummaryParagraph(
       .replace(/。{2,}/g, '。')
       .trim();
     if (cleaned.length >= 18) {
+      const cleanTitle = title.replace(/^[【\[][^】\]]+[】\]]/, '').trim();
+      const profile = getCompanyProfileForNews(cleanTitle, cleaned);
+      if (profile && !cleaned.includes(profile.sector) && !cleaned.includes(profile.description.slice(0, 10))) {
+        cleaned += ` 涉事主体${profile.name}（${profile.sector}）：${profile.description}`;
+        return { paragraph: sanitizeEditorialTone(cleaned), wasCorrected: true };
+      }
       return { paragraph: cleaned, wasCorrected: cleaned !== text };
     }
   }
@@ -647,7 +759,16 @@ export function autoCorrectSummaryParagraph(
   const why = (summary5W1H?.why || '').replace(/[。！!.]+$/, '').trim();
   const consequence = (summary5W1H?.consequence || '').replace(/[。！!.]+$/, '').trim();
 
+  // 涉事主体知识库检索与无缝融入（解答“为什么不简单介绍这家公司”）
+  const profile = getCompanyProfileForNews(cleanTitle, what);
+
   let res = `${timePrefix}（${sourceName}）电讯，${what}。`;
+  if (profile && !what.includes(profile.name) && !res.includes(profile.sector)) {
+    res += ` 涉事主体${profile.name}（${profile.sector}）：${profile.description}`;
+  } else if (profile && !res.includes(profile.description.slice(0, 10))) {
+    res += ` 核心业务概况方面，${profile.description}`;
+  }
+
   if (why && why.length >= 4) {
     res += ` 该事项起因于${why}。`;
   } else if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
@@ -707,7 +828,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
 
   const cleanTitle = sanitizeEditorialTone(correctedTitle);
 
-  // 核心结论深度自愈（杜绝 "【重大治理现实透视】：，使得市场面临现实痛点：。" 等残句）
+  // 核心结论深度自愈（彻底杜绝标题复读与八股破损）
   const { takeaway: cleanTakeaway } = autoCorrectTakeaway(
     item.oneLineTakeaway,
     cleanTitle,
@@ -718,7 +839,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   const cleanTransmission = sanitizeEditorialTone(correctedTransmission);
   const cleanWatchlist = sanitizeEditorialTone(item.nextWatchlist || '');
 
-  // 事实段落总结深度自愈（讲清具体来龙去脉）
+  // 事实段落总结深度自愈（讲清具体来龙去脉并融入企业主体速览）
   const { paragraph: cleanParagraph } = autoCorrectSummaryParagraph(
     item.summaryParagraph,
     cleanTitle,
@@ -727,14 +848,18 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
     correctedTime
   );
 
+  // 涉事主体档案检索与挂载
+  const detectedProfile = item.companyProfile || getCompanyProfileForNews(cleanTitle, item.summaryParagraph || item.bulletPoints?.join(' '));
+
   const details: string[] = [];
   if (cleanTitle !== item.title) details.push('标题脱水去噪与结构重组');
   if (cleanTakeaway !== item.oneLineTakeaway) details.push('深度透视投研语态标准化去口水化');
   if (correctedTrack !== item.track) details.push(`赛道转轨纠偏: ${item.track} -> ${correctedTrack}`);
   if (correctedSource !== item.source || correctedUrl !== item.sourceUrl) details.push('信源与官方安全链接纠偏');
-  if (cleanTransmission !== item.transmissionImpact) details.push('利益链跨界污染清洗');
+  if (cleanTransmission !== item.transmissionImpact) details.push('利益链跨界污染清洗与真实1-Hop修复');
   if (correctedTime !== item.publishedAt || correctedWindow !== item.timeWindow) details.push('时效动态降级纠偏');
   if (correctedSentiment !== item.sentiment || correctedLevel !== item.impactLevel) details.push('情绪定级与冲击烈度对齐');
+  if (detectedProfile && !item.companyProfile) details.push(`涉事企业主体档案挂载: ${detectedProfile.name}`);
 
   const isAutoCorrected = details.length > 0;
 
@@ -751,6 +876,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
     summaryParagraph: cleanParagraph,
     nextWatchlist: cleanWatchlist,
     summary5W1H: corrected5W1H,
+    companyProfile: detectedProfile || undefined,
     sentiment: correctedSentiment,
     impactLevel: correctedLevel,
     disasterTracker: correctedTracker,
@@ -808,7 +934,6 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
   const cleanTransmission = sanitizeEditorialTone(correctedTransmission);
   const cleanWatchlist = sanitizeEditorialTone(flash.nextWatchlist || '');
 
-  // 事实段落总结深度自愈
   const { paragraph: cleanParagraph } = autoCorrectSummaryParagraph(
     flash.summaryParagraph,
     cleanContent,
@@ -817,13 +942,15 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
     correctedTime
   );
 
+  const detectedProfile = flash.companyProfile || getCompanyProfileForNews(cleanContent, flash.summaryParagraph);
+
   const details: string[] = [];
-  if (cleanContent !== flash.content) details.push('速递简报脱水');
-  if (cleanTakeaway !== flash.oneLineTakeaway) details.push('速递透视语态净化');
-  if (correctedTrack !== flash.track) details.push(`速递转轨: ${flash.track} -> ${correctedTrack}`);
-  if (correctedSource !== flash.source || correctedUrl !== flash.sourceUrl) details.push('信源链接纠偏');
-  if (cleanTransmission !== flash.transmission) details.push('速递利益链清洗');
-  if (correctedSentiment !== flash.sentiment || correctedLevel !== flash.impactLevel) details.push('情绪定级校准');
+  if (cleanContent !== flash.content) details.push('内容脱水去噪与标点重组');
+  if (cleanTakeaway !== flash.oneLineTakeaway) details.push('白话透视投研语态标准化');
+  if (correctedTrack !== flash.track) details.push(`赛道纠偏: ${flash.track} -> ${correctedTrack}`);
+  if (correctedSource !== flash.source) details.push('信源一致性纠偏');
+  if (cleanTransmission !== flash.transmission) details.push('利益链1-Hop真实因果修复');
+  if (detectedProfile && !flash.companyProfile) details.push(`企业主体档案挂载: ${detectedProfile.name}`);
 
   const isAutoCorrected = details.length > 0;
 
@@ -839,6 +966,7 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
     summaryParagraph: cleanParagraph,
     nextWatchlist: cleanWatchlist,
     summary5W1H: corrected5W1H,
+    companyProfile: detectedProfile || undefined,
     sentiment: correctedSentiment,
     impactLevel: correctedLevel,
     isAutoCorrected,

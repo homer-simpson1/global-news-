@@ -1,8 +1,9 @@
-import { FlashBrief, MarketQuote, NewsItem, TrackId, Summary5W1H, MarketSentiment, BullBearDivergence } from './types';
+import { FlashBrief, MarketQuote, NewsItem, TrackId, Summary5W1H, MarketSentiment, BullBearDivergence, CompanyProfile } from './types';
 import { SEED_FLASH_BRIEFS, SEED_NEWS_ITEMS, SEED_MARKET_QUOTES, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
 import { fetchVerifiedMarketQuotes, getCachedVerifiedQuotesSnapshot } from './quotesVerifier';
 import { enforceCountryEntityGuardrails, checkCrossContamination, validateTitleSummaryEntityConsistency, FOREIGN_ENTITIES } from './guardrails';
 import { autoCorrectAllNews, autoCorrectFlashBrief } from './selfHealingEngine';
+import { getCompanyProfileForNews } from './companyProfiles';
 
 let cachedNews: NewsItem[] | null = null;
 let cachedFlash: FlashBrief[] | null = null;
@@ -159,7 +160,7 @@ generation_pipeline:
   step_4_transmission_chain:
     - 推演限制：严格执行“1-Hop 直接因果”，只推演受事件直接冲击的第一梯队主体或产业环节，严禁从 A 一路脑补到二级、三级甚至整个宏观经济崩溃。
     - 结构标准：① 直接受影响方（成本/收入变动）➔ ② 产业链/资金转嫁路径（谁承担成本、资金从何处流向何处）➔ ③ 边际定价或供需变化。
-    - 退避原则：若原文为不足 100 字的短讯且未提及交易对手/上下游细节，必须如实输出：“信源仅陈述单一动作，未披露上下游合同与转嫁细节，不做无依据推测”，严禁脑补虚构合同或第三方企业。
+    - 真实 1-Hop 原则：对 IPO/上市/资本运作短讯，按标准 1-Hop 资本开支与产业链传导逻辑推演（例如：① IPO募集资金直接支持核心技术研发与流片开支 ➔ ② 下游客户加大国产替代采购与适配验证 ➔ ③ 推动行业供应链生态自主可控），严禁机械敷衍。
     - 对标范例：
       ❌ 劣质：变压器厂商赚麻了，买了显卡通不上电的初创企业白白烧钱。
       ✅ 规范：重型电力装备制造商受原料紧缺影响在手订单积压 3-4 年，拥有高定价权；锁定独立微电网与核电直供许可的数据中心成为稀缺资产；未获并网配额的中小 AI 初创公司则面临空转折旧与算力交付延期风险。
@@ -238,8 +239,20 @@ export function fallback_to_grounded_summary(rawText: string): {
   const firstSentence = sentences[0] || clean.slice(0, 30);
 
   const title = firstSentence.length > 28 ? firstSentence.slice(0, 28) : firstSentence;
-  const core_conclusion = `【事实基准核验】：信源原文明确通报：${firstSentence}。客观事实已锁定，杜绝无事实依据的过度脑补。`;
-  const transmission_chain = '信源仅陈述单一动作，未披露上下游合同与转嫁细节，不做无依据推测';
+  const t = title.toLowerCase();
+
+  let core_conclusion = `【事实基准核验】：信源原文明确通报：${firstSentence}。客观事实已锁定，杜绝无事实依据的过度脑补。`;
+  let transmission_chain = '① 事件冲击直接影响核心当事方的资产与负债结构 ➔ ② 产业链与合作方依据合同与市场规则传导成本收益 ➔ ③ 边际供求关系与资产风险溢价完成动态重定价。';
+
+  if (/上市|ipo|挂牌|首日|开盘涨|市值约|科创板|港交所/.test(t)) {
+    if (/芯片|算力|gpu|半导体|晶圆|燧原|沐曦|摩尔线程|壁仞|长鑫|中芯|寒武纪/.test(t)) {
+      core_conclusion = '【国产算力资本化重估】：国产云端AI芯片迎来资本市场高溢价定价，资金高度聚焦自主全栈大模型集群算力底座，加速先进制程流片与商业化交付。';
+      transmission_chain = '① IPO募集资金直接支持先进制程芯片研发与流片开支 ➔ ② 下游数据中心与云厂商加大国产算力卡采购与适配验证 ➔ ③ 推动国内AI大模型硬件基础设施供应链生态自主可控。';
+    } else {
+      core_conclusion = '【资本市场定价与流动性溢价】：标的企业完成上市并获二级市场流动性重估，募集资金直接扩充资本实力并加速核心业务扩张交付。';
+      transmission_chain = '① IPO募集资金直接扩充企业资本公积并强化核心研发与运营实力 ➔ ② 产业链上下游合作伙伴增强长协合作信心与协同采购 ➔ ③ 细分赛道龙头竞争壁垒与市场份额进一步稳固。';
+    }
+  }
 
   return {
     title: sanitizeEditorialTone(title),
@@ -272,13 +285,9 @@ export function verify_fact_faithfulness(
     }
   }
 
-  // 门禁红线 3：不足 100 字短讯退避检查
-  const rawClean = (raw_text || '').trim();
-  const hasDetails = /客户|供应|采购|合同|协议|上游|下游|订单|合作|对手方|进出口|交付|调价|溢价|承接|结算|签约|转让|重组|入股/.test(rawClean);
-  if (rawClean.length < 100 && !hasDetails) {
-    if (!transmission_chain.includes('信源仅陈述单一动作，未披露上下游合同与转嫁细节，不做无依据推测')) {
-      return { pass: false, reason: '不足100字短讯未披露上下游，未执行退避句输出原则' };
-    }
+  // 门禁红线 3：利益链 1-Hop 规范检查（必须满足 ①... ➔ ②... ➔ ③... 结构，严禁机械免责套话）
+  if (transmission_chain && (!/①.*➔.*②.*➔.*③/.test(transmission_chain) || transmission_chain.includes('信源仅陈述单一动作'))) {
+    return { pass: false, reason: '利益链未满足 1-Hop 规范因果链结构或包含机械免责套话' };
   }
 
   return { pass: true };
@@ -1151,10 +1160,27 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
   const rawTotal = (title + ' ' + content).trim();
   const t = rawTotal.toLowerCase();
 
-  // ── 退避原则（防瞎编防火墙）：若原文为不足 100 字的短讯且未提及交易对手/上下游细节，如实退避 ──
-  const hasSupplyChainDetails = /客户|供应|采购|合同|协议|上游|下游|订单|合作|对手方|进出口|交付|调价|溢价|承接|结算|签约|转让|重组|入股|发改委|财政部|商务部|央行|联储|法院|判处|受贿|泥石流|口岸|空袭|导弹|变压器|电网|hbm|光刻|先进制程|代工|集运|海运|运价|美债|收益率/.test(rawTotal);
-  if (rawTotal.length < 100 && !hasSupplyChainDetails) {
-    return '信源仅陈述单一动作，未披露上下游合同与转嫁细节，不做无依据推测';
+  // 0. 企业IPO / 上市开盘 / 资本运作专属传导 (彻底铲除机械免责套话)
+  if (/上市|ipo|挂牌|首日|开盘涨|市值约|科创板|港交所|纳斯达克/.test(t)) {
+    const profile = getCompanyProfileForNews(title, content);
+    const sector = (profile?.sector || '').toLowerCase();
+
+    if (/存储|dram|nand|长鑫|长存|海力士|美光|兆易/.test(t) || /存储|dram|nand/.test(sector)) {
+      return '① 资本运作募集资金直接支持先进制程存储晶圆厂扩产与研发开支 ➔ ② 下游服务器、智能终端与汽车电子客户加速导入国产高密度存储颗粒 ➔ ③ 提升高带宽与主流存储器自主供给自给率与供应链安全。';
+    }
+    if (/晶圆|代工|中芯|华虹|台积电/.test(t) || /晶圆代工/.test(sector)) {
+      return '① 募集资金直接投入先进制程与特色工艺晶圆代生产线建设 ➔ ② 芯片设计厂商获得稳定代工产能保障并压缩新产品流片周期 ➔ ③ 夯实国内集成电路物理微缩制造与自主代工中枢。';
+    }
+    if (/设备|刻蚀|薄膜|清洗|北方华创|中微|拓荆|盛美|光刻|asml/.test(t) || /设备|装备/.test(sector)) {
+      return '① 融资资金直达前道制程装备研发与关键核心零部件自研验证 ➔ ② 境内晶圆制造厂加快对国产刻蚀、薄膜与清洗设备的产线验证与采购 ➔ ③ 半导体上游硬核装备与基础底座国产化率稳步提升。';
+    }
+    if (/芯片|算力|gpu|半导体|燧原|沐曦|摩尔线程|壁仞|寒武纪|天数智芯|昆仑芯|地平线/.test(t) || /算力|gpu|ai芯片/.test(sector)) {
+      return '① IPO募集资金直接支持先进制程芯片研发与流片开支 ➔ ② 下游数据中心与云厂商加大国产算力卡采购与适配验证 ➔ ③ 推动国内AI大模型硬件基础设施供应链生态自主可控。';
+    }
+    if (/新能源|锂电|光伏|电池|储能|宁德时代|比亚迪/.test(t) || /新能源|电池/.test(sector)) {
+      return '① IPO与资本增量注入直接扩充企业先进产能与研发投入 ➔ ② 整车厂与储能运营商获得高质量多元化核心部件供应保障 ➔ ③ 推动绿色新能源产业链降本增效与自主配套。';
+    }
+    return '① IPO募集资金直接扩充企业资本公积并强化核心研发与运营实力 ➔ ② 产业链上下游合作伙伴增强长协合作信心与协同采购 ➔ ③ 细分赛道龙头竞争壁垒与市场份额进一步稳固。';
   }
 
   // ── 中国宏观数据专属传导分析（严格执行 1-Hop 一级直接因果标准）──────────────────
@@ -1579,6 +1605,29 @@ export function generateCoreTakeaway(
     return `【中国宏观数据发布】：${yoyStr ? `同比${yoyStr}${trend ? `（${trend}）` : ''}，` : ''}该数据直接影响人民银行货币政策取向与A股整体流动性预期。`;
   }
 
+  // ── 企业IPO / 上市开盘 / 资本市场重估专属核心结论（严格杜绝标题复读与张冠李戴） ──
+  if (/上市|ipo|挂牌|首日|开盘涨|市值约|登陆科创板|登陆港交所/.test(t)) {
+    const profile = getCompanyProfileForNews(cleanTitle, content);
+    const sector = (profile?.sector || '').toLowerCase();
+
+    if (/存储|dram|nand|长鑫|长存|海力士|美光|兆易/.test(t) || /存储|dram|nand/.test(sector)) {
+      return '【存储芯片资本重估与扩产】：自主先进制程存储芯片获资本市场流动性赋能，加速高密度DRAM/3D NAND与高带宽内存产线扩产与终端客户导入。';
+    }
+    if (/晶圆|代工|中芯|华虹|台积电/.test(t) || /晶圆代工/.test(sector)) {
+      return '【晶圆代工产能重构与资本支持】：纯晶圆制造龙头依托二级市场融资扩充先进制程与特色工艺晶圆产能，筑牢半导体全产业链硬件制造底座。';
+    }
+    if (/设备|刻蚀|薄膜|清洗|北方华创|中微|拓荆|盛美|光刻|asml/.test(t) || /设备|装备/.test(sector)) {
+      return '【半导体关键设备国产化加速】：核心半导体设备与关键零组件龙头资本化提速，攻坚前道制程卡脖子环节并推动客户产线全流程验证交付。';
+    }
+    if (/芯片|算力|gpu|半导体|燧原|沐曦|摩尔线程|壁仞|寒武纪|天数智芯|昆仑芯|地平线/.test(t) || /算力|gpu|ai芯片/.test(sector)) {
+      return '【国产算力资本化重估】：国产云端AI芯片迎来资本市场高溢价定价，资金高度聚焦自主全栈大模型集群算力底座，加速先进制程流片与商业化交付。';
+    }
+    if (/新能源|锂电|电池|储能|光伏|宁德时代|比亚迪/.test(t) || /新能源|电池/.test(sector)) {
+      return '【绿色能源资本重估】：先进电池与储能龙头登陆资本市场获取高流动性支持，助推产业规模效应释放与全球化出海交付。';
+    }
+    return '【资本市场定价与流动性溢价】：标的企业完成上市并获二级市场流动性重估，募集资金直接扩充资本实力并加速核心业务扩张交付。';
+  }
+
   // 1. 核心主体与商业现实硬核直击（5W1H 闭环 + 硬核数字）
   if (/台积电|2nm|先进制程|晶圆/.test(t)) {
     return '【先进制程定价权确认】：供应链消息显示台积电 (TSMC) 计划针对 2nm 先进制程代工报价上调 10%~15%；苹果与英伟达为锁定首批排产份额已全额锁定前两批晶圆配额，推升次世代旗舰硬件采购成本中枢。';
@@ -1763,9 +1812,22 @@ export function generateCoreTakeaway(
   } else if (consequence) {
     view = `直接影响方面，${consequence}。`;
   } else {
-    // 若无单独 why 与 consequence，基于客观事实 what 进行机构中性归纳
+    // 若无单独 why 与 consequence，基于机构专业视角进行定性归纳，严禁对标题机械复读！
     const factDesc = (summary5W1H.what || cleanTitle || '').trim().replace(/[。！!.]+$/, '');
-    view = `${factDesc}。`;
+    const cleanT = cleanTitle.replace(/^[【\[][^】\]]+[】\]]/, '').replace(/[。！!.]+$/, '').trim();
+    if (factDesc === cleanT || (factDesc.includes(cleanT) && factDesc.length <= cleanT.length + 5)) {
+      if (/芯片|算力|半导体|晶圆|先进制程/.test(t)) {
+        view = '关键硬件制程与系统级协同成为核心壁垒，资金向具备自主研发与量产交付能力的龙头厂商加速集聚。';
+      } else if (/模型|ai|算法|推理/.test(t)) {
+        view = '底层智算硬件与前沿大模型算法加速协同演进，以自主算力底盘构筑全栈工程化交付壁垒。';
+      } else if (/利润|营收|反超|财报|业绩/.test(t)) {
+        view = '细分赛道龙头在成本管控、技术溢价与市场份额维度展现分化优势，机构资金向具备确定性现金流韧性的标的集中。';
+      } else {
+        view = '涉事主体稳步推进核心战略部署，产业链关联方根据市场供求信号与合规框架重构中长期估值中枢。';
+      }
+    } else {
+      view = `${factDesc}。`;
+    }
   }
 
   // 严格在标点处自然截断，绝不硬切单词导致“大型。”等残句
@@ -2152,13 +2214,20 @@ export function build5W1HParagraph(
     whySentence = ` 信源表明，该事项起因于${cleanWhy}。`;
   }
 
+  // 有涉事主体背景则无缝融入业务速览（解答“为什么不简单介绍这家公司”）
+  const profile = getCompanyProfileForNews(title, content);
+  let profileSentence = '';
+  if (profile && !factSentence.includes(profile.sector) && !factSentence.includes(profile.description.slice(0, 10))) {
+    profileSentence = ` 涉事主体${profile.name}（${profile.sector}）：${profile.description}`;
+  }
+
   // 有后续影响就陈述，没有就不硬编！
   let consequenceSentence = '';
   if (cleanConsequence && cleanConsequence.length >= 4) {
     consequenceSentence = ` 直接影响方面，${cleanConsequence}。`;
   }
 
-  return `${factSentence}${whySentence}${consequenceSentence}`.trim();
+  return `${factSentence}${profileSentence}${whySentence}${consequenceSentence}`.trim();
 }
 
 
@@ -2363,6 +2432,7 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
 
   const cross = evaluateCrossVerification(raw, rawItems, primary);
   const isUnilateral = checkUnilateralClaim(cleanRawTitle, cleanRawContent);
+  const companyProfile = getCompanyProfileForNews(enrichedTitle, cleanRawContent);
 
   const verificationLevel = isUnilateral ? 'UNILATERAL_CLAIM' : cross.verificationLevel;
   const verificationBadge = isUnilateral ? '【单方通报·待验证】' : cross.verificationBadge;
@@ -2383,6 +2453,7 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
     bulletPoints,
     summaryParagraph,
     summary5W1H,
+    companyProfile: companyProfile || undefined,
     verificationLevel,
     verificationBadge,
     crossSourceCount: cross.crossSourceCount,
@@ -2539,6 +2610,7 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
         usedNewsIds.push(candidate.id);
         const cleanT = candidate.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
         usedNewsTitles.push(cleanT);
+        const candidateProfile = candidate.companyProfile || getCompanyProfileForNews(candidate.title, candidate.summaryParagraph);
         flashList.push({
           id: `flash-${candidate.id}`,
           tag: trackTagMap[trk] || '宏观要闻',
@@ -2552,6 +2624,7 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
           sourceUrl: candidate.sourceUrl,
           summaryParagraph: candidate.summaryParagraph,
           summary5W1H: candidate.summary5W1H,
+          companyProfile: candidateProfile || undefined,
           verificationLevel: candidate.verificationLevel,
           verificationBadge: candidate.verificationBadge,
           crossSourceCount: candidate.crossSourceCount,
@@ -2566,7 +2639,8 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
       } else {
         const seedItem = SEED_FLASH_BRIEFS.find((s) => s.track === trk);
         if (seedItem) {
-          flashList.push({ ...seedItem, tag: trackTagMap[trk] || seedItem.tag });
+          const seedProfile = seedItem.companyProfile || getCompanyProfileForNews(seedItem.content);
+          flashList.push({ ...seedItem, tag: trackTagMap[trk] || seedItem.tag, companyProfile: seedProfile || undefined });
           if (seedItem.id) usedNewsIds.push(seedItem.id.replace('flash-', ''));
           const cleanT = seedItem.content.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
           usedNewsTitles.push(cleanT);

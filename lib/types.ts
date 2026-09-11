@@ -1,3 +1,6 @@
+import type { CompanyProfile } from './companyProfiles';
+export type { CompanyProfile };
+
 export type TrackId = 
   | 'us_macro' 
   | 'apac_tech' 
@@ -77,6 +80,7 @@ export interface NewsItem {
   bulletPoints: string[];
   summaryParagraph?: string; // 遵守 5W1H 原则的一段连贯深度小结
   summary5W1H?: Summary5W1H;
+  companyProfile?: CompanyProfile; // 涉事核心主体/企业业务与生态背景速览
   verificationLevel?: 'CROSS_VERIFIED' | 'OFFICIAL_DECREE' | 'SINGLE_SOURCE_FAST' | 'UNILATERAL_CLAIM';
   verificationBadge?: string;
   crossSourceCount?: number;
@@ -107,6 +111,7 @@ export interface FlashBrief {
   sourceUrl?: string;
   summaryParagraph?: string; // 遵守 5W1H 原则的一段连贯深度小结
   summary5W1H?: Summary5W1H;
+  companyProfile?: CompanyProfile; // 涉事核心主体/企业业务与生态背景速览
   verificationLevel?: 'CROSS_VERIFIED' | 'OFFICIAL_DECREE' | 'SINGLE_SOURCE_FAST' | 'UNILATERAL_CLAIM';
   verificationBadge?: string;
   crossSourceCount?: number;

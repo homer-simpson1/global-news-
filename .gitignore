@@ -19,4 +19,4 @@ public/*.png
 !public/icon*.png
 morning_paper.log
 scratch/
-
+*.tsbuildinfo
