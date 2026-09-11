@@ -181,7 +181,8 @@ check('Gate 5: 深度透视严禁负面词库审校（杜绝自媒体口水套�
 check('Gate 6: 标题严谨性（严禁感叹号/问号/省略号）与全量口水词库审校', () => {
   const seedFiles = [
     path.join(ROOT, 'data', 'seedNews.ts'),
-    path.join(ROOT, 'data', 'seedLeadNews.ts')
+    path.join(ROOT, 'data', 'seedLeadNews.ts'),
+    path.join(ROOT, 'data', 'seedData.ts')
   ];
 
   const fullBannedList = [
@@ -192,7 +193,9 @@ check('Gate 6: 标题严谨性（严禁感叹号/问号/省略号）与全量口
     '大动作', '买显卡通不上电', '赚麻了', '中央信用硬核托底', '散户站岗',
     '无情砸盘', '割韭菜', '暴力拉升', '洗盘', '血洗', '谈崩', '死守',
     '一票否决', '真金白银撬动', '谈比打好', '以打促谈', '层层设卡逼向极限',
-    '套息盘梦魇重现', '廉价资金时代一去不复返'
+    '套息盘梦魇重现', '廉价资金时代一去不复返', '深层动因', '传来实质动态',
+    '这一动向迅速引发连锁反应', '冲突战区前方军事指挥部', '国际宏观政策追踪委员会',
+    '宏观宏图与微观基本面变量'
   ];
 
   seedFiles.forEach(file => {
@@ -203,16 +206,16 @@ check('Gate 6: 标题严谨性（严禁感叹号/问号/省略号）与全量口
     // 检查口水词
     fullBannedList.forEach(w => {
       if (content.includes(w)) {
-        errors.push(`[${relName}] 存在严禁使用的自媒体口水词: "${w}"`);
+        errors.push(`[${relName}] 存在严禁使用的自媒体口水词或伪深刻套话: "${w}"`);
       }
     });
 
     // 检查标题标点符号 (严禁 ！! ？? …)
-    const titleMatches = [...content.matchAll(/["']?title["']?\s*:\s*['"]([^'"]+)['"]/g)];
+    const titleMatches = [...content.matchAll(/["']?(?:title|content)["']?\s*:\s*['"]([^'"]+)['"]/g)];
     titleMatches.forEach((m, idx) => {
       const title = m[1];
       if (/[！!？?…]/.test(title)) {
-        errors.push(`[${relName}] 标题 #${idx + 1} 含有违规标点符号（严禁感叹号/问号/省略号）: "${title}"`);
+        errors.push(`[${relName}] 标题/内容 #${idx + 1} 含有违规标点符号（严禁感叹号/问号/省略号）: "${title}"`);
       }
     });
   });
@@ -224,7 +227,8 @@ check('Gate 6: 标题严谨性（严禁感叹号/问号/省略号）与全量口
 check('Gate 7: 深度传导 1-Hop 一级直接因果与 5W1H 结论定性审校', () => {
   const seedFiles = [
     path.join(ROOT, 'data', 'seedNews.ts'),
-    path.join(ROOT, 'data', 'seedLeadNews.ts')
+    path.join(ROOT, 'data', 'seedLeadNews.ts'),
+    path.join(ROOT, 'data', 'seedData.ts')
   ];
 
   seedFiles.forEach(file => {
@@ -232,7 +236,7 @@ check('Gate 7: 深度传导 1-Hop 一级直接因果与 5W1H 结论定性审校'
     const content = fs.readFileSync(file, 'utf8');
     const relName = path.relative(ROOT, file);
 
-    const transMatches = [...content.matchAll(/["']?transmissionImpact["']?\s*:\s*['"]([^'"]+)['"]/g)];
+    const transMatches = [...content.matchAll(/["']?transmission(?:Impact)?["']?\s*:\s*['"]([^'"]+)['"]/g)];
     transMatches.forEach((m, idx) => {
       const trans = m[1];
       const is1Hop = /①.*➔.*②.*➔.*③/.test(trans) || trans.includes('信源仅陈述单一动作');

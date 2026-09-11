@@ -30,22 +30,27 @@ export default function Summary5W1HView({
   // 1. 如果已有预生成的 5W1H 一段总结，直接使用
   let paragraph = summaryParagraph;
 
-  // 2. 如果只有结构化的 summary，自动融合成一段连贯通顺的 5W1H 叙述段落
+  // 2. 如果只有结构化的 summary，根据实际披露要素客观叙述（无原因绝不硬编）
   if (!paragraph && summary) {
     const when = summary.when || (time ? `${time}` : '权威电讯通报');
-    const where = summary.where || '涉事相关区域';
-    const who = summary.who || '相关核心主体';
     const cleanWhat = (summary.what || (title ? title.replace(/^【.*?】\s*/, '') : '发布最新核心进展')).trim().replace(/[。！!.]+$/, '');
-    const cleanWhy = (summary.why || '相关宏观环境与地缘格局变动驱动').trim().replace(/[。！!.]+$/, '');
-    const cleanConsequence = (summary.consequence || '对市场资产与决策带来后续连锁传导').trim().replace(/[。！!.]+$/, '');
+    const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '');
+    const cleanConsequence = (summary.consequence || '').trim().replace(/[。！!.]+$/, '');
 
-    paragraph = `据${when}，在${where}，${who}证实最新核心进展：${cleanWhat}。究其起因，主要是${cleanWhy}。该事件带来的直接后果是，${cleanConsequence}。`;
+    let text = `据${when}，${cleanWhat}。`;
+    if (cleanWhy && cleanWhy.length >= 4 && !cleanWhy.includes('宏观宏图') && !cleanWhy.includes('利益交织对立')) {
+      text += ` 信源表明，该事项起因于${cleanWhy}。`;
+    }
+    if (cleanConsequence && cleanConsequence.length >= 4 && !cleanConsequence.includes('直接影响相关领域')) {
+      text += ` 直接影响方面，${cleanConsequence}。`;
+    }
+    paragraph = text;
   }
 
-  // 3. 保底段落生成（确保永远有一段通顺的 5W1H 总结）
+  // 3. 保底段落生成（确保客观事实陈述）
   if (!paragraph) {
     const cleanTitle = (title || '最新重大事件').replace(/^【.*?】\s*/, '');
-    paragraph = `据${time ? `${time}` : '权威电讯'}核实通报：${cleanTitle}。该事件体现了当前宏观与微观基本面的最新异动，直接影响后续市场预期与战略决策走向。`;
+    paragraph = `据${time ? `${time}` : '权威电讯'}通报：${cleanTitle}。`;
   }
 
   // 提取核心后果一句话提示（用于在段落下方醒目强调）

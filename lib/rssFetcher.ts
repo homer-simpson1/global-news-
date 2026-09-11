@@ -1927,192 +1927,71 @@ function build5W1HSummary(
   source: string,
   track: TrackId
 ): Summary5W1H {
-  const cleanTitle = title.replace(/^【.*?】\s*/, '').trim();
-  const t = (cleanTitle + ' ' + content).toLowerCase();
+  // 1. 剥离标题首尾装饰与信源后缀
+  let cleanTitle = title
+    .replace(/^【.*?】\s*/, '')
+    .replace(/（(?:法新社|路透社|彭博社|新华社|财新|日经|央视|第一财经|界面|财联社|华尔街见闻).*?）$/, '')
+    .replace(/\((?:AFP|Reuters|Bloomberg|AP|FT|Nikkei).*?\)$/i, '')
+    .trim();
+  const rawTotal = (cleanTitle + ' ' + content).trim();
+  const t = rawTotal.toLowerCase();
 
-  // 1. 识别新闻是否具有滞后性（正文中包含特定历史日期，如“当地时间9月4日”、“周五（9月4日）”、“9月5日晚”）
+  // 识别新闻中的具体日期
   const eventDateMatch = content.match(/(?:当地时间)?(?:周[一二三四五六日]|本周[一二三四五六日])?[（(]?([0-9]{1,2}月[0-9]{1,2}日|[0-9]{1,2}月[0-9]{1,2}号|[0-9]{1,2}日[上下]午|[0-9]{1,2}日晚)[)）]?/);
   const eventDate = eventDateMatch ? eventDateMatch[0].replace(/[（）()]/g, '') : '';
 
-  let who = '相关决策机构与受影响各方';
-  let what = cleanTitle;
   let when = time || '最新权威电讯';
   if (eventDate && !when.includes(eventDate)) {
     when = `${when}（事件发生于${eventDate}）`;
   } else {
-    when = `${when}（实时电讯直发）`;
+    when = `${when}（电讯直发）`;
   }
-  let where = '全球重点经贸与地缘坐标区域';
-  let why = '宏观经济运行规律与地缘博弈格局演变引发的即时反应';
-  let consequence = '关联宏观流动性与产业供求变化，直接影响资产定价与决策传导。';
 
-  // 1. Who (核心主体提取：优先解析标题中的主语/机构冒号结构)
+  // ─────────────────────────────────────────────────────────────
+  // 1. Who (核心主体提取：优先解析真实机构、军队、企业或标题主语，严禁捏造虚构机构)
+  // ─────────────────────────────────────────────────────────────
+  let who = '';
+
+  // 1.1 显式冒号结构：如 "伊朗外交部：已向美方发出警告"
   const colonMatch = cleanTitle.match(/^([^：:，,——]{2,20})[：:——]/);
   if (colonMatch && !/提醒|提示|快讯|电讯|最新|据悉|权威|突发/.test(colonMatch[1])) {
     who = colonMatch[1].trim();
-  } else if (FOREIGN_ENTITIES.JAPAN.test(t)) {
-    who = '日本财务省、日本央行（BOJ）及外汇市场监管当局';
-    where = '日本东京（日本财务省与央行决策中枢）';
-  } else if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
-    who = '澳大利亚储备银行（RBA，澳洲联储）及货币政策决策委员会';
-    where = '澳大利亚悉尼（马丁广场央行总部与金融交易中心）';
-  } else if (FOREIGN_ENTITIES.EUROPE_ECB.test(t)) {
-    who = '欧洲中央银行（ECB）管理委员会及执行董事会';
-    where = '德国法兰克福（欧洲央行总部与欧洲金融核心枢纽）';
-  } else if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
-    who = '英国央行（BOE）货币政策委员会（MPC）及监管机构';
-    where = '英国伦敦（针线街央行总部与伦敦金融城）';
-  } else if (/中国人民银行|央行/.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t)) {
-    who = '中国人民银行（PBOC）及宏观货币政策司';
-  } else if (/土耳其.*财政部/.test(t)) {
-    who = '土耳其财政与国库部';
-    where = '土耳其安卡拉及主要金融市场';
-  } else if (/美国财政部/.test(t)) {
-    who = '美国财政部（U.S. Department of the Treasury）';
-    where = '美国华盛顿特区（联邦决策中枢）';
-  } else if (/(?:中国财政部|我国财政部|中央财政)/.test(t) || (/财政部/.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t) && !FOREIGN_ENTITIES.US_MACRO.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t))) {
-    who = '中华人民共和国财政部及直属预算司局';
-  } else if (/商务部/.test(t)) {
-    who = '中华人民共和国商务部新闻发言人与贸易救济局';
-  } else if (/发改委/.test(t)) {
-    who = '国家发展和改革委员会及宏观经济监测司';
-  } else if (/国资委/.test(t)) {
-    who = '国务院国资委及相关监管中央企业';
-  } else if (/证监会|中金公司/.test(t)) {
-    who = '证券监督管理机构与相关上市公司核心管理层';
-  } else if (/沐曦|曦云/.test(t)) {
-    who = '国产高性能通用GPU研发厂商「沐曦集成电路」及权威测评机构';
-  } else if (/长鑫/.test(t)) {
-    who = '国产DRAM存储芯片龙头「长鑫存储」管理层与行业分析机构';
-  } else if (/美联储|鲍威尔|沃勒|威廉姆斯|fomc/.test(t)) {
-    who = '美联储（Federal Reserve）货币政策委员会（FOMC）及华尔街一级交易商';
-  } else if (/美国财政部|耶伦/.test(t)) {
-    who = '美国财政部（U.S. Treasury）与主权债务发债管理机构';
-  } else if (/美国商务部|雷蒙多/.test(t)) {
-    who = '美国商务部工业与安全局（BIS）';
-  } else if (/白宫|美国总统|拜登|特朗普/.test(t)) {
-    who = '美国总统行政办公室与联邦决策团队';
-  } else if (/五角大楼|美军|美国国防部/.test(t)) {
-    who = '美国国防部（五角大楼）及联合战区指挥部';
-  } else if (/俄罗斯|俄军|普京|克里姆林宫/.test(t)) {
-    who = '俄罗斯联邦政府决策层及俄武装力量指挥部';
-  } else if (/乌克兰|乌军|泽连斯基/.test(t)) {
-    who = '乌克兰武装部队总参谋部及前线战区指挥中心';
-  } else if (/伊朗|卡利巴夫|哈梅内伊/.test(t)) {
-    who = '伊朗最高国家安全委员会及伊斯兰议会指挥机构';
-  } else if (/以色列|以军|内塔尼亚胡/.test(t)) {
-    who = '以色列战时内阁及国防军战区指挥部';
-  } else if (/尼泊尔/.test(t)) {
-    who = '尼泊尔国家减灾管理局与一线搜救军警';
-  } else if (/慈善|公益/.test(t)) {
-    who = '民政部慈善公益促进部门与社会公益组织网络';
-  } else if (/吉隆口岸|吉隆/.test(t)) {
-    who = '国家应急管理部、西藏自治区应急指挥部与武警搜救队伍';
-  } else if (/物流|大宗商品/.test(t)) {
-    who = '中国物流与采购联合会及行业运行监测部门';
-  } else {
-    const trackWhoMap: Record<TrackId, string> = {
-      china_domestic: '国内宏观管理部门与相关企事业单位',
-      us_macro: '国际宏观政策追踪委员会与金融市场机构',
-      apac_tech: '亚太半导体先进制程与硬件供应链核心厂商',
-      commodities_shipping: '国际大宗商品交易所、欧佩克产油国与国际海事航运联盟',
-      war_conflict: '冲突战区前方军事指挥部与防务情报部门',
-      china_policy: '跨境贸易监管机构与涉外经贸合规部门',
-      china_macro: '国家统计局与中国人民银行宏观数据发布机构',
-      global_cognition: '国际权威机构、产业智库与多边经济组织',
-    };
-    who = trackWhoMap[track] || '相关主管部委与行业决策主体';
   }
 
-  // 2. Where (事件地点)
-  if (FOREIGN_ENTITIES.JAPAN.test(t)) {
-    where = '日本东京（日本财务省、日银与东证核心金融圈）';
-  } else if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
-    where = '澳大利亚悉尼（马丁广场央行总部与金融交易中心）';
-  } else if (FOREIGN_ENTITIES.EUROPE_ECB.test(t)) {
-    where = '德国法兰克福（欧洲央行总部与欧洲金融核心枢纽）';
-  } else if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
-    where = '英国伦敦（针线街央行总部与伦敦金融城）';
-  } else if (/北京/.test(t)) {
-    where = '中国北京（国家宏观决策与监管中枢）';
-  } else if (/上海/.test(t)) {
-    where = '中国上海（国际金融中心与产业创新前沿）';
-  } else if (/华盛顿|白宫|五角大楼/.test(t)) {
-    where = '美国华盛顿特区（联邦决策层与战略中枢）';
-  } else if (/纽约|华尔街|美股/.test(t)) {
-    where = '美国纽约华尔街（全球金融市场核心枢纽）';
-  } else if (/乌克兰|俄罗斯|莫斯科|基辅|库尔斯克|顿涅茨克/.test(t)) {
-    where = '东欧战区（乌俄前线及关键基础设施枢纽）';
-  } else if (/伊朗|中东|以军|以色列|加沙|黎巴嫩|红海|也门/.test(t)) {
-    where = '中东战区（波斯湾、霍尔木兹海峡及前线热点地带）';
-  } else if (/台湾|新竹|日本|熊本|九州|韩国|首尔/.test(t)) {
-    where = '亚太半导体产业三角（新竹科学园/南韩京畿道/日本九州产线）';
-  } else if (/吉隆口岸|吉隆/.test(t)) {
-    where = '中国西藏自治区日喀则市吉隆口岸热索中尼边境段';
-  } else if (/尼泊尔/.test(t)) {
-    where = '南亚尼泊尔加德满都及周边山区受灾带';
-  } else if (/乌拉圭/.test(t)) {
-    where = '南美洲乌拉圭全境及沿海农牧出口口岸';
-  } else {
-    const trackWhereMap: Record<TrackId, string> = {
-      china_domestic: '中国大陆主要经济中心与重点产业集聚区',
-      us_macro: '美国华盛顿联邦决策中枢与纽约金融市场',
-      apac_tech: '亚太高科技与先进制造核心产业链集群',
-      commodities_shipping: '全球主要干线航道港口与国际能源大宗集散交割地',
-      war_conflict: '全球地缘对抗一线与关键战略安全走廊',
-      china_policy: '主要经济体跨国经贸与供应链合作支点',
-      china_macro: '中国北京（国家统计局/人民银行）',
-      global_cognition: '全球主要宏观经贸与多边治理治理区域',
-    };
-    where = trackWhereMap[track] || '全球核心经济金融走廊';
+  // 1.2 知名政军/主权/监管实体识别（真实实体，严禁张冠李戴）
+  if (!who) {
+    const knownEntityMatch = rawTotal.match(/(也门胡塞武装|胡塞武装|以色列国防军|以军|哈马斯|真主党|黎巴嫩真主党|乌克兰武装部队|乌军|俄罗斯国防部|俄军|美军|五角大楼|美国国防部|北约|欧盟委员会|中国人民银行|国家发展改革委|财政部|商务部|证监会|国务院国资委|国家应急管理部|国家统计局|美联储|欧洲央行|日本央行|英国央行|澳洲联储|台积电|英伟达|苹果|微软|谷歌|Meta|OpenAI|ASML|SK海力士|三星电子|特斯拉|高通|博通|中芯国际|比亚迪|宁德时代|长鑫存储|沐曦集成电路|中金公司|淡水河谷|必和必拓|力拓|沙特阿美|OPEC\+?|国际海事组织)/);
+    if (knownEntityMatch) {
+      who = knownEntityMatch[1];
+    }
   }
 
-  // 3. Why (起因背景：根据核心事实精准归因)
-  if (FOREIGN_ENTITIES.JAPAN.test(t)) {
-    why = '日元汇率异动与美日利差倒挂加剧输入型通胀压力，引发官方针对外汇单边走势的警示与干预预期。';
-  } else if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
-    why = '澳洲国内核心服务业通胀粘性依然坚固，促使澳洲联储重申紧缩防守立场并压制过早降息预期。';
-  } else if (FOREIGN_ENTITIES.EUROPE_ECB.test(t)) {
-    why = '欧洲央行平衡抑制通胀粘性与维护经济增长底盘，依据最新核心通胀读数审慎微调流动性政策路径。';
-  } else if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
-    why = '英国工资增速与服务业物价中枢维持高位，促使英国央行在兼顾增长与抗击通胀间保持审慎防守。';
-  } else if (/合并|重组|停牌|并购/.test(t)) {
-    why = '贯彻落实资本市场深化改革部署，通过同业重组整合优质资产、做优做强核心主业。';
-  } else if (/税收|税费|减税|加计扣除/.test(t)) {
-    why = '全面落实创新驱动发展战略，以普惠与结构性财税优惠红利持续赋能高新企业自主研发。';
-  } else if (/物流|景气|大宗商品/.test(t)) {
-    why = '宏观扩内需促稳增长政策协同显效，企业开工率与供应链大宗货物周转全面提速。';
-  } else if (/慈善|公益|捐赠/.test(t)) {
-    why = '弘扬社会守望互助文化，广泛动员社会资源与公众力量规范对接民生兜底与应急救助。';
-  } else if (/吉隆口岸|冰岩崩/.test(t)) {
-    why = '境外雪山北坡突发高位大规模冰岩崩，剧烈势能带动高位冰碛物转化为特大泥石流越境损毁口岸设施。';
-  } else if (/泥石流|山洪|地质灾害|滑坡|强降雨|暴雨|防汛|塌方|堰塞湖/.test(t)) {
-    const locMatch = t.match(/(江西遂川|遂川|江西|四川|云南|西藏|湖南|广东|广西|贵州|甘肃|陕西|重庆|湖北|河南|河北|北京|福建|浙江|青海|新疆|海南)/);
-    const loc = locMatch ? `${locMatch[1]}受灾区` : '受灾山区及局部地区';
-    why = `${loc}遭遇极端强降雨袭击诱发突发性地质山洪滑坡与泥石流，导致道路受损与人员受灾。`;
-  } else if (/芯片|半导体|先进制程|算力|dram|gpu/.test(t)) {
-    why = '全球AI大模型爆发推升高端算力与存储芯片需求，倒逼供应链加速自主研发攻关与产能释放。';
-  } else if (/降息|加息|非农|通胀|美联储|收益率|美债/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
-    why = '宏观就业与通胀数据显现韧性，促使市场交易员动态修正对央行流动性宽松窗口的押注。';
-  } else if (/空袭|导弹|袭击|交火|军事行动/.test(t)) {
-    why = '地缘冲突双方在前线战线互试底线，通过高强度对等威慑打击争夺军事均势与博弈筹码。';
-  } else if (/关税|出口管制|实体清单|贸易壁垒/.test(t)) {
-    why = '大国博弈向经贸与前沿技术产业链延伸，各方以国家安全为由强化战略自主与合规审查。';
-  } else {
-    const trackWhyMap: Record<TrackId, string> = {
-      china_domestic: '宏观逆周期调节与深化改革政策协同发力，激发微观市场主体内生增长动能。',
-      us_macro: '国际宏观基本面数据表现与政策预期多空博弈，引导全球资本在跨资产大类中动态再平衡。',
-      apac_tech: '先进制程代工稼动率与AI硬件终端需求共振，驱动产业链加紧资本开支布局。',
-      commodities_shipping: '地缘溢价摩擦与关键航道绕行常态化，叠加实体刚性补库重塑运价与交割成本。',
-      war_conflict: '大国地缘利益交织对立，前线局势反复演变牵动多边外交与能源航运戒备。',
-      china_policy: '全球供应链重组与跨境贸易合规壁垒演进，推动经贸合作模式深层次重塑。',
-      china_macro: '国家统计局发布最新月度宏观经济数据，直接影响人民银行货币政策取向与A股流动性预期。',
-      global_cognition: '国际大宗商品周期与宏观政经格局出现结构性分化，引发各方风险预期重构。',
-    };
-    why = trackWhyMap[track] || '宏观宏图与微观基本面变量共同驱动的市场化与战略性抉择。';
+  // 1.3 语法主语识别：抓取动词前面的主语（例如 "也门胡塞武装完全控制曼德海峡" -> 抓取 "也门胡塞武装"）
+  if (!who) {
+    const subjMatch = cleanTitle.match(/^([A-Za-z0-9\u4e00-\u9fa5]{2,16}?)(?:完全控制|控制|宣布|发布|拟|称|表示|启动|完成|获批|遭遇|遭到|发生|空袭|打击|减产|加息|降息|公布|通报|裁定|判处|起诉|调查|决定|签署|呼吁|警告)/);
+    if (subjMatch) {
+      who = subjMatch[1].trim();
+    }
   }
 
-  // 4. What (事实要点)
+  // 1.4 若仍无独立实体，以报道信源为出处主体，绝不使用假大空虚构机构！
+  if (!who) {
+    who = source ? `${source}报道` : '涉事当事方';
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 2. Where (事件地点：仅提取原文明确提及的地理实体，未提及则留空，严禁张冠李戴)
+  // ─────────────────────────────────────────────────────────────
+  let where = '';
+  const geoMatch = rawTotal.match(/(曼德海峡|红海|波斯湾|霍尔木兹海峡|苏伊士运河|巴拿马运河|好望角|加沙|黎巴嫩|叙利亚|也门|伊朗|伊拉克|以色列|乌克兰|莫斯科|基辅|黑海|波罗的海|西藏日喀则吉隆|西藏吉隆|吉隆口岸|日喀则|西藏|北京|上海|深圳|广州|香港|华盛顿|纽约|硅谷|伦敦|法兰克福|布鲁塞尔|东京|首尔|新竹|新加坡|乌拉圭|尼泊尔)/);
+  if (geoMatch) {
+    where = geoMatch[1];
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 3. What (事实要点：客观陈述事实动作)
+  // ─────────────────────────────────────────────────────────────
+  let what = cleanTitle;
   const sents = content
     .replace(/\r\n/g, '\n')
     .split(/[。！？\n]/)
@@ -2123,54 +2002,41 @@ function build5W1HSummary(
       .replace(/^.*?（.*?）/, '')
       .replace(/^.*?(?:快讯|直发|电讯)[：:，,]/, '')
       .trim();
-    if (cleanLead.length >= 15) {
+    if (cleanLead.length >= 12 && cleanLead.length <= 80) {
       what = cleanLead;
     }
   }
 
-  // 5. Consequence (后续影响与传导：拒绝流水线连接词与假大空套话)
-  if (FOREIGN_ENTITIES.JAPAN.test(t)) {
-    consequence = '引发跨国套息头寸紧急平仓，直接波及东证核心科技板块与跨国出口企业资产再定价。';
-  } else if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
-    consequence = '打消跨国交易员激进降息押注，对澳元汇率与澳洲本土商业借贷利率形成刚性支撑。';
-  } else if (FOREIGN_ENTITIES.EUROPE_ECB.test(t)) {
-    consequence = '引导欧元区主权债务利差与银行流动性平稳过渡，直接影响跨大西洋资产头寸配置。';
-  } else if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
-    consequence = '锚定英国金边债券收益率中枢，引导伦敦离岸信贷与按揭抵押贷款利率动态重定价。';
-  } else if (/合并|重组|停牌|并购/.test(t)) {
-    consequence = '显著增强头部机构跨市场运作与综合金融服务能力，对行业兼并整合起到积极标杆示范作用。';
-  } else if (/税收|税费|减税|研发费用/.test(t)) {
-    consequence = '预计每年为实体创新企业减负数百亿元研发成本，加速战略新兴产业关键核心技术自主攻坚。';
-  } else if (/物流|景气|大宗商品/.test(t)) {
-    consequence = '印证实体货物周转与微观开工稳步向好，为下一阶段规上工业平稳增长提供坚实支撑。';
-  } else if (/慈善|公益|捐赠/.test(t)) {
-    consequence = '推动社会各界爱心资源公开透明流向灾后重建、助学扶弱与乡村振兴等关键民生领域。';
-  } else if (/吉隆口岸/.test(t)) {
-    consequence = '口岸暂时中断通关并开展选址防灾论证，跨境实物货运转向樟木口岸分流。';
-  } else if (/泥石流|受灾|救援|山洪|地质灾害|滑坡|失联|致.*死|遇难|伤亡/.test(t)) {
-    consequence = '多方联合紧急搜救响应全面展开，大型工程机械加紧打通受损生命干道，属地拉网排查次生险情。';
-  } else if (/事故|相撞|火灾|爆炸|坍塌|矿难/.test(t)) {
-    consequence = '应急搜救与医疗救治全面展开，涉事主体停产接受调查整顿，同行业全面排查同类安全风险。';
-  } else if (/芯片|半导体|先进制程|算力/.test(t)) {
-    consequence = '筑牢本土高端算力与关键零部件供应链护城河，为数字经济与智能产业演进奠定硬件底座。';
-  } else if (/降息|加息|美联储|收益率|美债/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
-    consequence = '重塑美债收益率曲线与权益资产借贷估值，外溢影响跨国离岸流动性配置节奏。';
-  } else if (/空袭|导弹|原油|中东/.test(t)) {
-    consequence = '推升国际原油与大宗黄金地缘避险买盘，国际航道与关键能源通道安保等级同步上调。';
-  } else if (/关税|制裁|出口管制/.test(t)) {
-    consequence = '加剧跨国企业供应链重组与合规成本，倒逼相关产业链加快全栈自主化与多源备份替代。';
-  } else {
-    const trackConsequenceMap: Record<TrackId, string> = {
-      china_domestic: '稳固实体经济与内需循环底色，增强微观市场主体中长期发展信心与确定性。',
-      us_macro: '引导全球资金在债券、外汇与成长资产中重新寻找确定性估值锚点与流动性平衡。',
-      apac_tech: '带动上游设备原厂订单与晶圆代工资本开支，带动整个半导体板块景气预期。',
-      commodities_shipping: '推动全球大宗原材料与集装箱即期运价重估，放大下游制造业与跨国贸易成本链条传导。',
-      war_conflict: '加剧地缘风险溢价向全球大宗商品与国际物流外溢，推高防务安全警戒等级。',
-      china_policy: '促使涉外经贸主体加快风险分散与多元化市场开拓，重塑双边投资贸易路径。',
-      china_macro: 'A股消费、工业与银行板块据此重估业绩预期，人民币汇率与国债收益率同步响应数据信号。',
-      global_cognition: '引导跨国投资机构根据宏观情势审视大类资产配置，提升风险防范针对性。',
-    };
-    consequence = trackConsequenceMap[track] || '直接影响相关领域中长期战略部署与市场资产定价中枢。';
+  // ─────────────────────────────────────────────────────────────
+  // 4. Why (起因事实：有原因就有原因，没有原因不要硬编写！严禁万能套话)
+  // ─────────────────────────────────────────────────────────────
+  let why = '';
+  
+  // 4.1 从正文提取显式因果关联句
+  const causeMatch = rawTotal.match(/(?:因为|由于|受.*?影响|因.*?导致|起因于|主要系|主要因|旨在|为缓解|为应对|为防范|出于.*?考量|受.*?拖累|受.*?提振)([^。！？；\n]{4,60})/);
+  if (causeMatch) {
+    why = causeMatch[0].trim().replace(/^[，,]/, '');
+  }
+
+  // 4.2 针对特定严重灾害/事故/司法判决提取具体事实原因（非万能套话）
+  if (!why) {
+    if (/冰崩|冰岩崩/.test(rawTotal)) {
+      why = '境外雪山高位冰岩崩诱发特大泥石流';
+    } else if (/受贿|行贿|违法违纪|职务侵占/.test(rawTotal)) {
+      why = '依法严肃惩治利用职务便利寻租腐败行为';
+    } else if (/禽流感/.test(rawTotal)) {
+      why = '散养禽类检测出高致病性病毒毒株，防范疫情向核心养殖带扩散';
+    }
+  }
+  // 注意：若原文未提供明确原因，why 严格保持为空字符串！绝对禁止使用 trackWhyMap 编造虚假原因！
+
+  // ─────────────────────────────────────────────────────────────
+  // 5. Consequence (后续影响：仅在原文有明确后果或直接影响时提取，绝不硬编)
+  // ─────────────────────────────────────────────────────────────
+  let consequence = '';
+  const consequenceMatch = rawTotal.match(/(?:致使|导致|造成|引发|促使|使得|造成.*人死亡|造成.*人受伤|紧急分流|停航|中断|全境停电)([^。！？；\n]{4,60})/);
+  if (consequenceMatch) {
+    consequence = consequenceMatch[0].trim().replace(/^[，,]/, '');
   }
 
   return {
@@ -2186,12 +2052,41 @@ function build5W1HSummary(
 function build5W1HParagraph(
   summary: Summary5W1H,
   title: string,
-  content: string
+  content: string,
+  source?: string
 ): string {
-  const cleanWhat = (summary.what || '').trim().replace(/[。！!.]+$/, '');
+  const cleanWhat = (summary.what || title || '').trim().replace(/[。！!.]+$/, '');
+  const cleanWho = (summary.who || '').trim();
+  const cleanWhere = (summary.where || '').trim();
   const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '');
   const cleanConsequence = (summary.consequence || '').trim().replace(/[。！!.]+$/, '');
-  return `据${summary.when}消息，${summary.who}在${summary.where}传来实质动态：${cleanWhat}。深层动因在于，${cleanWhy}。这一动向迅速引发连锁反应，${cleanConsequence}。`;
+
+  const timePrefix = summary.when ? `据${summary.when}` : '据电讯';
+  const sourceName = source || '信源';
+
+  let factSentence = '';
+  if (cleanWho && cleanWhat.startsWith(cleanWho)) {
+    factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWhat}。`;
+  } else if (cleanWho && !cleanWhat.includes(cleanWho)) {
+    const locPart = cleanWhere ? `在${cleanWhere}` : '';
+    factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWho}${locPart}${cleanWhat}。`;
+  } else {
+    factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWhat}。`;
+  }
+
+  // 有原因就陈述，没有原因绝不硬编写！
+  let whySentence = '';
+  if (cleanWhy && cleanWhy.length >= 4) {
+    whySentence = ` 信源表明，该事项起因于${cleanWhy}。`;
+  }
+
+  // 有后续影响就陈述，没有就不硬编！
+  let consequenceSentence = '';
+  if (cleanConsequence && cleanConsequence.length >= 4) {
+    consequenceSentence = ` 直接影响方面，${cleanConsequence}。`;
+  }
+
+  return `${factSentence}${whySentence}${consequenceSentence}`.trim();
 }
 
 
@@ -2337,7 +2232,7 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
   // 5. 单篇独立标题润色与 5W1H/深度小结推导
   enrichedTitle = enrichHeadline(cleanRawTitle, cleanRawContent, track);
   summary5W1H = build5W1HSummary(enrichedTitle, cleanRawContent, raw.time, primary.source, track);
-  summaryParagraph = build5W1HParagraph(summary5W1H, enrichedTitle, cleanRawContent);
+  summaryParagraph = build5W1HParagraph(summary5W1H, enrichedTitle, cleanRawContent, primary.source);
   coreTakeaway = generateCoreTakeaway(enrichedTitle, cleanRawContent, track, summary5W1H);
   transmissionImpact = inferTransmission(track, enrichedTitle, cleanRawContent);
 
