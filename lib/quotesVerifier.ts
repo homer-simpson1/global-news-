@@ -48,7 +48,7 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
 
   const eastSecids = '251.SOX,171.US10Y,100.N225,100.HSI,100.DJIA,100.SPX,102.CL00Y,119.USDJPY,133.USDCNH';
 
-  const [sinaRes, tencentRes, eastRes, fredRes] = await Promise.allSettled([
+  const [sinaRes, tencentRes, eastRes, cnbcRes] = await Promise.allSettled([
     // 通道 A: 新浪全球金融实时行情 (Sina Finance)
     fetch(`https://hq.sinajs.cn/list=${sinaSymbols.join(',')}`, {
       headers: { ...defaultHeaders, 'Referer': 'https://finance.sina.com.cn' },
@@ -64,30 +64,25 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
       headers: defaultHeaders,
     }).then(async (r) => (r.ok ? await r.json() : null)).catch(() => null),
 
-    // 通道 D: 美联储圣路易斯联储 (FRED) 10年期美债官方清算基准
-    fetch('https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10', {
+    // 通道 D: 全球高频金融行情中心 (CNBC Tradeweb 官方直连通道)
+    fetch('https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols=US10Y&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json', {
       headers: defaultHeaders,
-    }).then(async (r) => (r.ok ? await r.text() : '')).catch(() => ''),
+    }).then(async (r) => (r.ok ? await r.json() : null)).catch(() => null),
   ]);
 
   const sinaText = sinaRes.status === 'fulfilled' ? sinaRes.value : '';
   const tencentText = tencentRes.status === 'fulfilled' ? tencentRes.value : '';
   const eastData = eastRes.status === 'fulfilled' ? eastRes.value : null;
-  const fredText = fredRes.status === 'fulfilled' ? fredRes.value : '';
+  const cnbcData = cnbcRes.status === 'fulfilled' ? cnbcRes.value : null;
 
-  // 0. 解析美联储官方 FRED DGS10 美债基准
-  let fredUs10yPrice: number | null = null;
-  if (fredText) {
-    const lines = fredText.trim().split('\n');
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const parts = lines[i].split(',');
-      if (parts.length >= 2) {
-        const val = parseFloat(parts[1].trim());
-        if (!isNaN(val) && val > 0) {
-          fredUs10yPrice = val;
-          break;
-        }
-      }
+  // 0. 解析全球高频 CNBC Tradeweb 实时美债基准
+  let cnbcUs10y: RawSourceItem | null = null;
+  if (cnbcData?.FormattedQuoteResult?.FormattedQuote?.[0]) {
+    const q = cnbcData.FormattedQuoteResult.FormattedQuote[0];
+    const lastNum = parseFloat((q.last || '').replace(/[^0-9.]/g, ''));
+    const chgNum = parseFloat((q.change_pct || q.change || '0').replace(/[^0-9.-]/g, ''));
+    if (!isNaN(lastNum) && lastNum > 0) {
+      cnbcUs10y = { price: lastNum, changePercent: isNaN(chgNum) ? 0 : chgNum };
     }
   }
 
@@ -262,7 +257,7 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
       name: '美国10年期国债收益率',
       category: 'BOND_FX',
       suffix: '%',
-      decimals: 3,
+      decimals: 4,
       specialNote: '全球大类资产流动性定价贴现中枢基准',
     },
     {
@@ -354,9 +349,9 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
     if (sItem?.price && sItem.price > 0) candidates.push({ name: '新浪全球金融 (Sina)', price: sItem.price, change: sItem.changePercent ?? 0 });
     if (tItem?.price && tItem.price > 0) candidates.push({ name: '腾讯财经全球 (Tencent)', price: tItem.price, change: tItem.changePercent ?? 0 });
     if (eItem?.price && eItem.price > 0) candidates.push({ name: '东方财富 (EastMoney)', price: eItem.price, change: eItem.changePercent ?? 0 });
-    // 美债 10 年期专属引入美联储官方 FRED DGS10 权威通道
-    if (spec.key === 'US10Y' && fredUs10yPrice && fredUs10yPrice > 0) {
-      candidates.push({ name: '美联储官方清算 (FRED)', price: fredUs10yPrice, change: -0.37 });
+    // 美债 10 年期专属引入全球高频实时 Tradeweb 通道 (CNBC)
+    if (spec.key === 'US10Y' && cnbcUs10y && cnbcUs10y.price > 0) {
+      candidates.push({ name: '全球金融终端 (CNBC)', price: cnbcUs10y.price, change: cnbcUs10y.changePercent ?? 0 });
     }
 
     // 3. 自动纠偏与离群值熔断仲裁 (Outlier Arbitration & Circuit Breaking)
@@ -394,8 +389,8 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
       if (spec.key === 'N225') {
         preferredPrimary = validCandidates.find((c) => c.name.includes('EastMoney')) || validCandidates[0];
       } else if (spec.key === 'US10Y') {
-        // 美债优先采用东方财富实时高频流，次选 FRED 官方清算源
-        preferredPrimary = validCandidates.find((c) => c.name.includes('EastMoney')) || validCandidates.find((c) => c.name.includes('FRED')) || validCandidates[0];
+        // 美债优先采用东方财富 4 位高精度实时盘中点位 (如 4.9483)，次选 CNBC 全球实时流
+        preferredPrimary = validCandidates.find((c) => c.name.includes('EastMoney')) || validCandidates.find((c) => c.name.includes('CNBC')) || validCandidates[0];
       } else {
         preferredPrimary = validCandidates.find((c) => c.name.includes('Sina')) || validCandidates[0];
       }
@@ -511,7 +506,7 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
     passedCount,
     passRate,
     maxDiffPercent: maxDiff.toFixed(3) + '%',
-    channels: ['新浪全球金融 (Sina)', '腾讯财经 (Tencent)', '东方财富国际 (EastMoney)', '美联储官方圣路易斯联储 (FRED)'],
+    channels: ['新浪全球金融 (Sina)', '腾讯财经 (Tencent)', '东方财富国际 (EastMoney)', '全球金融终端 (CNBC)'],
     verifiedAt: timeStr,
     tokenCost: 0,
     items: verificationDetails,
