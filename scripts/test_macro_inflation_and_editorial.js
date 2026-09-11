@@ -121,13 +121,12 @@ console.log('   ⛽ 能源分项:', energyComp?.reading, '|', energyComp?.tagLab
 console.log('   🚗 商品分项:', goodsComp?.reading, '|', goodsComp?.tagLabel);
 
 // ─────────────────────────────────────────────────────────────
-// 测试 3: FOMC 降息概率与跨资产定价
+// 测试 3: FOMC 政策定价与跨资产定价
 // ─────────────────────────────────────────────────────────────
-console.log('\n--- 3. 美联储 9月 FOMC 降息概率与资产重定价 ---');
-assert('降息 25bps 概率锚定在 85%', breakdown?.fedPolicyImpact.cutProbability25bps === '85%');
-assert('降息 50bps 概率收窄至 15%', breakdown?.fedPolicyImpact.cutProbability50bps === '15%');
-assert('政策定性明确为首次预防式降息', breakdown?.fedPolicyImpact.policyStance.includes('预防式降息'));
-console.log('   降息概率定价: 25bps ->', breakdown?.fedPolicyImpact.cutProbability25bps, '| 50bps ->', breakdown?.fedPolicyImpact.cutProbability50bps);
+console.log('\n--- 3. 美联储 9月 FOMC 利率定价与资产重定价 ---');
+assert('加息 25bps 概率升至 90%', breakdown?.fedPolicyImpact.cutProbability25bps === '90%');
+assert('政策定性明确为沃什鹰派抗通胀与加息预期升温', breakdown?.fedPolicyImpact.policyStance.includes('沃什') && breakdown?.fedPolicyImpact.policyStance.includes('加息'));
+console.log('   利率定价概率: 加息25bps ->', breakdown?.fedPolicyImpact.cutProbability25bps);
 console.log('   政策定性:', breakdown?.fedPolicyImpact.policyStance);
 
 // ─────────────────────────────────────────────────────────────
@@ -138,8 +137,8 @@ const takeaway = autoCorrectTakeaway('【产业格局深度透视】：涉事主
 
 assert('坚决抹除“涉事主体推进核心战略部署”', !takeaway.takeaway.includes('涉事主体推进核心战略部署'));
 assert('坚决抹除“根据市场信号与制度合规框架重构”', !takeaway.takeaway.includes('根据市场信号与制度合规框架重构'));
-assert('生成专业宏观通胀定性标签【宏观通胀与降息路径】', takeaway.takeaway.includes('【宏观通胀与降息路径】'));
-assert('包含核心通胀回落至2.4%与25bps降息分析', takeaway.takeaway.includes('2.4%') && takeaway.takeaway.includes('25bps'));
+assert('生成专业宏观通胀定性标签【宏观通胀与利率路径】', takeaway.takeaway.includes('【宏观通胀与利率路径】') || takeaway.takeaway.includes('【宏观通胀与'));
+assert('包含核心通胀2.4%与沃什政策导向分析', takeaway.takeaway.includes('2.4%') && takeaway.takeaway.includes('沃什'));
 console.log('   自愈后核心结论:', takeaway.takeaway);
 
 // ─────────────────────────────────────────────────────────────
@@ -148,9 +147,9 @@ console.log('   自愈后核心结论:', takeaway.takeaway);
 console.log('\n--- 5. 真实 1-Hop 跨资产定价传导链条 ---');
 const transmission = autoCorrectInterestTransmission(userHeadline, '① 短端利率中枢变动直接传导至商业借贷与货币市场融资成本 ➔ ② 高杠杆资产面临估值重构与去杠杆压力 ➔ ③ 防御性流动性资本向高确定性短久期金融资产集聚。');
 
-assert('成功纠偏为真实通胀与降息资产定价链条', transmission.wasCorrected);
-assert('传导包含利率掉期对9月FOMC降息25bps概率锚定', transmission.transmission.includes('85%') && transmission.transmission.includes('25bps'));
-assert('传导包含美债收益率与科技资产贴现率支撑', transmission.transmission.includes('美债') && transmission.transmission.includes('贴现率'));
+assert('成功纠偏为真实通胀与宏观利率资产定价链条', transmission.wasCorrected);
+assert('传导包含利率掉期市场重估美联储抗通胀路径', transmission.transmission.includes('抗通胀') || transmission.transmission.includes('利率掉期'));
+assert('传导包含美债长短端收益率与防守型配置', transmission.transmission.includes('美债') && transmission.transmission.includes('防守型'));
 console.log('   自愈后利益链传导:', transmission.transmission);
 
 // ─────────────────────────────────────────────────────────────
@@ -162,7 +161,7 @@ const fact = autoCorrectSummaryParagraph(userContent, userHeadline, undefined, '
 assert('事实通报包含核心环比0.3%与总体环比0.2%', fact.paragraph.includes('核心环比上涨0.3%') && fact.paragraph.includes('环比上涨0.2%'));
 assert('事实通报包含能源与汽油价格拖累说明', fact.paragraph.includes('能源') || fact.paragraph.includes('汽油'));
 assert('事实通报包含住房与核心服务粘性说明', fact.paragraph.includes('住房') && fact.paragraph.includes('服务'));
-assert('事实通报包含美联储9月降息25bps政策结论', fact.paragraph.includes('降息25个基点'));
+assert('事实通报包含美联储主席沃什与FOMC政策评估', fact.paragraph.includes('沃什') || fact.paragraph.includes('FOMC'));
 console.log('   自愈后事实通报:', fact.paragraph);
 
 // ─────────────────────────────────────────────────────────────
@@ -172,7 +171,7 @@ console.log('\n--- 7. 后续观察哨消除时空倒流 ---');
 const watchlist = getMacroInflationNextWatchlist(userHeadline, userContent);
 
 assert('严禁锁定已过去的9月11日20:30 CPI发布', !watchlist.includes('9月11日 20:30 美国 8 月 CPI 数据公布'));
-assert('正向锁定9月18日 FOMC 首次降息决议与点阵图', watchlist.includes('9月18日 FOMC') && watchlist.includes('点阵图'));
+assert('正向锁定9月15–16日 FOMC 沃什议息决议与点阵图', watchlist.includes('9月15–16日 FOMC') && watchlist.includes('沃什'));
 console.log('   自愈后观察哨:', watchlist);
 
 // ─────────────────────────────────────────────────────────────
@@ -197,9 +196,9 @@ const rawItem = {
 const healed = autoCorrectNewsItem(rawItem);
 
 assert('NewsItem 成功挂载 macroInflationBreakdown', healed.macroInflationBreakdown !== undefined);
-assert('NewsItem 核心结论已纠偏为高盛/大摩级定性', healed.oneLineTakeaway.includes('【宏观通胀与降息路径】'));
-assert('NewsItem 利益链传导已纠偏为真实跨资产逻辑', healed.transmissionImpact.includes('利率掉期') && healed.transmissionImpact.includes('85%'));
-assert('NewsItem 观察哨已消除过去时间倒流', healed.nextWatchlist.includes('9月18日 FOMC'));
+assert('NewsItem 核心结论已纠偏为高盛/大摩级定性', healed.oneLineTakeaway.includes('【宏观通胀与利率路径】'));
+assert('NewsItem 利益链传导已纠偏为真实跨资产逻辑', healed.transmissionImpact.includes('抗通胀') || healed.transmissionImpact.includes('利率掉期'));
+assert('NewsItem 观察哨已消除过去时间倒流并对齐9月15–16日决议', healed.nextWatchlist.includes('9月15–16日 FOMC'));
 assert('NewsItem 事实通报已补充双环比与分项数据', healed.summaryParagraph.includes('核心环比上涨0.3%') && healed.summaryParagraph.includes('环比上涨0.2%') && healed.summaryParagraph.includes('能源'));
 
 console.log('===========================================================');

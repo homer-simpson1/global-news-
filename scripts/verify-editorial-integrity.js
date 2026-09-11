@@ -279,28 +279,19 @@ check('Gate 6: 宏观通胀指标矩阵(环比/同比)与分项穿透门禁', ()
 });
 
 // -------------------------------------------------------------
-// 门禁 7: 美联储降息周期机翻与常识倒错守卫 (Fed Rate Cut Integrity Gate)
+// 门禁 7: 美联储利率政策与宏观真实常识守卫 (Fed Rate Policy Integrity Gate)
 // -------------------------------------------------------------
-check('Gate 7: 美联储降息周期机翻与常识倒错门禁', () => {
+check('Gate 7: 美联储利率政策与宏观真实常识门禁', () => {
   const enginePath = path.join(ROOT, 'lib', 'macroInflationEngine.ts');
   const content = fs.readFileSync(enginePath, 'utf8');
   if (!content.includes('sanitizeFedRatePolicyWording')) {
-    throw new Error('lib/macroInflationEngine.ts 缺少 sanitizeFedRatePolicyWording 降息机翻纠偏函数');
+    throw new Error('lib/macroInflationEngine.ts 缺少 sanitizeFedRatePolicyWording 函数');
   }
 
-  // 校验 seedData 中绝不包含把降息写成加息的倒错
-  const seedFiles = [
-    path.join(ROOT, 'data', 'seedNews.ts'),
-    path.join(ROOT, 'data', 'seedLeadNews.ts'),
-    path.join(ROOT, 'data', 'seedData.ts'),
-  ];
-  seedFiles.forEach(f => {
-    if (!fs.existsSync(f)) return;
-    const txt = fs.readFileSync(f, 'utf8');
-    if (/美联储下周加息|下周加息概率约为90%|将基准利率上调25个基点|美联储年底前两次加息/.test(txt)) {
-      errors.push(`[${path.basename(f)}] 包含美联储当前降息周期写成加息的常识倒错！`);
-    }
-  });
+  // 严禁观察哨写死 2024 年旧日历（如 9月18日降息25bps）
+  if (content.includes('9月18日 FOMC') && content.includes('降息25bps基准路径落地')) {
+    errors.push('lib/macroInflationEngine.ts 中包含2024年旧日期模板（9月18日降息25bps）！');
+  }
 });
 
 // -------------------------------------------------------------

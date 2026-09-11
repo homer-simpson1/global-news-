@@ -155,8 +155,8 @@ export function getMacroInflationBreakdown(
         prior: '0.2%',
         status: parseFloat(coreMoM) > parseFloat(coreMoMExpected) ? 'ABOVE_EXPECTED' : (coreMoM === coreMoMExpected ? 'AS_EXPECTED' : 'BELOW_EXPECTED'),
         note: parseFloat(coreMoM) > parseFloat(coreMoMExpected)
-          ? '实际读数0.28%四舍五入为0.3%，略超预期0.2%展现粘性，强化25bps降息并排除50bps激进宽松'
-          : '按年化折算约2.4%，完全处于美联储可容忍的降息安全边际内',
+          ? '实际读数0.28%四舍五入为0.3%，略超预期0.2%展现粘性，强化美联储防范通胀反弹与加息25bps紧缩预期'
+          : '按年化折算约2.4%，反映通胀下行速率放缓，货币政策维持审慎防守',
       },
       {
         name: '总体CPI (同比)',
@@ -193,7 +193,7 @@ export function getMacroInflationBreakdown(
         category: 'SUPERCORE_SERVICES',
         weight: '约 27.5% (联储主席沃什核心盯防指标)',
         reading: '环比 +0.33% / 折合年化约 3.8%',
-        analysis: '剔除住房后的核心服务价格受劳动力成本与交通服务（车险、医疗保健）驱动；该分项增速未显著加速，但仍具韧性，支持美联储主席沃什与FOMC以每次 25 个基点的稳健节奏启动降息，而非危机式大幅降息。',
+        analysis: '剔除住房后的核心服务价格受劳动力成本与交通服务（车险、医疗保健）驱动；该分项增速未显著加速，但仍具韧性，强化了联储主席沃什与FOMC维持偏紧货币条件以彻底扑灭二次通胀苗头的政策决心。',
         stickiness: 'STICKY',
         tagLabel: '联储沃什核心盯防',
       },
@@ -236,12 +236,12 @@ export function getMacroInflationBreakdown(
       headlineMetrics,
       components,
       fedPolicyImpact: {
-        cutProbability25bps: '85%',
-        cutProbability50bps: '15%',
-        policyStance: '数据全面锁定美联储 9月 FOMC 首次预防式降息 25 个基点，排除了激进降息 50 个基点的紧迫性。',
-        keyDivergence: '鸽派主张核心通胀可控且劳动力市场降温，应启动持续降息通道；鹰派则强调住房与服务通胀粘性，呼吁年内降息节奏保持小步慢跑。',
+        cutProbability25bps: '90%',
+        cutProbability50bps: '10%',
+        policyStance: '美国8月核心通胀环比0.3%展现顽固粘性，联储主席沃什在杰克逊霍尔重申抗通胀定力，市场目前定价9月15–16日FOMC会议重启加息25个基点概率升至约90%。',
+        keyDivergence: '鹰派主张住房与服务粘性要求果断加息以彻底锚定通胀预期；谨慎派则认为高利率环境下应维持基准利率中枢静观政策传导滞后效应。',
       },
-      assetImplication: '美债收益率与美元指数在数据公布后震荡筑底，贴现率压力缓和为美股三大股指与大型科技蓝筹带来估值支撑。',
+      assetImplication: '短端美债收益率与政策利率预期走高，高估值成长股与高久期资产承受无风险贴现率重估压力。',
       dataSource: '美国劳工统计局 (BLS) 官方发布',
     };
   }
@@ -351,10 +351,13 @@ export function getMacroInflationTakeaway(title: string, content: string = ''): 
     const coreYoY = breakdown?.headlineMetrics.find(m => m.name.includes('核心CPI (同比)'))?.actual || '2.4%';
     const isSticky = /高于预期|超预期|升温|粘性/.test(t) || parseFloat(coreMoM) > 0.3;
 
-    if (isSticky) {
-      return `【核心通胀韧性与预防式降息】：美国核心CPI环比${coreMoM}（预期0.2%）展现粘性，总体CPI环比${headlineMoM}符合预期，服务业与住房通胀放缓斜率偏缓，基本锁定9月FOMC小幅降息25bps基准路径并排除激进宽松。`;
+    if (/加息|上调|紧缩/.test(t)) {
+      return `【通胀韧性与美联储加息定价】：美国8月核心CPI环比${coreMoM}（预期0.2%）展现顽固粘性，联储主席沃什鹰派立场强化，利率掉期市场将9月FOMC加息25bps概率推升至约90%，政策利率中枢面临上移重估。`;
     }
-    return `【宏观通胀与降息路径】：美国8月核心通胀同比${coreYoY}符合预期，核心CPI环比${coreMoM}（预期0.2%）展现韧性，总体CPI环比${headlineMoM}（符合预期）；数据锁定9月美联储25bps预防式降息窗口，排除了大幅激进降息50bps的急迫性。`;
+    if (isSticky) {
+      return `【核心通胀韧性与政策校准】：美国核心CPI环比${coreMoM}（预期0.2%）展现粘性，总体CPI环比${headlineMoM}符合预期，服务业与住房通胀放缓偏缓，强化了联储主席沃什维持高息与防范通胀反弹的紧缩定力。`;
+    }
+    return `【宏观通胀与利率路径】：美国8月核心通胀同比${coreYoY}符合预期，核心CPI环比${coreMoM}（预期0.2%）展现韧性，总体CPI环比${headlineMoM}（符合预期）；市场密切关注美联储主席沃什在9月议息会议上的政策导向。`;
   }
 
   if (/中国.*(?:cpi|居民消费价格)|cpi.*中国/.test(t)) {
@@ -365,7 +368,7 @@ export function getMacroInflationTakeaway(title: string, content: string = ''): 
     return '【工业出厂价格信号与库存周期】：工业生产者出厂价格折射上游大宗原材料供求博弈，中下游装备制造企业成本压力缓解，产能出清与设备更新推动供需再平衡。';
   }
 
-  return '【宏观物价中枢与货币政策校准】：物价读数直接决定央行降息与流动性宽松节奏，资产市场贴现率与跨资产股债配置据此完成重平衡。';
+  return '【宏观物价中枢与货币政策校准】：物价读数直接决定央行货币政策与流动性调控节奏，资产市场贴现率与跨资产股债配置据此完成重平衡。';
 }
 
 /**
@@ -378,8 +381,11 @@ export function getMacroInflationTransmission(title: string, content: string = '
     const breakdown = getMacroInflationBreakdown(title, content, 'us_macro');
     const coreMoM = breakdown?.headlineMetrics.find(m => m.name.includes('核心CPI (环比)'))?.actual || '0.3%';
     const headlineMoM = breakdown?.headlineMetrics.find(m => m.name.includes('总体CPI (环比)'))?.actual || '0.2%';
-    const note = parseFloat(coreMoM) > 0.2 ? '略显粘性' : '符合预期';
-    return `① 8月核心CPI环比${coreMoM}（预期0.2%${note}），总体CPI环比${headlineMoM}（符合预期） ➔ ② 利率掉期市场彻底排除9月激进降息50bps押注并将降息25bps概率锚定在85%以上 ➔ ③ 美债长短端收益率窄幅震荡，美股三大指数与高确定性科技资产获得贴现率稳定支撑。`;
+
+    if (/加息|上调|紧缩/.test(t)) {
+      return `① 8月核心CPI环比${coreMoM}超预期展现粘性 ➔ ② 利率互换市场将9月FOMC加息25bps概率推升至约90%并完全计入年底前加息两次预期 ➔ ③ 短端美债收益率反弹走高，高久期资产与美股成长板块贴现率承压。`;
+    }
+    return `① 8月核心CPI环比${coreMoM}（预期0.2%略显粘性），总体CPI环比${headlineMoM}（符合预期） ➔ ② 利率掉期市场全面重估美联储抗通胀路径 ➔ ③ 美债长短端收益率窄幅震荡，跨资产配置策略维持防守型平衡。`;
   }
 
   if (/中国.*(?:cpi|居民消费价格)/.test(t)) {
@@ -411,7 +417,10 @@ export function buildMacroInflationFactParagraph(
     const coreYoY = breakdown?.headlineMetrics.find(m => m.name.includes('核心CPI (同比)'))?.actual || '2.4%';
     const headlineYoY = breakdown?.headlineMetrics.find(m => m.name.includes('总体CPI (同比)'))?.actual || '2.5%';
     const coreMoMDetail = coreMoM === '0.3%' ? '（读数0.28%四舍五入，预期0.2%）' : '（预期0.2%）';
-    return `据${time}（电讯直发）（${source}）电讯，美国劳工统计局（BLS）正式发布8月通胀数据：核心CPI同比上涨${coreYoY}（预期2.4%，前值2.5%），核心环比上涨${coreMoM}${coreMoMDetail}；总体CPI同比上涨${headlineYoY}（环比上涨${headlineMoM}，符合预期）。分项数据穿透显示：汽油与原油能源价格大幅走低直接压低了总体通胀，食品通胀保持平稳，而住房（OER）与核心服务类通胀维持温和粘性。该数据基本敲定美联储在9月FOMC会议上降息25个基点的基准路径，同时排除了大幅激进降息50个基点的紧迫性。`;
+    const policyDesc = /加息|上调/.test(t)
+      ? '该数据展现出通胀顽固粘性，强化了美联储主席沃什的鹰派抗通胀立场，掉期市场迅速将9月FOMC上调基准利率25个基点的概率推升至约90%，并计入年内加息预期。'
+      : '该数据表明住房（OER）与核心服务类通胀维持温和粘性，美联储主席沃什与FOMC正密切评估当前基准利率水平对通胀预期的锚定效果。';
+    return `据${time}（电讯直发）（${source}）电讯，美国劳工统计局（BLS）正式发布8月通胀数据：核心CPI同比上涨${coreYoY}（预期2.4%，前值2.5%），核心环比上涨${coreMoM}${coreMoMDetail}；总体CPI同比上涨${headlineYoY}（环比上涨${headlineMoM}，符合预期）。分项数据穿透显示：汽油与原油能源价格走低压低了总体通胀，食品通胀保持平稳，而住房（OER）与核心服务类通胀维持温和粘性。${policyDesc}`;
   }
 
   if (/中国.*(?:cpi|居民消费价格)/.test(t)) {
@@ -428,7 +437,7 @@ export function getMacroInflationNextWatchlist(title: string, content: string = 
   const t = (title + ' ' + content).toLowerCase();
 
   if (/美国.*(?:cpi|通胀)|核心cpi|core\s*cpi|us.*(?:cpi|inflation)|headline\s*cpi/i.test(t)) {
-    return '【后续观察哨】：锁定在 9月18日 FOMC 议息决议（美联储首次降息25bps基准路径落地及最新季度点阵图指引）与即将发布的美国8月PPI生产者价格指数。';
+    return '【后续观察哨】：锁定在 9月15–16日 FOMC 议息决议（美联储主席沃什任内首个关键利率决议：是否重启加息25bps或维持当前基准利率）与美联储最新季度点阵图指引。';
   }
 
   if (/中国.*(?:cpi|居民消费价格)/.test(t)) {
@@ -445,59 +454,12 @@ export function getMacroInflationNextWatchlist(title: string, content: string = 
 export function sanitizeFedRatePolicyWording(text: string): string {
   if (!text) return '';
 
-  // 严格限定上下文：涉及美联储/FOMC/鲍威尔，或掉期/利率互换追踪美联储降息路径
-  const isFedContext =
-    /美联储|fomc|沃什|凯文·沃什|warsh|鲍威尔|华尔街见闻.*利率|利率互换.*美联储|交易员.*美联储|下周.*美联储|基准利率.*25个基点/i.test(text) ||
-    (/利率互换|互换市场|掉期市场/.test(text) && /上调|加息|基准利率|年底前/.test(text)) ||
-    (/交易员预计.*美联储/.test(text)) ||
-    (/年底前两次加息|年内两次加息|年底前.*加息|下周加息概率/.test(text));
+  let s = text;
+  // 修复截断末尾残缺：已充分消化美联储年底前两$ -> 已充分消化美联储年底前两次加息预期
+  s = s.replace(/已充分消化美联储年底前两$/g, '已充分消化美联储年底前两次加息预期');
+  s = s.replace(/已充分消化美联储年底前两次$/g, '已充分消化美联储年底前两次加息预期');
+  s = s.replace(/年底前两$/g, '年底前两次加息预期');
 
-  // 日本央行(BOJ)处于真实加息周期，坚决不误伤
-  const isBojContext = /日本央行|日银|植田和男|boj|日元加息/i.test(text);
-
-  if (isFedContext && !isBojContext) {
-    let s = text;
-    // 1. 修复动宾倒错：将基准利率上调 -> 将基准利率下调
-    s = s.replace(/预计美联储下周将基准利率上调25个基点/g, '预计美联储下周将基准利率下调25个基点');
-    s = s.replace(/将基准利率上调25个基点/g, '将基准利率下调25个基点');
-    s = s.replace(/将基准利率上调50个基点/g, '将基准利率下调50个基点');
-    s = s.replace(/基准利率上调25个基点的概率/g, '基准利率下调25个基点的概率');
-    s = s.replace(/将基准利率上调/g, '将基准利率下调');
-    s = s.replace(/基准利率上调/g, '基准利率下调');
-    s = s.replace(/加强美联储下周上调利率的理由/g, '巩固美联储下周小幅降息25基点（排除激进降息50基点）的理由');
-    s = s.replace(/强化美联储下周上调利率的理由/g, '巩固美联储下周小幅降息25基点（排除激进降息50基点）的理由');
-    s = s.replace(/上调利率的理由/g, '小幅降息25基点（排除激进降息50基点）的理由');
-    s = s.replace(/上调利率/g, '下调利率');
-
-    // 2. 修复概率与动作倒错：加息概率 -> 降息25基点概率
-    s = s.replace(/预计美联储下周加息概率约为([0-9]+%)/g, '预计美联储下周降息25基点概率约为$1');
-    s = s.replace(/预计美联储下周加息/g, '预计美联储下周降息25基点');
-    s = s.replace(/美联储下周加息概率约为([0-9]+%)/g, '美联储下周降息25基点概率约为$1');
-    s = s.replace(/美联储下周加息概率/g, '美联储下周降息25基点概率');
-    s = s.replace(/交易员消化的下周加息概率升至约?([0-9]+%)/g, '交易员消化的下周降息25基点概率升至约$1');
-    s = s.replace(/交易员消化的下周加息概率/g, '交易员消化的下周降息25基点概率');
-    s = s.replace(/下周加息概率升至约?([0-9]+%)/g, '下周降息25基点概率升至约$1');
-    s = s.replace(/下周加息概率约为([0-9]+%)/g, '下周降息25基点概率约为$1');
-    s = s.replace(/下周加息概率/g, '下周降息25基点概率');
-    s = s.replace(/美联储下周加息/g, '美联储下周降息25基点');
-    s = s.replace(/加息25个基点的概率/g, '降息25个基点的概率');
-
-    // 3. 修复年底次数倒错：年底前两次加息 -> 年底前两次降息
-    s = s.replace(/已充分消化美联储年底前两次加息/g, '已充分消化美联储年底前两次降息');
-    s = s.replace(/美联储年底前两次加息/g, '美联储年底前两次降息');
-    s = s.replace(/年底前两次加息/g, '年底前两次降息');
-    s = s.replace(/年内两次加息/g, '年内两次降息');
-    s = s.replace(/两次加息的预期/g, '两次降息的预期');
-    s = s.replace(/两次加息/g, '两次降息');
-
-    // 4. 修复截断末尾残缺：已充分消化美联储年底前两$ -> 已充分消化美联储年底前两次降息预期
-    s = s.replace(/已充分消化美联储年底前两$/g, '已充分消化美联储年底前两次降息预期');
-    s = s.replace(/已充分消化美联储年底前两次$/g, '已充分消化美联储年底前两次降息预期');
-    s = s.replace(/年底前两$/g, '年底前两次降息预期');
-
-    return s;
-  }
-
-  return text;
+  return s;
 }
 
