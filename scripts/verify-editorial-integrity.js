@@ -254,8 +254,28 @@ check('Gate 7: 深度传导 1-Hop 一级直接因果与 5W1H 结论定性审校'
       if (!takeaway.startsWith('【') || !takeaway.includes('】：')) {
         errors.push(`[${relName}] 核心结论 #${idx + 1} 缺少机构专业定性标签（格式必须为 "【定性标签】：..."）: "${takeaway}"`);
       }
+      if (takeaway.includes('涉事主体推进核心战略部署')) {
+        errors.push(`[${relName}] 核心结论 #${idx + 1} 违规包含企业流水线套话: "${takeaway}"`);
+      }
     });
   });
+});
+
+// -------------------------------------------------------------
+// 门禁 6: 宏观通胀指标矩阵与深度穿透完整性校验 (Macro Inflation Gate)
+// -------------------------------------------------------------
+check('Gate 6: 宏观通胀指标矩阵(环比/同比)与分项穿透门禁', () => {
+  const enginePath = path.join(ROOT, 'lib', 'macroInflationEngine.ts');
+  if (!fs.existsSync(enginePath)) {
+    throw new Error('找不到 lib/macroInflationEngine.ts 宏观通胀深度解析引擎！');
+  }
+  const content = fs.readFileSync(enginePath, 'utf8');
+  if (!content.includes('getMacroInflationBreakdown') || !content.includes('buildMacroInflationFactParagraph')) {
+    throw new Error('lib/macroInflationEngine.ts 缺少核心解析或事实生成函数');
+  }
+  if (!content.includes('SHELTER') || !content.includes('SUPERCORE_SERVICES') || !content.includes('FOOD') || !content.includes('ENERGY')) {
+    throw new Error('lib/macroInflationEngine.ts 缺少核心分项穿透定义（住房、超级核心服务、食品、能源）');
+  }
 });
 
 // -------------------------------------------------------------

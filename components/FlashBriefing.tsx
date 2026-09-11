@@ -3,12 +3,13 @@
 import React, { useState } from 'react';
 import { FlashBrief } from '@/lib/types';
 import { TRACK_THEMES } from '@/lib/trackThemes';
-import { Zap, ChevronDown, ChevronUp, ExternalLink, Sparkles, Search, AlertTriangle, ShieldAlert, Building2 } from 'lucide-react';
+import { Zap, ChevronDown, ChevronUp, ExternalLink, Sparkles, Search, AlertTriangle, ShieldAlert, Building2, BarChart3, Layers, Activity } from 'lucide-react';
 import Summary5W1HView from './Summary5W1HView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
 import { isWithin24Hours } from '@/lib/timeUtils';
 import { getCompanyProfileForNews, CompanyProfile } from '@/lib/companyProfiles';
 import { autoCorrectTakeaway, autoCorrectInterestTransmission } from '@/lib/selfHealingEngine';
+import { getMacroInflationBreakdown, isMacroInflationNews, MacroInflationBreakdown } from '@/lib/macroInflationEngine';
 
 interface FlashBriefingProps {
   briefs: FlashBrief[];
@@ -277,6 +278,40 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                       <p className="text-slate-700 dark:text-slate-300 font-normal leading-relaxed">
                         {companyProfile.description}
                       </p>
+                    </div>
+                  );
+                })()}
+
+                {/* 宏观通胀关键指标矩阵穿透 (双环比/双同比与5大分项) */}
+                {(() => {
+                  const macroBreakdown = brief.macroInflationBreakdown || getMacroInflationBreakdown(parsed.title, brief.content, brief.track);
+                  if (!macroBreakdown) return null;
+                  return (
+                    <div className="mb-2.5 p-2.5 rounded-xl bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-cyan-50/40 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-slate-900 border border-emerald-200/80 dark:border-emerald-800/60 text-xs">
+                      <div className="flex items-center justify-between gap-1.5 font-extrabold text-emerald-900 dark:text-emerald-300 mb-2 flex-wrap">
+                        <span className="flex items-center gap-1.5">
+                          <BarChart3 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                          <span>【宏观通胀关键指标矩阵 · 核心与总体双环比/同比穿透】</span>
+                        </span>
+                        <span className="px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 font-bold text-[10px]">
+                          {macroBreakdown.period}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-2">
+                        {macroBreakdown.headlineMetrics.map((m, idx) => (
+                          <div key={idx} className="p-1.5 rounded bg-white/80 dark:bg-slate-800/80 border border-emerald-100 dark:border-emerald-900/40">
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{m.name}</div>
+                            <div className="text-sm font-black text-emerald-700 dark:text-emerald-300 font-mono">{m.actual}</div>
+                            <div className="text-[9px] text-slate-400 truncate">预期: {m.expected || '-'}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="pt-1 border-t border-emerald-100 dark:border-emerald-900/40 text-[11px] text-slate-600 dark:text-slate-300 flex items-center justify-between">
+                        <span>住房(+0.4%粘性)、超级核心(+0.33%)、食品(+0.1%降温)、能源(-0.8%负拉动)</span>
+                        {macroBreakdown.fedPolicyImpact && (
+                          <span className="font-mono text-emerald-700 dark:text-emerald-400 font-bold">25bps: {macroBreakdown.fedPolicyImpact.cutProbability25bps}</span>
+                        )}
+                      </div>
                     </div>
                   );
                 })()}

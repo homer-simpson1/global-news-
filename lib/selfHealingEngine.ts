@@ -17,9 +17,18 @@ import {
   Summary5W1H,
   DisasterTracker,
   CompanyProfile,
+  MacroInflationBreakdown,
 } from './types';
 import { getTimeDiffHours, calculateTrackedDays } from './timeUtils';
 import { getCompanyProfileForNews } from './companyProfiles';
+import {
+  getMacroInflationBreakdown,
+  isMacroInflationNews,
+  getMacroInflationTakeaway,
+  getMacroInflationTransmission,
+  buildMacroInflationFactParagraph,
+  getMacroInflationNextWatchlist,
+} from './macroInflationEngine';
 
 
 // 权威机构官方安全站点映射字典
@@ -307,8 +316,19 @@ export function autoCorrectInterestTransmission(
     } else if (/芯片|算力|半导体|晶圆|代工|hbm/.test(titleLower)) {
       text = '① 核心芯片技术突破与先进制程供给扩容直接缓解下游采购瓶颈 ➔ ② 云厂商与智能终端加速软硬件协同适配以降低综合运营成本 ➔ ③ 自主可控硬件供应链生态整体成熟度与交付韧性提升。';
       wasCorrected = true;
+    } else if (isMacroInflationNews(titleLower) || /cpi|通胀|ppi|pce/.test(titleLower)) {
+      text = getMacroInflationTransmission(title, '');
+      wasCorrected = true;
     } else {
       text = '① 事件冲击直接影响核心当事方的资产与负债结构 ➔ ② 产业链与合作方依据合同与市场规则传导成本收益 ➔ ③ 边际供求关系与资产风险溢价完成动态重定价。';
+      wasCorrected = true;
+    }
+  }
+
+  // 宏观通胀与利率政策专属精准传导 (解决泛化与空洞问题)
+  if (isMacroInflationNews(titleLower) || /cpi|通胀|ppi|pce/.test(titleLower)) {
+    if (!text || /商业借贷与货币市场融资成本|高杠杆资产面临估值重构|宏观数据发布直接引导市场利率预期/.test(text) || text.length < 20) {
+      text = getMacroInflationTransmission(title, '');
       wasCorrected = true;
     }
   }
@@ -622,6 +642,7 @@ export function autoCorrectTakeaway(
     !text ||
     text.length < 12 ||
     isEcho ||
+    /涉事主体推进核心战略部署|根据市场信号与制度合规框架重构/.test(text) ||
     /使得市场面临现实痛点/.test(text) ||
     /【.*?】[：:]*\s*$/.test(text) ||
     /【.*?】[：:]*[，,、。.\s]+$/.test(text) ||
@@ -642,6 +663,14 @@ export function autoCorrectTakeaway(
     if (cleaned.length >= 12 && !/【.*?】[：:]*[，,、。.\s]*$/.test(cleaned) && !isHeadlineEcho(cleaned, cleanTitle)) {
       return { takeaway: cleaned, wasCorrected: cleaned !== text };
     }
+  }
+
+  // 宏观通胀与利率政策专属定性 (彻底解决涉事主体推进核心战略部署等胡编乱造)
+  if (isMacroInflationNews(cleanTitleLower) || /cpi|通胀|ppi|pce/.test(cleanTitleLower)) {
+    return {
+      takeaway: sanitizeEditorialTone(getMacroInflationTakeaway(cleanTitle)),
+      wasCorrected: true,
+    };
   }
 
   // 深度智能重构：基于事件本质与机构投研视角，生成真正的定性结论（绝不无脑抄标题！）
@@ -742,6 +771,12 @@ export function autoCorrectSummaryParagraph(
       .trim();
     if (cleaned.length >= 18) {
       const cleanTitle = title.replace(/^[【\[][^】\]]+[】\]]/, '').trim();
+      if (isMacroInflationNews(cleanTitle.toLowerCase())) {
+        if (!cleaned.includes('环比') || !cleaned.includes('分项') || (!cleaned.includes('能源') && !cleaned.includes('食品'))) {
+          cleaned = buildMacroInflationFactParagraph(cleanTitle, cleaned, source, time);
+          return { paragraph: sanitizeEditorialTone(cleaned), wasCorrected: true };
+        }
+      }
       const profile = getCompanyProfileForNews(cleanTitle, cleaned);
       if (profile && !cleaned.includes(profile.sector) && !cleaned.includes(profile.description.slice(0, 10))) {
         cleaned += ` 涉事主体${profile.name}（${profile.sector}）：${profile.description}`;
@@ -755,6 +790,14 @@ export function autoCorrectSummaryParagraph(
   const cleanTitle = title.replace(/^[【\[][^】\]]+[】\]]/, '').trim();
   const timePrefix = time ? `据${time}` : '据电讯';
   const sourceName = source || '权威电讯';
+
+  if (isMacroInflationNews(cleanTitle.toLowerCase())) {
+    return {
+      paragraph: sanitizeEditorialTone(buildMacroInflationFactParagraph(cleanTitle, text, sourceName, time)),
+      wasCorrected: true,
+    };
+  }
+
   const what = (summary5W1H?.what || cleanTitle).replace(/[。！!.]+$/, '').trim();
   const why = (summary5W1H?.why || '').replace(/[。！!.]+$/, '').trim();
   const consequence = (summary5W1H?.consequence || '').replace(/[。！!.]+$/, '').trim();
@@ -827,6 +870,8 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   const correctedTracker = autoCorrectDisasterTracker(item.disasterTracker);
 
   const cleanTitle = sanitizeEditorialTone(correctedTitle);
+  const cleanTitleLower = cleanTitle.toLowerCase();
+  const cleanTransmission = sanitizeEditorialTone(correctedTransmission);
 
   // 核心结论深度自愈（彻底杜绝标题复读与八股破损）
   const { takeaway: cleanTakeaway } = autoCorrectTakeaway(
@@ -836,8 +881,10 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
     correctedTrack
   );
 
-  const cleanTransmission = sanitizeEditorialTone(correctedTransmission);
-  const cleanWatchlist = sanitizeEditorialTone(item.nextWatchlist || '');
+  let cleanWatchlist = sanitizeEditorialTone(item.nextWatchlist || '');
+  if (isMacroInflationNews(cleanTitleLower) && /9月11日\s*20:30/.test(cleanWatchlist)) {
+    cleanWatchlist = getMacroInflationNextWatchlist(cleanTitle, item.summaryParagraph);
+  }
 
   // 事实段落总结深度自愈（讲清具体来龙去脉并融入企业主体速览）
   const { paragraph: cleanParagraph } = autoCorrectSummaryParagraph(
@@ -851,6 +898,9 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   // 涉事主体档案检索与挂载
   const detectedProfile = item.companyProfile || getCompanyProfileForNews(cleanTitle, item.summaryParagraph || item.bulletPoints?.join(' '));
 
+  // 宏观通胀关键指标矩阵（双环比/双同比与5大分项穿透）检索与挂载
+  const detectedMacro = item.macroInflationBreakdown || getMacroInflationBreakdown(cleanTitle, cleanParagraph || item.summaryParagraph || item.bulletPoints?.join(' '), correctedTrack);
+
   const details: string[] = [];
   if (cleanTitle !== item.title) details.push('标题脱水去噪与结构重组');
   if (cleanTakeaway !== item.oneLineTakeaway) details.push('深度透视投研语态标准化去口水化');
@@ -860,6 +910,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   if (correctedTime !== item.publishedAt || correctedWindow !== item.timeWindow) details.push('时效动态降级纠偏');
   if (correctedSentiment !== item.sentiment || correctedLevel !== item.impactLevel) details.push('情绪定级与冲击烈度对齐');
   if (detectedProfile && !item.companyProfile) details.push(`涉事企业主体档案挂载: ${detectedProfile.name}`);
+  if (detectedMacro && !item.macroInflationBreakdown) details.push('宏观通胀关键指标矩阵(环比/同比)与分项穿透挂载');
 
   const isAutoCorrected = details.length > 0;
 
@@ -877,6 +928,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
     nextWatchlist: cleanWatchlist,
     summary5W1H: corrected5W1H,
     companyProfile: detectedProfile || undefined,
+    macroInflationBreakdown: detectedMacro || undefined,
     sentiment: correctedSentiment,
     impactLevel: correctedLevel,
     disasterTracker: correctedTracker,
@@ -943,6 +995,7 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
   );
 
   const detectedProfile = flash.companyProfile || getCompanyProfileForNews(cleanContent, flash.summaryParagraph);
+  const detectedMacro = flash.macroInflationBreakdown || getMacroInflationBreakdown(cleanContent, cleanParagraph || flash.summaryParagraph, correctedTrack);
 
   const details: string[] = [];
   if (cleanContent !== flash.content) details.push('内容脱水去噪与标点重组');
@@ -951,6 +1004,7 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
   if (correctedSource !== flash.source) details.push('信源一致性纠偏');
   if (cleanTransmission !== flash.transmission) details.push('利益链1-Hop真实因果修复');
   if (detectedProfile && !flash.companyProfile) details.push(`企业主体档案挂载: ${detectedProfile.name}`);
+  if (detectedMacro && !flash.macroInflationBreakdown) details.push('宏观通胀关键指标矩阵(环比/同比)与分项穿透挂载');
 
   const isAutoCorrected = details.length > 0;
 
@@ -967,6 +1021,7 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
     nextWatchlist: cleanWatchlist,
     summary5W1H: corrected5W1H,
     companyProfile: detectedProfile || undefined,
+    macroInflationBreakdown: detectedMacro || undefined,
     sentiment: correctedSentiment,
     impactLevel: correctedLevel,
     isAutoCorrected,

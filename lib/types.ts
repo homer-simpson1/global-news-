@@ -1,5 +1,6 @@
 import type { CompanyProfile } from './companyProfiles';
-export type { CompanyProfile };
+import type { MacroInflationBreakdown } from './macroInflationEngine';
+export type { CompanyProfile, MacroInflationBreakdown };
 
 export type TrackId = 
   | 'us_macro' 
@@ -81,6 +82,7 @@ export interface NewsItem {
   summaryParagraph?: string; // 遵守 5W1H 原则的一段连贯深度小结
   summary5W1H?: Summary5W1H;
   companyProfile?: CompanyProfile; // 涉事核心主体/企业业务与生态背景速览
+  macroInflationBreakdown?: MacroInflationBreakdown; // 宏观通胀关键指标矩阵（环比/同比）与分项深度穿透
   verificationLevel?: 'CROSS_VERIFIED' | 'OFFICIAL_DECREE' | 'SINGLE_SOURCE_FAST' | 'UNILATERAL_CLAIM';
   verificationBadge?: string;
   crossSourceCount?: number;
@@ -112,6 +114,7 @@ export interface FlashBrief {
   summaryParagraph?: string; // 遵守 5W1H 原则的一段连贯深度小结
   summary5W1H?: Summary5W1H;
   companyProfile?: CompanyProfile; // 涉事核心主体/企业业务与生态背景速览
+  macroInflationBreakdown?: MacroInflationBreakdown; // 宏观通胀关键指标矩阵（环比/同比）与分项深度穿透
   verificationLevel?: 'CROSS_VERIFIED' | 'OFFICIAL_DECREE' | 'SINGLE_SOURCE_FAST' | 'UNILATERAL_CLAIM';
   verificationBadge?: string;
   crossSourceCount?: number;

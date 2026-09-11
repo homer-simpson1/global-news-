@@ -4,6 +4,14 @@ import { fetchVerifiedMarketQuotes, getCachedVerifiedQuotesSnapshot } from './qu
 import { enforceCountryEntityGuardrails, checkCrossContamination, validateTitleSummaryEntityConsistency, FOREIGN_ENTITIES } from './guardrails';
 import { autoCorrectAllNews, autoCorrectFlashBrief } from './selfHealingEngine';
 import { getCompanyProfileForNews } from './companyProfiles';
+import {
+  getMacroInflationBreakdown,
+  isMacroInflationNews,
+  getMacroInflationTakeaway,
+  getMacroInflationTransmission,
+  buildMacroInflationFactParagraph,
+  getMacroInflationNextWatchlist,
+} from './macroInflationEngine';
 
 let cachedNews: NewsItem[] | null = null;
 let cachedFlash: FlashBrief[] | null = null;
@@ -1365,7 +1373,10 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
 
   // 兜底真实利益链条逻辑 (严格执行 1-Hop 标准)
   if (track === 'us_macro') {
-    if (/利率|美联储|加息|降息|国债|美债|收益率|流动性|借贷|通胀|cpi|非农/.test(t)) {
+    if (isMacroInflationNews(t) || /cpi|通胀|ppi|pce/.test(t)) {
+      return getMacroInflationTransmission(title, content);
+    }
+    if (/利率|美联储|加息|降息|国债|美债|收益率|流动性|借贷|非农/.test(t)) {
       return '① 短端利率中枢变动直接传导至商业借贷与货币市场融资成本 ➔ ② 高杠杆资产面临估值重构与去杠杆压力 ➔ ③ 防御性流动性资本向高确定性短久期金融资产集聚。';
     }
     if (/美股|纳斯达克|标普|道琼斯|期指|科技股|财报/.test(t)) {
@@ -1628,6 +1639,11 @@ export function generateCoreTakeaway(
     return '【资本市场定价与流动性溢价】：标的企业完成上市并获二级市场流动性重估，募集资金直接扩充资本实力并加速核心业务扩张交付。';
   }
 
+  // ── 宏观通胀数据专属核心结论（高盛/大摩级投研定性，严禁企业套话与复读标题）──
+  if (isMacroInflationNews(t) || /cpi|通胀|ppi|pce/.test(t)) {
+    return sanitizeEditorialTone(getMacroInflationTakeaway(cleanTitle, content));
+  }
+
   // 1. 核心主体与商业现实硬核直击（5W1H 闭环 + 硬核数字）
   if (/台积电|2nm|先进制程|晶圆/.test(t)) {
     return '【先进制程定价权确认】：供应链消息显示台积电 (TSMC) 计划针对 2nm 先进制程代工报价上调 10%~15%；苹果与英伟达为锁定首批排产份额已全额锁定前两批晶圆配额，推升次世代旗舰硬件采购成本中枢。';
@@ -1871,8 +1887,11 @@ function generateNextWatchlist(title: string, content: string, track: TrackId): 
   if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
     return '【后续观察哨】：锁定在 英国央行货币政策委员会（MPC）议息纪要与英国核心通胀及薪资增长数据。';
   }
-  if (/美联储|降息|加息|非农|cpi|通胀|美债|收益率/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
-    return '【后续观察哨】：锁定在 9月11日 20:30 美国 8 月 CPI 数据公布与 9 月 FOMC 议息决议。';
+  if (isMacroInflationNews(t) || /cpi|通胀/.test(t)) {
+    return getMacroInflationNextWatchlist(title, content);
+  }
+  if (/美联储|降息|加息|非农|美债|收益率/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
+    return '【后续观察哨】：锁定在 9月18日 FOMC 议息决议（降息25bps基准路径落地）与美联储最新季度点阵图指引。';
   }
   if (/台积电|先进制程|2nm|晶圆|芯片|半导体|英伟达|算力|asml/.test(t)) {
     return '【后续观察哨】：锁定在 下周英伟达全球开发者峰会及台积电投资人法说会资本开支指引。';
@@ -2433,6 +2452,7 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
   const cross = evaluateCrossVerification(raw, rawItems, primary);
   const isUnilateral = checkUnilateralClaim(cleanRawTitle, cleanRawContent);
   const companyProfile = getCompanyProfileForNews(enrichedTitle, cleanRawContent);
+  const macroBreakdown = getMacroInflationBreakdown(enrichedTitle, cleanRawContent, track);
 
   const verificationLevel = isUnilateral ? 'UNILATERAL_CLAIM' : cross.verificationLevel;
   const verificationBadge = isUnilateral ? '【单方通报·待验证】' : cross.verificationBadge;
@@ -2454,6 +2474,7 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
     summaryParagraph,
     summary5W1H,
     companyProfile: companyProfile || undefined,
+    macroInflationBreakdown: macroBreakdown || undefined,
     verificationLevel,
     verificationBadge,
     crossSourceCount: cross.crossSourceCount,

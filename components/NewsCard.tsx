@@ -3,13 +3,21 @@
 import React, { useState } from 'react';
 import { NewsItem } from '@/lib/types';
 import { TrackVisualTheme, TRACK_THEMES } from '@/lib/trackThemes';
-import { ExternalLink, BookOpen, Sparkles, ChevronDown, ChevronUp, Award, Search, AlertTriangle, ShieldAlert, Building2 } from 'lucide-react';
+import { ExternalLink, BookOpen, Sparkles, ChevronDown, ChevronUp, Award, Search, AlertTriangle, ShieldAlert, Building2, BarChart3, TrendingDown, TrendingUp, Layers, Activity } from 'lucide-react';
 import Summary5W1HView from './Summary5W1HView';
 import DisasterTrackerView from './DisasterTrackerView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
 import { isWithin24Hours, calculateTrackedDays } from '@/lib/timeUtils';
 import { getCompanyProfileForNews, CompanyProfile } from '@/lib/companyProfiles';
 import { isHeadlineEcho } from '@/lib/selfHealingEngine';
+import {
+  getMacroInflationBreakdown,
+  isMacroInflationNews,
+  getMacroInflationTakeaway,
+  getMacroInflationTransmission,
+  buildMacroInflationFactParagraph,
+  MacroInflationBreakdown,
+} from '@/lib/macroInflationEngine';
 
 interface NewsCardProps {
   item: NewsItem;
@@ -49,6 +57,14 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
     );
   }, [item.companyProfile, cleanTitle, item.summaryParagraph, item.bulletPoints]);
 
+  // 宏观通胀关键分项矩阵穿透检索 (解决“环比不说、核心/服务/食品分项不说”)
+  const macroBreakdown: MacroInflationBreakdown | null = React.useMemo(() => {
+    return (
+      item.macroInflationBreakdown ||
+      getMacroInflationBreakdown(cleanTitle, item.summaryParagraph || (item.bulletPoints && item.bulletPoints.join(' ')), item.track)
+    );
+  }, [item.macroInflationBreakdown, cleanTitle, item.summaryParagraph, item.bulletPoints, item.track]);
+
   // 1. 核心事实客观叙事通报（直接讲清具体是怎么样的，前因后果与最新进展，彻底消除没头没尾）
   const factParagraph = React.useMemo(() => {
     // A. 优先使用已清洗合规的 summaryParagraph
@@ -82,9 +98,14 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       text = `据${item.source}通报：${cleanTitle}。涉事机构与监管部门正依法依规推进后续处置与风险应对。`;
     }
 
+    // 若属于宏观通胀数据且信息过于单薄缺乏环比/分项，执行事实强化补全
+    if (isMacroInflationNews(cleanTitle.toLowerCase()) && (!text.includes('环比') || !text.includes('分项') || (!text.includes('能源') && !text.includes('食品')))) {
+      text = buildMacroInflationFactParagraph(cleanTitle, text, item.source, item.publishedAt);
+    }
+
     // 若本卡片未独立展示【涉事主体速览】展位，且事实文本尚未介绍企业背景，无缝融入企业业务定位
     // 若已独立展示【涉事主体速览】展位，则客观事实通报专注叙述5W1H客观事件本身，杜绝上下相邻两栏机械复读
-    if (!companyProfile && !text.includes('核心业务概况方面')) {
+    if (!companyProfile && !macroBreakdown && !text.includes('核心业务概况方面')) {
       const fallbackProfile = getCompanyProfileForNews(cleanTitle, text);
       if (fallbackProfile && !text.includes(fallbackProfile.description.slice(0, 10)) && !text.includes(fallbackProfile.sector)) {
         text += ` 核心业务概况方面，${fallbackProfile.name}系${fallbackProfile.description}`;
@@ -92,7 +113,7 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
     }
 
     return text;
-  }, [item.summaryParagraph, item.summary5W1H, item.bulletPoints, cleanTitle, item.publishedAt, item.source, companyProfile]);
+  }, [item.summaryParagraph, item.summary5W1H, item.bulletPoints, cleanTitle, item.publishedAt, item.source, companyProfile, macroBreakdown]);
 
   // 2. 核心结论安全容灾（坚决铲除标题机械复读与八股破损）
   const displayTakeaway = React.useMemo(() => {
@@ -104,6 +125,7 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       !t ||
       t.length < 12 ||
       isEcho ||
+      /涉事主体推进核心战略部署|根据市场信号与制度合规框架重构/.test(t) ||
       t.includes('使得市场面临现实痛点') ||
       /【.*?】[：:]*\s*$/.test(t) ||
       /【.*?】[：:]*[，,、。.\s]+$/.test(t) ||
@@ -112,6 +134,9 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       t === '【商业现实透视】。' ||
       t === '【AI算力架构演进】。'
     ) {
+      if (isMacroInflationNews(cleanT) || /cpi|通胀|ppi|pce/.test(cleanT)) {
+        return getMacroInflationTakeaway(cleanTitle, factParagraph);
+      }
       if (/上市|ipo|挂牌|首日|开盘涨|市值约|科创板|港交所/.test(cleanT)) {
         const sector = (companyProfile?.sector || '').toLowerCase();
         if (/存储|dram|nand|长鑫|长存|海力士|美光|兆易/.test(cleanT) || /存储|dram|nand/.test(sector)) {
@@ -137,16 +162,24 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
         return `【监管合规与强制退市出清】：监管部门对重大财务造假零容忍常态化执行，劣质标的依法加速出清，全面夯实法治监管基石。`;
       }
-      return `【产业格局深度透视】：涉事主体推进核心战略部署，产业链上下游关联方根据市场信号与合规框架重新评估供求与估值敞口。`;
+      if (isMacroInflationNews(cleanT) || /cpi|通胀|ppi|pce/.test(cleanT)) {
+        return getMacroInflationTakeaway(cleanTitle, factParagraph);
+      }
+      return `【产业格局深度透视】：标的主体推进核心业务调整，产业链上下游关联方根据市场供求信号重构资产估值中枢。`;
     }
     return t;
-  }, [item.oneLineTakeaway, cleanTitle, companyProfile]);
+  }, [item.oneLineTakeaway, cleanTitle, companyProfile, factParagraph]);
 
   // 3. 利益链传导安全容灾（坚决铲除机械式敷衍免责套话与张冠李戴）
   const displayTransmission = React.useMemo(() => {
     let trans = (item.transmissionImpact || '').trim();
+    const cleanT = cleanTitle.toLowerCase();
+    if (isMacroInflationNews(cleanT) || /cpi|通胀|ppi|pce/.test(cleanT)) {
+      if (/短端利率中枢变动直接传导至商业借贷与货币市场融资成本|高杠杆资产面临估值重构|信源仅陈述单一动作/.test(trans) || trans.length < 20) {
+        return getMacroInflationTransmission(cleanTitle, factParagraph);
+      }
+    }
     if (/信源仅陈述单一动作|未披露上下游合同与转嫁细节|不做无依据推测/.test(trans)) {
-      const cleanT = cleanTitle.toLowerCase();
       const sector = (companyProfile?.sector || '').toLowerCase();
 
       if (/上市|ipo|挂牌|首日|开盘涨|市值约|科创板|港交所|纳斯达克/.test(cleanT)) {
@@ -173,7 +206,7 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       return '① 事件冲击直接影响核心当事方的资产与负债结构 ➔ ② 产业链与合作方依据合同与市场规则传导成本收益 ➔ ③ 边际供求关系与资产风险溢价完成动态重定价。';
     }
     return trans;
-  }, [item.transmissionImpact, cleanTitle, companyProfile]);
+  }, [item.transmissionImpact, cleanTitle, companyProfile, factParagraph]);
 
   const cardRef = React.useRef<HTMLDivElement>(null);
   const [isNavHighlighted, setIsNavHighlighted] = React.useState(false);
@@ -455,7 +488,119 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
           </div>
         )}
 
-        {/* 事件客观事实通报：完整交代事情来龙去脉（具体谁、做了什么、起因背景与当前进展），彻底消除没头没尾 */}
+        {/* 宏观通胀深度透视 · 核心与总体双环比/双同比与5大分项穿透矩阵（彻底解决“CPI解析太少、环比不说、核心/服务/食品分项不说”痛点） */}
+        {macroBreakdown && (
+          <div className="mb-3.5 p-3.5 md:p-4 rounded-xl bg-gradient-to-r from-emerald-50/95 via-teal-50/60 to-cyan-50/40 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-slate-900 border border-emerald-200/90 dark:border-emerald-800/60 shadow-xs">
+            {/* 顶栏标题与信源时间 */}
+            <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-emerald-950 dark:text-emerald-300 flex items-center gap-1.5 text-xs md:text-sm">
+                  <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                  <span>【宏观通胀关键指标矩阵 · 核心与总体双环比/同比穿透】</span>
+                </span>
+                <span className="px-2.5 py-0.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 font-bold text-[11px] border border-emerald-200 dark:border-emerald-800">
+                  {macroBreakdown.period}
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono hidden sm:inline">
+                信源：{macroBreakdown.dataSource}
+              </span>
+            </div>
+
+            {/* 核心数据 4 宫格矩阵（核心同比/环比 + 总体同比/环比，预期与前值差额全面显性化） */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+              {macroBreakdown.headlineMetrics.map((m, idx) => (
+                <div
+                  key={idx}
+                  className="p-2.5 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-emerald-100 dark:border-emerald-900/40 shadow-2xs"
+                >
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate mb-0.5">
+                    {m.name}
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-lg md:text-xl font-black text-emerald-700 dark:text-emerald-300 font-mono">
+                      {m.actual}
+                    </span>
+                    {m.expected && (
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                        预期 {m.expected}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                    前值: {m.prior || '-'} {m.note ? `· ${m.note.slice(0, 10)}` : ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 5大核心分项穿透列表（住房/超级核心/食品/能源/商品） */}
+            <div className="space-y-1.5 mb-2.5">
+              <div className="text-xs font-bold text-emerald-950 dark:text-emerald-300 flex items-center gap-1">
+                <Layers className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>关键细分项深度穿透（权重与动能结构拆解）：</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {macroBreakdown.components.map((comp) => (
+                  <div
+                    key={comp.id}
+                    className="p-2.5 rounded-lg bg-white/70 dark:bg-slate-800/50 border border-emerald-100/80 dark:border-emerald-900/30 text-xs"
+                  >
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                        {comp.category === 'SHELTER' && '🏠'}
+                        {comp.category === 'SUPERCORE_SERVICES' && '⚡'}
+                        {comp.category === 'FOOD' && '🥗'}
+                        {comp.category === 'ENERGY' && '⛽'}
+                        {comp.category === 'CORE_GOODS' && '🚗'}
+                        <span>{comp.name}</span>
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-mono">
+                        {comp.weight}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 mb-1 text-[11px] font-mono">
+                      <span className="text-emerald-800 dark:text-emerald-300 font-bold">
+                        读数：{comp.reading}
+                      </span>
+                      <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold ${
+                        comp.stickiness === 'STICKY' ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300' :
+                        comp.stickiness === 'VOLATILE' ? 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300' :
+                        'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
+                      }`}>
+                        {comp.tagLabel}
+                      </span>
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300 text-[11px] leading-relaxed">
+                      {comp.analysis}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 美联储货币政策降息概率与资产定价 */}
+            {macroBreakdown.fedPolicyImpact && (
+              <div className="pt-2 border-t border-emerald-100/90 dark:border-emerald-900/40 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1">
+                    <Activity className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>9月 FOMC 降息概率定价：</span>
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 font-bold font-mono text-[11px]">
+                    25 bps (基准): {macroBreakdown.fedPolicyImpact.cutProbability25bps}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono text-[11px]">
+                    50 bps (激进): {macroBreakdown.fedPolicyImpact.cutProbability50bps}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
+                  {macroBreakdown.fedPolicyImpact.policyStance}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div className="mb-3.5 p-3.5 md:p-4 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/90 dark:border-slate-700/80 text-sm md:text-base leading-relaxed shadow-xs">
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
             <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
