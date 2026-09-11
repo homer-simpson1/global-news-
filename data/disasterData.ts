@@ -1,4 +1,5 @@
 import { DisasterTracker } from '@/lib/types';
+import { calculateTrackedDays } from '@/lib/timeUtils';
 
 // ================= 全球特大灾害持续追踪专题档案库 =================
 export const GYIRONG_PORT_DISASTER_TRACKER: DisasterTracker = {
@@ -6,7 +7,7 @@ export const GYIRONG_PORT_DISASTER_TRACKER: DisasterTracker = {
   disasterName: "中尼吉隆口岸跨境特大冰岩崩泥石流与保通重建",
   location: "中国西藏日喀则吉隆口岸热索中尼边境段",
   startDate: "2026年8月26日",
-  trackedDays: 14,
+  trackedDays: calculateTrackedDays("2026年8月26日"),
   currentStage: "FEASIBILITY_REBUILD",
   stageLabel: "阶段 4/5 · 抢险搜救与选址防灾论证",
   currentProgressPercent: 75,

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { DisasterTracker } from '@/lib/types';
+import { calculateTrackedDays } from '@/lib/timeUtils';
 import { ShieldAlert, ArrowDown, Activity } from 'lucide-react';
 
 interface OngoingDisasterBannerProps {
@@ -21,6 +22,7 @@ function OngoingDisasterBanner({ trackers, selectedTrack = 'all', onScrollToCard
   if (!trackers || trackers.length === 0) return null;
 
   const tracker = trackers[0];
+  const displayTrackedDays = calculateTrackedDays(tracker.startDate) || tracker.trackedDays || 1;
   const progress = tracker.currentProgressPercent || 75;
 
   // 在「全部核心专区」或「国内要闻与社会治理」时常驻完整展开态；在美股、算力、大宗、战局等细分专区时默认收缩为精简胶囊
@@ -104,7 +106,7 @@ function OngoingDisasterBanner({ trackers, selectedTrack = 'all', onScrollToCard
             </span>
 
             <span className="text-[11px] font-mono text-amber-300 bg-black/40 px-1.5 py-0.5 rounded border border-amber-400/30 flex-shrink-0">
-              已追踪 {tracker.trackedDays} 天
+              已追踪 {displayTrackedDays} 天
             </span>
           </div>
         </div>
@@ -179,7 +181,7 @@ function OngoingDisasterBanner({ trackers, selectedTrack = 'all', onScrollToCard
         {/* 第三行元信息：已追踪天数 + 阶段 + 直达按钮 */}
         <div className="flex items-center justify-between text-[10px] text-slate-300 leading-none">
           <span className="text-slate-400 font-mono">
-            已追踪 {tracker.trackedDays} 天 · {tracker.stageLabel}
+            已追踪 {displayTrackedDays} 天 · {tracker.stageLabel}
           </span>
           <button
             type="button"

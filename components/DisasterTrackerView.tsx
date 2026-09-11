@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { DisasterTracker } from '@/lib/types';
+import { calculateTrackedDays } from '@/lib/timeUtils';
 import { ShieldAlert, CheckCircle2, Clock, AlertCircle, ChevronDown, ChevronUp, Milestone, Compass } from 'lucide-react';
 
 interface DisasterTrackerViewProps {
@@ -18,6 +19,9 @@ const STAGES = [
 
 export default function DisasterTrackerView({ tracker }: DisasterTrackerViewProps) {
   const [showFullTimeline, setShowFullTimeline] = useState(true);
+
+  // 动态同步持续追踪天数（严格保证跨天自然日历自动递增）
+  const displayTrackedDays = calculateTrackedDays(tracker.startDate) || tracker.trackedDays || 1;
 
   // 当前阶段序号
   const currentStageIndex = STAGES.findIndex((s) => s.key === tracker.currentStage);
@@ -36,7 +40,7 @@ export default function DisasterTrackerView({ tracker }: DisasterTrackerViewProp
                 特大灾害 · 全程持续追踪
               </span>
               <span className="text-xs font-black font-mono px-2 py-0.5 rounded-md bg-amber-500 text-white">
-                已持续追踪 {tracker.trackedDays} 天
+                已持续追踪 {displayTrackedDays} 天
               </span>
               <span className="text-xs font-bold text-rose-950 dark:text-rose-200">
                 始发于 {tracker.startDate}

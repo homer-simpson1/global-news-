@@ -7,7 +7,7 @@ import { ExternalLink, BookOpen, Sparkles, ChevronDown, ChevronUp, Award, Search
 import Summary5W1HView from './Summary5W1HView';
 import DisasterTrackerView from './DisasterTrackerView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
-import { isWithin24Hours } from '@/lib/timeUtils';
+import { isWithin24Hours, calculateTrackedDays } from '@/lib/timeUtils';
 
 interface NewsCardProps {
   item: NewsItem;
@@ -167,12 +167,15 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
             )}
 
             {/* 特大灾害全生命周期持续追踪徽章 */}
-            {item.disasterTracker && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-0.5 rounded-md bg-rose-600 text-white shadow-xs animate-pulse" title={`始发于 ${item.disasterTracker.startDate}，已连续追踪 ${item.disasterTracker.trackedDays} 天，直到恢复通关正式结案`}>
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                <span>持续追踪 · 第 {item.disasterTracker.trackedDays} 天</span>
-              </span>
-            )}
+            {item.disasterTracker && (() => {
+              const displayTrackedDays = calculateTrackedDays(item.disasterTracker.startDate) || item.disasterTracker.trackedDays || 1;
+              return (
+                <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-0.5 rounded-md bg-rose-600 text-white shadow-xs animate-pulse" title={`始发于 ${item.disasterTracker.startDate}，已连续追踪 ${displayTrackedDays} 天，直到恢复通关正式结案`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                  <span>持续追踪 · 第 {displayTrackedDays} 天</span>
+                </span>
+              );
+            })()}
 
             {/* 多空倾向 / 情绪温度色彩标签 */}
             {item.sentiment === 'BULLISH' && (

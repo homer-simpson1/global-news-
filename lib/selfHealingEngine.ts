@@ -17,7 +17,7 @@ import {
   Summary5W1H,
   DisasterTracker,
 } from './types';
-import { getTimeDiffHours } from './timeUtils';
+import { getTimeDiffHours, calculateTrackedDays } from './timeUtils';
 
 
 // 权威机构官方安全站点映射字典
@@ -439,6 +439,13 @@ export function autoCorrectDisasterTracker(tracker?: any): DisasterTracker | und
   if (!tracker) return undefined;
 
   const t = { ...tracker };
+
+  // 动态同步持续追踪天数（根据始发日期与当前自然日历差实时递增，彻底杜绝写死 14 天停更的缺陷）
+  if (t.startDate) {
+    t.trackedDays = calculateTrackedDays(t.startDate);
+  } else if (!t.trackedDays || t.trackedDays < 1) {
+    t.trackedDays = 1;
+  }
 
   // 针对吉隆口岸或泥石流持续追踪
   if (t.id === 'GID-JILONG-PORT-DISASTER' || /吉隆|中尼/.test(t.disasterName || t.name || '')) {
