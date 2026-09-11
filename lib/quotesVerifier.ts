@@ -123,14 +123,29 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
 
     // WTI原油 (NYMEX原油主力连续)
     const cl = parseSina('hf_CL');
-    if (cl && parseFloat(cl[0]) > 0) sina['CL'] = { price: parseFloat(cl[0]), changePercent: -1.14 };
+    if (cl && parseFloat(cl[0]) > 0) {
+      const p = parseFloat(cl[0]);
+      const lastClose = parseFloat(cl[7]);
+      const chg = lastClose > 0 ? ((p - lastClose) / lastClose) * 100 : 0;
+      sina['CL'] = { price: p, changePercent: parseFloat(chg.toFixed(2)) };
+    }
 
     // 布伦特原油 (ICE布油主力连续)
     const brent = parseSina('hf_OIL');
-    if (brent && parseFloat(brent[0]) > 0) sina['BRENT'] = { price: parseFloat(brent[0]), changePercent: -1.80 };
+    if (brent && parseFloat(brent[0]) > 0) {
+      const p = parseFloat(brent[0]);
+      const lastClose = parseFloat(brent[7]);
+      const chg = lastClose > 0 ? ((p - lastClose) / lastClose) * 100 : 0;
+      sina['BRENT'] = { price: p, changePercent: parseFloat(chg.toFixed(2)) };
+    }
 
     const gc = parseSina('hf_GC');
-    if (gc && parseFloat(gc[0]) > 0) sina['GC'] = { price: parseFloat(gc[0]), changePercent: -0.49 };
+    if (gc && parseFloat(gc[0]) > 0) {
+      const p = parseFloat(gc[0]);
+      const lastClose = parseFloat(gc[7]);
+      const chg = lastClose > 0 ? ((p - lastClose) / lastClose) * 100 : 0;
+      sina['GC'] = { price: p, changePercent: parseFloat(chg.toFixed(2)) };
+    }
 
     const jpy = parseSina('fx_susdjpy');
     if (jpy) {
@@ -303,7 +318,7 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
       category: 'BOND_FX',
       prefix: '$',
       suffix: '/盎司',
-      decimals: 1,
+      decimals: 2,
       specialNote: 'COMEX黄金期货主力，地缘避险定价锚',
     },
     {
@@ -334,10 +349,15 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
     const tItem = tencent[spec.key];
     const eItem = east[spec.key];
 
-    // 1. 基准锚点
+    // 1. 动态滚动基准与历史回退锚点
+    const cachedItem = cachedVerifiedQuotes?.find((m) => m.symbol === spec.symbol);
     const seed = SEED_MARKET_QUOTES.find((m) => m.symbol === spec.symbol);
-    const benchmarkPrice = seed ? parseFloat(seed.price.replace(/[^0-9.]/g, '')) : 100;
-    const benchmarkChange = seed ? parseFloat(seed.change.replace(/[^0-9.-]/g, '')) : 0;
+    const benchmarkPrice = cachedItem
+      ? parseFloat(cachedItem.price.replace(/[^0-9.]/g, ''))
+      : (seed ? parseFloat(seed.price.replace(/[^0-9.]/g, '')) : 100);
+    const benchmarkChange = cachedItem
+      ? parseFloat(cachedItem.change.replace(/[^0-9.-]/g, ''))
+      : (seed ? parseFloat(seed.change.replace(/[^0-9.-]/g, '')) : 0);
 
     // 2. 汇集所有多源实时候选通道
     interface ChannelCandidate {
@@ -354,26 +374,77 @@ export async function fetchVerifiedMarketQuotes(force = false): Promise<{
       candidates.push({ name: '全球金融终端 (CNBC)', price: cnbcUs10y.price, change: cnbcUs10y.changePercent ?? 0 });
     }
 
-    // 3. 自动纠偏与离群值熔断仲裁 (Outlier Arbitration & Circuit Breaking)
-    // 【核心自查自愈修复】：针对国债收益率 (US10Y)，利率波动以绝对基点（bps）计量，严禁使用常规股票指数的 12% 相对除法错杀！
-    // 只要处于 2.0% ~ 7.0% 宏观健康区间即为有效真实数据；对于其他资产，偏离基准超 12% 予以熔断
-    const validCandidates = candidates.filter((c) => {
-      if (spec.key === 'US10Y') {
-        if (c.price >= 2.0 && c.price <= 7.0) {
-          return true;
-        }
-        console.warn(`[QuotesVerifier] 自动熔断异常美债报价: ${c.price}`);
+    // 3. 自动纠偏与离群值熔断仲裁 (Outlier Arbitration & Consensus-Driven Circuit Breaking)
+    // 【彻底根治缺陷二】：
+    // 1. 绝不用写死的静态历史基准进行 12% 相对百分比熔断（此前曾导致真实美债利率与原油剧烈波动被全量错杀并死锁）
+    // 2. 引入大类资产宽幅物理真实区间守护（Plausibility Bounds），过滤真正的代码野值与测试脏数据
+    // 3. 多源共识优先（Multi-Source Consensus）：若至少两个独立通道实时撮合价格相近（偏离在合理容差内），直接确立为真实市场价格通过！
+    const ASSET_PLAUSIBILITY_BOUNDS: Record<string, [number, number]> = {
+      SPX: [4000, 15000],
+      NDX: [15000, 50000],
+      IXIC: [12000, 45000],
+      SOX: [5000, 25000],
+      DJI: [30000, 85000],
+      US10Y: [1.5, 8.0],
+      N225: [30000, 100000],
+      HSI: [12000, 45000],
+      CL: [25, 250],
+      BRENT: [25, 260],
+      GC: [2000, 7000],
+      USDJPY: [80, 250],
+      USDCNH: [5.0, 9.5],
+    };
+
+    const bounds = ASSET_PLAUSIBILITY_BOUNDS[spec.key] || [0.01, 1000000];
+
+    // 过滤掉超出大类资产常识区间的离群野值
+    const boundedCandidates = candidates.filter((c) => {
+      if (c.price < bounds[0] || c.price > bounds[1]) {
+        console.warn(`[QuotesVerifier] 自动熔断越界野值报价: ${c.name} ${spec.symbol}=${c.price} (物理健康区间: [${bounds[0]}, ${bounds[1]}])`);
         return false;
-      }
-      if (benchmarkPrice > 0) {
-        const dev = Math.abs(c.price - benchmarkPrice) / benchmarkPrice;
-        if (dev > 0.12) {
-          console.warn(`[QuotesVerifier] 自动熔断异常源 ${c.name} 对标的 ${spec.symbol} 的离群报价: ${c.price} (基准: ${benchmarkPrice}, 偏离: ${(dev * 100).toFixed(1)}%)`);
-          return false;
-        }
       }
       return true;
     });
+
+    let validCandidates: ChannelCandidate[] = [];
+    if (boundedCandidates.length >= 2) {
+      // 检查是否存在多源共识对（两源互验相对偏离在 3.0% 以内，美债在 0.15 以内）
+      const consensusPool: ChannelCandidate[] = [];
+      for (let i = 0; i < boundedCandidates.length; i++) {
+        for (let j = i + 1; j < boundedCandidates.length; j++) {
+          const c1 = boundedCandidates[i];
+          const c2 = boundedCandidates[j];
+          const absDiff = Math.abs(c1.price - c2.price);
+          const maxP = Math.max(c1.price, c2.price);
+          const diffPct = maxP > 0 ? (absDiff / maxP) * 100 : 0;
+          const isAgreed = spec.key === 'US10Y' ? absDiff <= 0.15 : diffPct <= 3.0;
+          if (isAgreed) {
+            if (!consensusPool.includes(c1)) consensusPool.push(c1);
+            if (!consensusPool.includes(c2)) consensusPool.push(c2);
+          }
+        }
+      }
+
+      if (consensusPool.length >= 2) {
+        // 多源形成权威互验共识，直接采纳共识池，无视历史静态种子偏离
+        validCandidates = consensusPool;
+      } else {
+        // 无严格共识时，若偏离动态核准基准过大（超 25% 单日黑天鹅阈值）才告警降级
+        validCandidates = boundedCandidates.filter((c) => {
+          if (benchmarkPrice > 0 && spec.key !== 'US10Y') {
+            const dev = Math.abs(c.price - benchmarkPrice) / benchmarkPrice;
+            if (dev > 0.25) {
+              console.warn(`[QuotesVerifier] 疑似单源异常偏离: ${c.name} ${spec.symbol}=${c.price} (动态基准: ${benchmarkPrice}, 偏离: ${(dev * 100).toFixed(1)}%)`);
+              return false;
+            }
+          }
+          return true;
+        });
+        if (validCandidates.length === 0) validCandidates = boundedCandidates;
+      }
+    } else {
+      validCandidates = boundedCandidates;
+    }
 
     // 4. 择优选定主通道与交叉通道
     let primary: ChannelCandidate;

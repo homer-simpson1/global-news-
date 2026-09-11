@@ -183,19 +183,21 @@ export async function runNewsAccuracyVerification(
   // 5. 核心行情数据合理性与实时性交叉核验（严格防范纳指100与纳指综合混淆）
   const quoteChecks = quotes.map(q => {
     let valid = true;
-    const num = parseFloat(q.price.replace(/[$,%]/g, '').replace(/,/g, ''));
+    const num = parseFloat(q.price.replace(/[^0-9.]/g, ''));
     if (isNaN(num) || num <= 0) valid = false;
-    // 纳斯达克100指数应在 28,000 ~ 33,000 区间，严防与纳指综合(26,000区间)混淆
-    if (q.symbol.includes('纳斯达克100') && (num < 28000 || num > 33000)) valid = false;
-    // 纳斯达克综合指数应在 24,000 ~ 28,000 区间
-    if (q.symbol.includes('纳斯达克综合') && (num < 24000 || num > 28000)) valid = false;
-    if (q.symbol.includes('标普500') && (num < 7000 || num > 8500)) valid = false;
-    if (q.symbol.includes('费城半导体') && (num < 10000 || num > 14000)) valid = false;
-    if (q.symbol.includes('日经') && (num < 55000 || num > 75000)) valid = false;
-    if (q.symbol.includes('恒生') && (num < 20000 || num > 32000)) valid = false;
-    if (q.symbol.includes('美债') && (num < 1 || num > 10)) valid = false;
-    if (q.symbol.includes('原油') && (num < 40 || num > 160)) valid = false;
-    if (q.symbol.includes('黄金') && (num < 3000 || num > 6000)) valid = false;
+    // 纳斯达克100指数应在 20,000 ~ 45,000 区间，严防与纳指综合(20,000~35,000区间)混淆
+    if (q.symbol.includes('纳斯达克100') && (num < 20000 || num > 45000)) valid = false;
+    if (q.symbol.includes('纳斯达克综合') && (num < 18000 || num > 40000)) valid = false;
+    if (q.symbol.includes('标普500') && (num < 5000 || num > 12000)) valid = false;
+    if (q.symbol.includes('道琼斯') && (num < 30000 || num > 75000)) valid = false;
+    if (q.symbol.includes('费城半导体') && (num < 7000 || num > 20000)) valid = false;
+    if (q.symbol.includes('日经') && (num < 40000 || num > 90000)) valid = false;
+    if (q.symbol.includes('恒生') && (num < 15000 || num > 40000)) valid = false;
+    if (q.symbol.includes('美债') && (num < 1.5 || num > 8.0)) valid = false;
+    if ((q.symbol.includes('油') || q.symbol.includes('原油')) && (num < 25 || num > 220)) valid = false;
+    if (q.symbol.includes('黄金') && (num < 2000 || num > 6500)) valid = false;
+    if (q.symbol.includes('日元') && (num < 90 || num > 220)) valid = false;
+    if (q.symbol.includes('人民币') && (num < 5.0 || num > 9.5)) valid = false;
 
     return {
       symbol: q.symbol,

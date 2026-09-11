@@ -986,40 +986,117 @@ function classifyTrack(item: RawLiveItem): TrackId {
   return 'global_cognition';
 }
 
+// 全局宏观指标高精度语义数值提取器（彻底解决中文新闻同比/环比/前值/PMI点位格式解析失真问题）
+function extractMacroMetrics(text: string): {
+  yoy: number | null;
+  yoyStr: string;
+  prev: number | null;
+  prevStr: string;
+  trend: string;
+  pmi: number | null;
+  pmiStr: string;
+} {
+  const t = text.toLowerCase();
+
+  // 1. 同比提取 (支持: 同比上涨0.8%, 同比增长0.8%, 同比增0.8%, 同比下降0.2%, 同比回落0.5%, 同比+0.8%, 同比-0.2%, 同比0.8%)
+  let yoy: number | null = null;
+  let yoyStr = '';
+
+  const yoyDownMatch = t.match(/同比(?:下降|回落|减少|收窄|降|跌)\s*([+]?\d+\.?\d*)\s*%/);
+  const yoyUpMatch = t.match(/同比(?:上涨|增长|回升|增加|扩大|增|涨)\s*([+]?\d+\.?\d*)\s*%/);
+  const yoyDirectMatch = t.match(/同比\s*([+-]?\d+\.?\d*)\s*%/);
+
+  if (yoyDownMatch) {
+    yoy = -Math.abs(parseFloat(yoyDownMatch[1]));
+    yoyStr = `${yoy}%`;
+  } else if (yoyUpMatch) {
+    yoy = Math.abs(parseFloat(yoyUpMatch[1]));
+    yoyStr = `+${yoy}%`;
+  } else if (yoyDirectMatch) {
+    yoy = parseFloat(yoyDirectMatch[1]);
+    yoyStr = `${yoy >= 0 ? '+' : ''}${yoy}%`;
+  }
+
+  // 2. 前值提取 (支持: 前值0.5%, 前值为0.5%, 前值录得0.5%, 前值下降0.2%, 前值-0.2%)
+  let prev: number | null = null;
+  let prevStr = '';
+
+  const prevDownMatch = t.match(/前值(?:为|录得|是)?\s*(?:下降|回落|减少|收窄|降|跌)\s*([+]?\d+\.?\d*)\s*%/);
+  const prevUpMatch = t.match(/前值(?:为|录得|是)?\s*(?:上涨|增长|回升|增加|扩大|增|涨)\s*([+]?\d+\.?\d*)\s*%/);
+  const prevDirectMatch = t.match(/前值(?:为|录得|是)?\s*([+-]?\d+\.?\d*)\s*%/);
+
+  if (prevDownMatch) {
+    prev = -Math.abs(parseFloat(prevDownMatch[1]));
+    prevStr = `${prev}%`;
+  } else if (prevUpMatch) {
+    prev = Math.abs(parseFloat(prevUpMatch[1]));
+    prevStr = `+${prev}%`;
+  } else if (prevDirectMatch) {
+    prev = parseFloat(prevDirectMatch[1]);
+    prevStr = `${prev >= 0 ? '+' : ''}${prev}%`;
+  }
+
+  // 3. 计算明确的趋势差额（讲清事实与增量，杜绝“同比0.8前值0.5”的模糊表达）
+  let trend = '';
+  if (yoy !== null && prev !== null && !isNaN(yoy) && !isNaN(prev)) {
+    const diff = parseFloat((yoy - prev).toFixed(2));
+    if (diff > 0) {
+      trend = `较前值(${prevStr})回升${diff}个百分点`;
+    } else if (diff < 0) {
+      trend = `较前值(${prevStr})回落${Math.abs(diff)}个百分点`;
+    } else {
+      trend = `与前值(${prevStr})持平`;
+    }
+  }
+
+  // 4. PMI 点位提取（专业金融表达：PMI为扩散指数点位，严禁错误添加百分号）
+  let pmi: number | null = null;
+  let pmiStr = '';
+  const pmiMatch = t.match(/(?:pmi|采购经理)(?:为|录得|位于|升至|降至|报)?\s*(\d{2}\.?\d*)/);
+  if (pmiMatch) {
+    const v = parseFloat(pmiMatch[1]);
+    if (v >= 30 && v <= 70) {
+      pmi = v;
+      pmiStr = `${v}`;
+    }
+  }
+
+  return { yoy, yoyStr, prev, prevStr, trend, pmi, pmiStr };
+}
+
 function inferTransmission(track: TrackId, title: string, content: string): string {
   const t = (title + ' ' + content).toLowerCase();
 
   // ── 中国宏观数据专属传导分析（最高优先级，严防与美股/联储模板串味）──────────────────
   if (track === 'china_macro') {
-    const val = t.match(/同比\s*([+-]?\d+\.?\d*)\s*%/)?.[1];
-    const num = val ? parseFloat(val) : NaN;
+    const { yoy, yoyStr, trend, pmi, pmiStr } = extractMacroMetrics(title + ' ' + content);
 
     // CPI：居民消费价格指数
     if (/cpi|居民消费价格/.test(t)) {
-      if (!isNaN(num) && num < 0) {
-        return `CPI同比${num}%进入通缩区间，内需疲弱信号明确：消费品价格持续下跌压缩企业利润空间，人民银行具备进一步宽松的政策空间，A股消费板块短期受压，国债价格获支撑。`;
-      } else if (!isNaN(num) && num >= 0 && num <= 1.0) {
-        return `CPI同比仅${num}%，通胀压力近乎于无：物价低迷说明终端消费需求仍然不振，人民银行降准降息空间打开，有利于国债与优质债券，消费复苏力度仍需政策刺激。`;
-      } else if (!isNaN(num) && num > 1.0 && num <= 2.5) {
-        return `CPI同比${num}%，温和通胀区间：物价回升说明内需正在修复，A股消费与食品板块获得业绩支撑，人民银行维持稳健货币政策，暂无需大幅降息。`;
-      } else if (!isNaN(num) && num > 2.5) {
-        return `CPI同比${num}%偏高，通胀压力升温：央行降息空间收窄，高负债企业实际债务负担略有下降，但终端消费品成本上升压制居民购买力，债券收益率面临上行压力。`;
+      if (yoy !== null && yoy < 0) {
+        return `CPI同比${yoyStr}${trend ? `（${trend}）` : ''}进入通缩区间，内需疲弱信号明确：消费品价格持续下跌压缩企业利润空间，人民银行具备进一步宽松的政策空间，A股消费板块短期受压，国债价格获支撑。`;
+      } else if (yoy !== null && yoy >= 0 && yoy <= 1.0) {
+        return `CPI同比${yoyStr}${trend ? `（${trend}）` : ''}，通胀压力偏低：物价表现反映终端消费需求仍处于弱修复通道，人民银行政策宽松窗口充足，债券资产受益，消费板块反弹节奏取决于后续增量刺激政策。`;
+      } else if (yoy !== null && yoy > 1.0 && yoy <= 2.5) {
+        return `CPI同比${yoyStr}${trend ? `（${trend}）` : ''}，处于温和通胀区间：物价回升验证内需平稳修复，A股消费、食品与必需品板块业绩支撑显现，人民银行维持稳健中性货币政策。`;
+      } else if (yoy !== null && yoy > 2.5) {
+        return `CPI同比${yoyStr}${trend ? `（${trend}）` : ''}偏高，通胀压力升温：央行降息空间收窄，实际债务负担有所减轻，但下游终端消费品成本上升压制居民购买力，债券收益率面临上行压力。`;
       }
       return 'CPI数据反映终端消费品价格走势，直接影响人民银行货币政策空间与A股消费、地产板块的业绩预期。';
     }
     // PPI：工业生产者出厂价格
     if (/ppi|生产者价格|工业品出厂价/.test(t)) {
-      if (!isNaN(num) && num < 0) {
-        return `PPI同比${num}%持续负增长，工业通缩延伸至上游：制造业企业利润率被压缩，大宗商品进口价格承压，上游资源与化工板块估值继续受压，债券市场获利。`;
+      if (yoy !== null && yoy < 0) {
+        return `PPI同比${yoyStr}${trend ? `（${trend}）` : ''}持续负增长，工业通缩延伸至上游：制造业企业利润率被压缩，大宗商品进口价格承压，上游资源与化工板块估值继续受压，债券市场获利。`;
       }
       return 'PPI负增长反映工业端通缩压力，上游大宗原材料涨价受抑，对A股资源、化工板块构成压力，利好下游制造业利润率修复。';
     }
     // PMI：采购经理人指数
     if (/pmi|采购经理|制造业.*景气|非制造业.*景气/.test(t)) {
-      if (!isNaN(num) && num > 50) {
-        return `PMI ${num}%站上荣枯线扩张区间：制造业订单回暖、工厂开工率提升，利好A股工业与出口链板块，人民币资产吸引力边际改善。`;
-      } else if (!isNaN(num) && num < 50) {
-        return `PMI ${num}%低于荣枯线50%，制造业仍处收缩区间：新订单疲弱、企业主动去库存，A股周期与制造业板块承压，进一步货币宽松预期升温。`;
+      if (pmi !== null && pmi >= 50) {
+        return `PMI录得 ${pmiStr} 位于荣枯线50以上扩张区间：制造业订单回暖、工厂开工率提升，利好A股工业与出口链板块，人民币资产吸引力边际改善。`;
+      } else if (pmi !== null && pmi < 50) {
+        return `PMI录得 ${pmiStr} 处于荣枯线50以下收缩区间：新订单疲弱、企业主动去库存，A股周期与制造业板块承压，进一步货币宽松预期升温。`;
       }
       return 'PMI景气度是判断工厂开工与订单预期的先行指标，直接影响A股工业、原材料与出口链板块的定价预期。';
     }
@@ -1374,45 +1451,38 @@ function generateCoreTakeaway(
 
   // ── 中国宏观数据专属核心结论（最高优先级，通读数值并直接给出判断）────────────────────
   if (track === 'china_macro') {
-    // 从全文提取同比数值与前值
-    const yoyMatch = t.match(/同比\s*([+-]?\d+\.?\d*)\s*%/);
-    const prevMatch = t.match(/前值\s*([+-]?\d+\.?\d*)\s*%/);
-    const yoy = yoyMatch ? parseFloat(yoyMatch[1]) : NaN;
-    const prev = prevMatch ? parseFloat(prevMatch[1]) : NaN;
-    const trend = !isNaN(yoy) && !isNaN(prev) ? (yoy > prev ? '较前值回升' : yoy < prev ? '较前值回落' : '与前值持平') : '';
+    const { yoy, yoyStr, trend, pmi, pmiStr } = extractMacroMetrics(cleanTitle + ' ' + content);
 
     if (/cpi|居民消费价格/.test(t)) {
-      if (!isNaN(yoy) && yoy < 0) {
-        return `【物价负增长警报】：CPI同比${yoy}%${trend}，进入通缩区间——商品价格持续下跌意味着消费需求不足，央行降息空间打开，但通缩螺旋一旦形成将严重压缩企业利润。`;
-      } else if (!isNaN(yoy) && yoy <= 1.0) {
-        return `【物价低迷内需不振】：CPI同比${yoy}%${trend}，处于低通胀区间——这不是好消息，说明居民消费意愿仍弱，政策刺激空间充足，债券市场获利，消费板块复苏节奏存疑。`;
-      } else if (!isNaN(yoy) && yoy <= 2.5) {
-        return `【物价温和回升内需修复】：CPI同比${yoy}%${trend}，进入温和通胀区间——消费需求稳步修复，央行无需激进降息，A股消费与食品板块的业绩基准随之改善。`;
-      } else if (!isNaN(yoy)) {
-        return `【通胀压力升温降息受限】：CPI同比${yoy}%${trend}，通胀偏高——央行宽松空间收窄，债券价格承压，但消费品企业有望借涨价改善利润率。`;
+      if (yoy !== null && yoy < 0) {
+        return `【物价负增长通缩警报】：CPI同比${yoyStr}${trend ? `（${trend}）` : ''}，进入负增长通缩区间——终端口径消费品价格持续承压，企业营收与利润率面临收缩，人民银行降准降息等增量总量工具释放空间打开。`;
+      } else if (yoy !== null && yoy <= 1.0) {
+        return `【物价处于低位区间】：CPI同比${yoyStr}${trend ? `（${trend}）` : ''}，通胀读数偏低——居民消费意愿仍处于筑底复苏阶段，宏观流动性环境维持宽松，债券市场获得防守型配置支撑，消费板块估值修复依托后续财政促消费政策落地。`;
+      } else if (yoy !== null && yoy <= 2.5) {
+        return `【物价温和回升内需修复】：CPI同比${yoyStr}${trend ? `（${trend}）` : ''}，进入温和健康通胀区间——终端消费需求稳步修复，A股消费与食品饮料等顺周期板块盈利基准改善，货币政策保持稳健中性定力。`;
+      } else if (yoy !== null) {
+        return `【通胀压力升温紧缩预期】：CPI同比${yoyStr}${trend ? `（${trend}）` : ''}偏高——央行降息窗口有所收窄，长端债券收益率面临调整压力，具备终端提价能力的中下游龙头有望改善毛利率。`;
       }
       return '【物价信号影响货币政策】：CPI数据直接决定央行降息节奏——低通胀打开宽松窗口，高通胀收窄操作空间，消费与地产板块的业绩预期随之重估。';
     }
     if (/ppi|生产者价格/.test(t)) {
-      if (!isNaN(yoy) && yoy < 0) {
-        return `【工厂出厂价持续下跌】：PPI同比${yoy}%${trend}，工业通缩已持续多个月——上游原材料价格压低了大宗商品需求，中游制造业虽然采购成本下降，但售价同样承压，利润率难以明显改善。`;
+      if (yoy !== null && yoy < 0) {
+        return `【工业品出厂价格承压】：PPI同比${yoyStr}${trend ? `（${trend}）` : ''}，工业出厂价格仍处负值区间——反映工业上游产能出清与原材料供需博弈持续，中游加工制造企业成本端有所改善但出厂售价同样受限。`;
       }
-      return `【工业端价格信号】：PPI同比${!isNaN(yoy) ? yoy + '%' : '数据'}${trend}，反映上游工厂出厂价格走势，直接影响制造业利润与大宗商品需求预期。`;
+      return `【工业端价格信号】：PPI同比${yoyStr || '最新发布'}${trend ? `（${trend}）` : ''}，反映上游工厂出厂价格走势，直接影响制造业利润与大宗商品需求预期。`;
     }
     if (/pmi|采购经理/.test(t)) {
-      const pmiMatch = t.match(/(\d+\.?\d*)\s*%/);
-      const pmiVal = pmiMatch ? parseFloat(pmiMatch[1]) : NaN;
-      if (!isNaN(pmiVal) && pmiVal > 50) {
-        return `【制造业扩张信号】：PMI ${pmiVal}%高于荣枯线50%${trend}——工厂订单回暖、开工率提升，是实体经济活力的领先信号，工业与出口链板块受益。`;
-      } else if (!isNaN(pmiVal) && pmiVal < 50) {
-        return `【制造业收缩警示】：PMI ${pmiVal}%低于荣枯线50%${trend}——工厂新订单减少、去库存压力犹存，实体经济复苏节奏放缓，货币宽松预期升温。`;
+      if (pmi !== null && pmi >= 50) {
+        return `【制造业扩张景气确立】：PMI录得 ${pmiStr} 高于荣枯线50分水岭——工厂新订单与生产活动处于扩张阶段，实体经济修复动能显现，利好A股顺周期制造与工业供应链板块。`;
+      } else if (pmi !== null && pmi < 50) {
+        return `【制造业收缩去库压力】：PMI录得 ${pmiStr} 处于荣枯线50以下收缩区间——新订单释放相对审慎，企业仍处主动去库阶段，强化市场对财政增量与信用扩张政策的期待。`;
       }
-      return '【景气度先行指标】：PMI跨越50%荣枯分界是制造业扩张还是收缩的分水岭，数值与前值的变化方向比绝对值更重要。';
+      return '【景气度先行指标】：PMI跨越50荣枯分界是制造业扩张还是收缩的分水岭，数值走势直接折射实体经济复苏斜率。';
     }
     if (/gdp|国内生产总值/.test(t)) {
-      return `【经济增速基准确立】：GDP增速${!isNaN(yoy) ? yoy + '%' : '数据'}${trend}——超预期则外资加仓人民币资产，低于预期则财政刺激与降息预期升温，全年增长目标完成概率随之重估。`;
+      return `【经济增速基准确立】：GDP增速${yoyStr || '最新发布'}${trend ? `（${trend}）` : ''}——超预期则外资加仓人民币资产，低于预期则财政刺激与降息预期升温，全年增长目标完成概率随之重估。`;
     }
-    return `【中国宏观数据发布】：${!isNaN(yoy) ? `同比${yoy}%${trend}，` : ''}该数据直接影响人民银行货币政策取向与A股整体流动性预期。`;
+    return `【中国宏观数据发布】：${yoyStr ? `同比${yoyStr}${trend ? `（${trend}）` : ''}，` : ''}该数据直接影响人民银行货币政策取向与A股整体流动性预期。`;
   }
 
   // 1. 核心主体与商业现实硬核直击

@@ -6,13 +6,13 @@ export const SEED_LEAD_NEWS_ITEMS: NewsItem[] = [
   {
     "id": "GID-446F5FD5",
     "track": "us_macro",
-    "title": "美债收益率飙至4.37%，强劲非农把降息预期打回原形",
+    "title": "美债收益率攀升至4.37%，强劲非农推迟美联储降息时间表",
     "source": "彭博全球宏观 (Bloomberg)",
     "sourceUrl": "https://www.bloomberg.com",
     "publishedAt": "9月5日 06:10",
     "impactLevel": 1,
-    "oneLineTakeaway": "【宽松幻想破灭】：就业市场比华尔街预期的硬气得多，短端国债被疯狂抛售，借贷成本难以下降，指望美联储立刻大水漫灌的对冲基金只能认亏平仓。",
-    "transmissionImpact": "华尔街一级做市商与货币基金赚取无风险高息，重资产高杠杆中小企业背负沉重利息支出，避险资金持续从成长股倒流回短久期美债。",
+    "oneLineTakeaway": "【降息预期时点后移】：非农就业数据展现抗跌韧性，短久期美债遭遇承压抛售，借贷成本高位运行，对冲基金逐步收窄激进宽松押注。",
+    "transmissionImpact": "一级交易商与货币市场基金维持高息收益底座，高杠杆中小企业承担利息支出压力，配置型资金自高估值成长资产流向短久期国债。",
     "sentiment": "BEARISH",
     "nextWatchlist": "【后续观察哨】：锁定在 9月11日 20:30 美国 8 月 CPI 数据公布及 9 月 FOMC 议息决议降息幅度。",
     "bullBearDivergence": {
@@ -75,8 +75,8 @@ export const SEED_LEAD_NEWS_ITEMS: NewsItem[] = [
     "sourceUrl": "https://www.spglobal.com/commodityinsights",
     "publishedAt": "9月7日 10:15",
     "impactLevel": 1,
-    "oneLineTakeaway": "【一铜难求现形记】：全球电网翻新加上新能源车抢铜，仓库里的精炼铜库存已经被掏空，下游加工厂就算明知涨价也只能硬着头皮加价现款提货。",
-    "transmissionImpact": "拥有优质铜矿资源的跨国矿业巨头大发横财，毫无议价权的下游中小线缆加工厂被原料暴涨挤压到濒临亏损，产业资金加速囤货惜售。",
+    "oneLineTakeaway": "【现货高升水反映紧平衡】：全球电网建设与新能源转型推升精炼铜即期消费，交割仓单处于历史低位，下游加工企业在升水走阔背景下刚性采购。",
+    "transmissionImpact": "拥有上游优质铜矿资源的跨国矿业公司录得稳健投资收益，下游线缆加工企业利润率受到成本端抬升压制，产业链库存维持防御性周转。",
     "sentiment": "BULLISH",
     "nextWatchlist": "【后续观察哨】：锁定在 伦敦金属交易所（LME）铜注册仓单变动与智利国家铜业公司（Codelco）月报。",
     "bullBearDivergence": {
