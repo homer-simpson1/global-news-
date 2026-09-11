@@ -418,6 +418,101 @@ function TerminalApp() {
     setTimeout(pollAndScroll, 40);
   }, [searchQuery, onlyLevel1, timeFilter]);
 
+  // 全局跨组件卡片导航与自动展开处理器 (自检列表直达/正文卡片展开)
+  const handleNavigateToCard = React.useCallback((cardId: string, trackId?: string) => {
+    // 1. 彻底清除可能遮蔽卡片的筛选条件，保证正文卡片立即处于可见状态
+    if (searchQuery) setSearchQuery('');
+    if (onlyLevel1) setOnlyLevel1(false);
+    if (timeFilter !== 'ALL') setTimeFilter('ALL');
+
+    // 2. 匹配目标文章所在的 track 并切换
+    const targetItem = news.find((n) => n.id === cardId);
+    const targetTrack = trackId || targetItem?.track;
+    if (targetTrack) {
+      setSelectedTrack(targetTrack);
+    } else {
+      setSelectedTrack('all');
+    }
+
+    // 3. 轮询等待 DOM 挂载、通知专区展开隐藏条目、并驱动 NewsCard 自动展开与平滑滚动聚焦
+    let attempts = 0;
+    const pollAndExpand = () => {
+      attempts++;
+      // 通知专区展开被 5 条上限折叠的报道
+      window.dispatchEvent(
+        new CustomEvent('git-expand-track-card', {
+          detail: { cardId, trackId: targetTrack },
+        })
+      );
+
+      const el = document.getElementById(`news-card-${cardId}`);
+      if (el) {
+        // 卡片已渲染进 DOM，通知其内部 setExpanded(true) 展开并高亮定位
+        window.dispatchEvent(
+          new CustomEvent('git-expand-card', {
+            detail: { id: cardId, cardId },
+          })
+        );
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (attempts < 30) {
+        setTimeout(pollAndExpand, 50);
+      }
+    };
+
+    setTimeout(pollAndExpand, 40);
+  }, [news, searchQuery, onlyLevel1, timeFilter]);
+
+  // 顶栏副标题关键字点击导航专区
+  const handleNavigateToTrack = React.useCallback((trackId: string) => {
+    if (searchQuery) setSearchQuery('');
+    if (onlyLevel1) setOnlyLevel1(false);
+    if (timeFilter !== 'ALL') setTimeFilter('ALL');
+
+    setSelectedTrack(trackId);
+
+    let attempts = 0;
+    const pollAndScrollTrack = () => {
+      attempts++;
+      const el = document.getElementById(`track-section-${trackId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.classList.add('ring-2', 'ring-blue-400/50', 'transition-all', 'duration-300');
+        setTimeout(() => {
+          el.classList.remove('ring-2', 'ring-blue-400/50');
+        }, 2000);
+      } else if (attempts < 20) {
+        setTimeout(pollAndScrollTrack, 50);
+      }
+    };
+
+    setTimeout(pollAndScrollTrack, 40);
+  }, [searchQuery, onlyLevel1, timeFilter]);
+
+  // 全局跨组件卡片导航与专区跳转事件监听
+  useEffect(() => {
+    const onCardNav = (e: Event) => {
+      const ce = e as CustomEvent<{ cardId?: string; id?: string; trackId?: string }>;
+      const targetId = ce.detail?.cardId || ce.detail?.id;
+      if (targetId) {
+        handleNavigateToCard(targetId, ce.detail?.trackId);
+      }
+    };
+
+    const onTrackNav = (e: Event) => {
+      const ce = e as CustomEvent<{ trackId: string }>;
+      if (ce.detail?.trackId) {
+        handleNavigateToTrack(ce.detail.trackId);
+      }
+    };
+
+    window.addEventListener('git-navigate-to-card', onCardNav);
+    window.addEventListener('git-navigate-to-track', onTrackNav);
+    return () => {
+      window.removeEventListener('git-navigate-to-card', onCardNav);
+      window.removeEventListener('git-navigate-to-track', onTrackNav);
+    };
+  }, [handleNavigateToCard, handleNavigateToTrack]);
+
   const tracks: { id: TrackId; items: NewsItem[] }[] = React.useMemo(() => [
     { id: 'us_macro', items: filteredNews.filter((n) => n.track === 'us_macro') },
     { id: 'apac_tech', items: filteredNews.filter((n) => n.track === 'apac_tech') },
@@ -425,6 +520,7 @@ function TerminalApp() {
     { id: 'war_conflict', items: filteredNews.filter((n) => n.track === 'war_conflict') },
     { id: 'china_domestic', items: filteredNews.filter((n) => n.track === 'china_domestic') },
     { id: 'china_policy', items: filteredNews.filter((n) => n.track === 'china_policy') },
+    { id: 'china_macro', items: filteredNews.filter((n) => n.track === 'china_macro') },
     { id: 'global_cognition', items: filteredNews.filter((n) => n.track === 'global_cognition') },
   ], [filteredNews]);
 
@@ -479,6 +575,13 @@ function TerminalApp() {
       dotClass: 'bg-indigo-600',
     },
     {
+      id: 'china_macro',
+      label: '宏观大势与通胀',
+      activeClass: 'bg-orange-600 text-white shadow-md shadow-orange-500/25 ring-2 ring-orange-500 border-orange-600',
+      idleClass: 'bg-orange-50/90 dark:bg-orange-950/40 hover:bg-orange-100 dark:hover:bg-orange-900/50 text-orange-900 dark:text-orange-300 border-orange-300/80 dark:border-orange-700',
+      dotClass: 'bg-orange-600',
+    },
+    {
       id: 'global_cognition',
       label: '全球认知与顶刊',
       activeClass: 'bg-purple-600 text-white shadow-md shadow-purple-500/25 ring-2 ring-purple-500 border-purple-600',
@@ -518,6 +621,8 @@ function TerminalApp() {
               } catch (e) {}
             }}
             isTopBarHidden={isTopBarHidden}
+            onNavigateToCard={handleNavigateToCard}
+            onNavigateToTrack={handleNavigateToTrack}
           />
         </div>
       )}
@@ -728,7 +833,7 @@ function TerminalApp() {
         {/* 深度报道精选流 */}
         <div className="space-y-8">
           {tracks
-            .filter((t) => selectedTrack === 'all' || t.id === selectedTrack)
+            .filter((t) => (selectedTrack === 'all' ? t.items.length > 0 : t.id === selectedTrack))
             .map((t) => (
               <RegionalTrack
                 key={t.id}

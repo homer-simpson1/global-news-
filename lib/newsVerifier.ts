@@ -16,6 +16,10 @@ export interface VerificationItemResult {
   hasDomainQualifier: boolean;
   status: 'PASS' | 'WARNING' | 'FAIL';
   reasons: string[];
+  oneLineTakeaway?: string;
+  summaryParagraph?: string;
+  summary5W1H?: Summary5W1H;
+  transmissionImpact?: string;
 }
 
 export interface VerificationAuditReport {
@@ -194,6 +198,10 @@ export async function runNewsAccuracyVerification(
       hasDomainQualifier,
       status,
       reasons,
+      oneLineTakeaway: item.oneLineTakeaway,
+      summaryParagraph: item.summaryParagraph,
+      summary5W1H: item.summary5W1H,
+      transmissionImpact: item.transmissionImpact,
     });
   }
 

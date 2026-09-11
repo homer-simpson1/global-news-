@@ -13,6 +13,7 @@ import {
   Info,
   ChevronRight,
   ChevronUp,
+  ChevronDown,
   EyeOff,
   Sun,
   Moon,
@@ -36,6 +37,8 @@ interface HeaderProps {
   quotes?: MarketQuote[];
   onToggleHideTopBar?: () => void;
   isTopBarHidden?: boolean;
+  onNavigateToCard?: (cardId: string, trackId?: string) => void;
+  onNavigateToTrack?: (trackId: string) => void;
 }
 
 interface UnpassedVerifyItem {
@@ -46,6 +49,10 @@ interface UnpassedVerifyItem {
   track?: string;
   status: 'PASS' | 'WARNING' | 'FAIL';
   reasons: string[];
+  oneLineTakeaway?: string;
+  summaryParagraph?: string;
+  summary5W1H?: { what?: string };
+  transmissionImpact?: string;
 }
 
 interface VerifyData {
@@ -58,6 +65,15 @@ interface VerifyData {
   failedCount: number;
   unpassedItems: UnpassedVerifyItem[];
 }
+
+const SUBTITLE_KEYWORDS = [
+  { label: '美股', trackId: 'us_macro' },
+  { label: '算力模型', trackId: 'apac_tech' },
+  { label: '大宗航运', trackId: 'commodities_shipping' },
+  { label: '俄乌美伊', trackId: 'war_conflict' },
+  { label: '宏观大势', trackId: 'china_macro' },
+  { label: '国内金融治理', trackId: 'china_domestic' },
+];
 
 // 独立自驱动倒计时胶囊：物理隔离 1 秒重渲染作用域，且支持页面可见性休眠 (Page Visibility Throttling)
 function CountdownBadge({
@@ -155,14 +171,19 @@ export default function Header({
   quotes = [],
   onToggleHideTopBar,
   isTopBarHidden = false,
+  onNavigateToCard,
+  onNavigateToTrack,
 }: HeaderProps) {
   const [copied, setCopied] = useState(false);
   const [verifyData, setVerifyData] = useState<VerifyData | null>(null);
-  const [isHovered, setIsHovered] = useState(false);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+  const [inPlaceExpandedId, setInPlaceExpandedId] = useState<string | null>(null);
   const [isVerifyingNow, setIsVerifyingNow] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const popoverContainerRef = useRef<HTMLDivElement>(null);
 
   // 初始化深色主题状态检测
   useEffect(() => {
@@ -209,6 +230,10 @@ export default function Header({
               track: item.track,
               status: item.status,
               reasons: item.reasons || [],
+              oneLineTakeaway: item.oneLineTakeaway,
+              summaryParagraph: item.summaryParagraph,
+              summary5W1H: item.summary5W1H,
+              transmissionImpact: item.transmissionImpact,
             })),
           });
         }
@@ -234,26 +259,80 @@ export default function Header({
     };
   }, []);
 
+  // 自检弹窗 ESC 与外部点击 (Click-Outside) 自动收起监听
   useEffect(() => {
-    if (!isHovered) return;
+    if (!isPopoverOpen) return;
+
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape' || e.key === 'Esc' || e.keyCode === 27) {
-        setIsHovered(false);
+        setIsPopoverOpen(false);
+        setIsPinned(false);
       }
     };
+
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (popoverContainerRef.current && !popoverContainerRef.current.contains(e.target as Node)) {
+        setIsPopoverOpen(false);
+        setIsPinned(false);
+      }
+    };
+
     window.addEventListener('keydown', handleEsc, true);
-    return () => window.removeEventListener('keydown', handleEsc, true);
-  }, [isHovered]);
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+
+    return () => {
+      window.removeEventListener('keydown', handleEsc, true);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isPopoverOpen]);
 
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    setIsHovered(true);
+    setIsPopoverOpen(true);
   };
 
   const handleMouseLeave = () => {
+    if (isPinned) return; // 已点击固定展示，鼠标移出不关闭
     hoverTimeoutRef.current = setTimeout(() => {
-      setIsHovered(false);
+      setIsPopoverOpen(false);
     }, 250);
+  };
+
+  const handleButtonClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isPopoverOpen && isPinned) {
+      // 已经处于固定展开状态，再次点击则收起
+      setIsPopoverOpen(false);
+      setIsPinned(false);
+    } else {
+      // 未展开或此前仅悬停 -> 点击立即固定常驻
+      setIsPopoverOpen(true);
+      setIsPinned(true);
+    }
+  };
+
+  const handleSubtitleClick = (trackId: string) => {
+    if (onNavigateToTrack) {
+      onNavigateToTrack(trackId);
+    } else {
+      window.dispatchEvent(new CustomEvent('git-navigate-to-track', { detail: { trackId } }));
+    }
+  };
+
+  const handleJumpToCard = (cardId: string, trackId?: string) => {
+    setIsPopoverOpen(false);
+    setIsPinned(false);
+    if (onNavigateToCard) {
+      onNavigateToCard(cardId, trackId);
+    } else {
+      window.dispatchEvent(
+        new CustomEvent('git-navigate-to-card', {
+          detail: { cardId, trackId },
+        })
+      );
+    }
   };
 
   const handleCopyDigest = async () => {
@@ -297,7 +376,7 @@ export default function Header({
 
   return (
     <>
-      <header className="w-full gpu-layer bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 lg:px-8 py-3.5 shadow-sm transition-colors duration-200">
+      <header className="w-full bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 lg:px-8 py-3.5 shadow-sm transition-colors duration-200">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           {/* 左侧：品牌与定位 */}
           <div className="flex items-center gap-3.5">
@@ -314,29 +393,42 @@ export default function Header({
                   7x24 权威直连
                 </span>
               </div>
-              <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                美股 · 算力模型 · 大宗航运 · 俄乌美伊 · 宏观大势 · 国内金融治理
-              </p>
+              <div className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                {SUBTITLE_KEYWORDS.map((kw, idx) => (
+                  <React.Fragment key={kw.trackId}>
+                    {idx > 0 && <span className="text-slate-300 dark:text-slate-600 select-none">·</span>}
+                    <button
+                      type="button"
+                      onClick={() => handleSubtitleClick(kw.trackId)}
+                      className="whitespace-nowrap hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium hover:underline underline-offset-2 cursor-pointer"
+                      title={`切换至【${kw.label}】专区并滚动浏览`}
+                    >
+                      {kw.label}
+                    </button>
+                  </React.Fragment>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* 右侧：30分钟定时器、15分钟自检、长图生成、暗黑模式切换与快捷操作 */}
-          <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto justify-between md:justify-end text-xs md:text-sm overflow-x-auto no-scrollbar py-0.5">
+          <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto justify-between md:justify-end text-xs md:text-sm overflow-x-auto sm:overflow-visible no-scrollbar py-0.5">
             {/* 15分钟自动化新闻真实性与准确性自检指示器 */}
             <div
+              ref={popoverContainerRef}
               className="relative shrink-0"
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
             >
               <button
                 type="button"
-                onClick={() => setIsHovered(!isHovered)}
+                onClick={handleButtonClick}
                 aria-label="15分钟新闻自检状态"
                 className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-all shadow-xs cursor-pointer select-none shrink-0 ${
                   hasUnpassed
                     ? 'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/20'
                     : 'bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                }`}
+                } ${isPinned ? 'ring-2 ring-blue-500/50 dark:ring-blue-400/50' : ''}`}
               >
                 {hasUnpassed ? (
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 animate-pulse shrink-0" />
@@ -353,15 +445,15 @@ export default function Header({
                 </span>
               </button>
 
-              {/* 鼠标悬停浮层展示未通过文章明细 */}
-              {isHovered && (
+              {/* 鼠标悬停与点击固发展示浮层 */}
+              {isPopoverOpen && (
                 <div
-                  className="absolute right-0 top-full mt-2 w-[340px] sm:w-[440px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/90 dark:border-slate-800 z-50 p-4 text-left animate-in fade-in zoom-in-95 duration-150 text-slate-900 dark:text-slate-100"
+                  className="fixed inset-x-2 top-14 sm:absolute sm:right-0 sm:top-full sm:mt-2 sm:left-auto sm:w-[500px] max-w-[calc(100vw-1rem)] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/90 dark:border-slate-800 z-50 p-4 text-left animate-in fade-in zoom-in-95 duration-150 text-slate-900 dark:text-slate-100 flex flex-col max-h-[85vh]"
                   onMouseEnter={handleMouseEnter}
                   onMouseLeave={handleMouseLeave}
                 >
                   {/* 浮层头部 */}
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
                     <div className="flex items-center gap-2">
                       <div
                         className={`p-1.5 rounded-lg ${
@@ -379,6 +471,7 @@ export default function Header({
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                           准确性评分 <span className="font-bold text-slate-800 dark:text-slate-200">{verifyData?.score ?? 100}</span>/100 · 通过率{' '}
                           <span className="font-bold text-slate-800 dark:text-slate-200">{verifyData?.passRate || '100%'}</span>
+                          {isPinned && <span className="ml-2 text-[10px] text-blue-600 dark:text-blue-400 font-semibold">(已固定常驻)</span>}
                         </p>
                       </div>
                     </div>
@@ -390,7 +483,8 @@ export default function Header({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setIsHovered(false);
+                          setIsPopoverOpen(false);
+                          setIsPinned(false);
                         }}
                         className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
                         title="关闭自检窗口 (快捷键: Esc)"
@@ -402,58 +496,145 @@ export default function Header({
 
                   {/* 浮层主体 */}
                   {hasUnpassed ? (
-                    <div className="py-2.5 space-y-2 max-h-80 overflow-y-auto pr-1">
+                    <div className="py-2.5 space-y-2.5 flex-1 overflow-y-auto min-h-0 pr-1">
                       <div className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-2.5 py-1.5 rounded-lg border border-amber-200/70 dark:border-amber-800 flex items-center gap-1.5">
                         <Info className="w-3.5 h-3.5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
-                        <span>以下文章自检未达满分，点击可直接滚动定位至对应卡片：</span>
+                        <span>点击标题查看原地诊断详情，或点击按钮直达正文并自动展开全貌：</span>
                       </div>
 
-                      {verifyData?.unpassedItems.map((item, idx) => (
-                        <div
-                          key={item.id || idx}
-                          onClick={() => {
-                            const el = document.getElementById(`news-card-${item.id}`);
-                            if (el) {
-                              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                              el.classList.add('ring-4', 'ring-amber-400');
-                              setTimeout(() => el.classList.remove('ring-4', 'ring-amber-400'), 2500);
-                            }
-                            setIsHovered(false);
-                          }}
-                          className="group/item p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 hover:bg-amber-50/70 dark:hover:bg-amber-950/40 border border-slate-200/80 dark:border-slate-700/80 hover:border-amber-300 transition-all cursor-pointer shadow-xs"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover/item:text-amber-950 dark:group-hover/item:text-amber-200 line-clamp-2 leading-snug">
-                              {item.title}
-                            </span>
-                            <span
-                              className={`flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                item.status === 'FAIL'
-                                  ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-200'
-                                  : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-400 border border-amber-200'
-                              }`}
+                      {verifyData?.unpassedItems.map((item, idx) => {
+                        const isExpandedInPlace = inPlaceExpandedId === item.id;
+                        const matchedNews = newsItems.find((n) => n.id === item.id);
+                        const takeaway = matchedNews?.oneLineTakeaway || item.oneLineTakeaway;
+                        const summary = matchedNews?.summaryParagraph || matchedNews?.summary5W1H?.what || item.summaryParagraph || item.summary5W1H?.what;
+                        const impact = matchedNews?.transmissionImpact || item.transmissionImpact;
+                        const trackId = item.track || matchedNews?.track;
+
+                        return (
+                          <div
+                            key={item.id || idx}
+                            className={`group/item p-3 rounded-xl transition-all shadow-xs border ${
+                              isExpandedInPlace
+                                ? 'bg-amber-50/50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/20'
+                                : 'bg-slate-50 dark:bg-slate-800/60 hover:bg-amber-50/40 dark:hover:bg-amber-950/20 border-slate-200/80 dark:border-slate-700/80 hover:border-amber-200'
+                            }`}
+                          >
+                            <div
+                              onClick={() => setInPlaceExpandedId(isExpandedInPlace ? null : item.id)}
+                              className="flex items-start justify-between gap-2 cursor-pointer select-none"
+                              title={isExpandedInPlace ? "收起自检详情" : "展开自检详情"}
                             >
-                              {item.status === 'FAIL' ? '未通过' : '待优化'}
-                            </span>
-                          </div>
-
-                          <div className="mt-2 space-y-1">
-                            {item.reasons.map((reason, rIdx) => (
-                              <div key={rIdx} className="text-[11px] text-rose-600 dark:text-rose-400 font-medium flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 flex-shrink-0" />
-                                <span>{reason}</span>
+                              <span
+                                className="text-xs font-bold text-slate-800 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 line-clamp-2 leading-snug flex-1"
+                              >
+                                {item.title}
+                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span
+                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                    item.status === 'FAIL'
+                                      ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-200'
+                                      : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-400 border border-amber-200'
+                                  }`}
+                                >
+                                  {item.status === 'FAIL' ? '未通过' : '待优化'}
+                                </span>
+                                {isExpandedInPlace ? (
+                                  <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                                ) : (
+                                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                                )}
                               </div>
-                            ))}
-                          </div>
+                            </div>
 
-                          <div className="mt-2.5 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
-                            <span className="truncate max-w-[200px]">信源: {item.source}</span>
-                            <span className="text-amber-700 dark:text-amber-400 group-hover/item:text-amber-900 font-semibold inline-flex items-center gap-0.5">
-                              点击在正文定位 <ChevronRight className="w-3 h-3" />
-                            </span>
+                            {/* 审核诊断结论 */}
+                            <div className="mt-2 space-y-1">
+                              {item.reasons.map((reason, rIdx) => (
+                                <div key={rIdx} className="text-[11px] text-rose-600 dark:text-rose-400 font-medium flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 flex-shrink-0" />
+                                  <span>{reason}</span>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* 原地展开的深度信息透视 */}
+                            {isExpandedInPlace && (
+                              <div className="mt-2.5 pt-2.5 border-t border-slate-200/80 dark:border-slate-700/80 space-y-2 text-xs animate-in fade-in duration-150">
+                                {takeaway && (
+                                  <div className="p-2 rounded-lg bg-amber-50/80 dark:bg-amber-950/50 border border-amber-200/60 dark:border-amber-800/50">
+                                    <span className="font-bold text-amber-900 dark:text-amber-300">核心透视：</span>
+                                    <span className="text-slate-800 dark:text-slate-200">{takeaway}</span>
+                                  </div>
+                                )}
+
+                                {summary && (
+                                  <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 leading-relaxed">
+                                    <span className="font-bold text-slate-900 dark:text-slate-100 block mb-0.5">事实要点：</span>
+                                    <p>{summary}</p>
+                                  </div>
+                                )}
+
+                                {impact && (
+                                  <div className="p-2 rounded-lg bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/50 dark:border-blue-800/40 text-blue-950 dark:text-blue-200">
+                                    <span className="font-bold">传导影响：</span>
+                                    <span>{impact}</span>
+                                  </div>
+                                )}
+
+                                {!takeaway && !summary && !impact && (
+                                  <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[11px]">
+                                    已记录采编自检诊断。点击下方按钮可直达正文深度展开查看。
+                                  </div>
+                                )}
+
+                                <div className="pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleJumpToCard(item.id, trackId);
+                                    }}
+                                    className="w-full py-1.5 px-3 rounded-lg bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                                  >
+                                    <span>在正文流中定位并自动展开此卡片</span>
+                                    <ChevronRight className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 底部操作与跳转定位 */}
+                            <div className="mt-2.5 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
+                              <span className="truncate max-w-[130px] sm:max-w-[180px]">信源: {item.source}</span>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setInPlaceExpandedId(isExpandedInPlace ? null : item.id);
+                                  }}
+                                  className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-semibold px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer inline-flex items-center gap-1"
+                                >
+                                  <span>{isExpandedInPlace ? '收起详情' : '原地详情'}</span>
+                                  {isExpandedInPlace ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleJumpToCard(item.id, trackId);
+                                  }}
+                                  className="text-amber-800 dark:text-amber-300 hover:text-amber-950 dark:hover:text-white font-bold inline-flex items-center gap-1 bg-amber-100/90 dark:bg-amber-900/60 hover:bg-amber-200 dark:hover:bg-amber-800/80 px-2.5 py-1 rounded-md transition-all cursor-pointer shadow-2xs active:scale-95"
+                                  title="在正文流中定位并自动展开此卡片详情"
+                                >
+                                  <span>正文定位展开</span>
+                                  <ChevronRight className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="py-5 text-center">
@@ -467,7 +648,7 @@ export default function Header({
                     </div>
                   )}
 
-                  <div className="pt-2.5 mt-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                  <div className="pt-2.5 mt-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
                     <span>巡检模式: 15分钟全要素自动自检</span>
                     <button
                       onClick={(e) => {

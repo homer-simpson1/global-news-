@@ -99,6 +99,38 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
   }, [item.oneLineTakeaway, cleanTitle]);
 
   const cardRef = React.useRef<HTMLDivElement>(null);
+  const [isNavHighlighted, setIsNavHighlighted] = React.useState(false);
+  const highlightTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // 跨组件导航与卡片自动展开监听 (自检弹窗/全站直达触发)
+  React.useEffect(() => {
+    const handleExpandCard = (e: Event) => {
+      const ce = e as CustomEvent<{ id?: string; cardId?: string }>;
+      const targetId = ce.detail?.id || ce.detail?.cardId;
+      if (targetId && targetId === item.id) {
+        setExpanded(true);
+        setIsNavHighlighted(true);
+        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+        highlightTimerRef.current = setTimeout(() => {
+          setIsNavHighlighted(false);
+        }, 3000);
+
+        requestAnimationFrame(() => {
+          if (cardRef.current) {
+            cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        });
+      }
+    };
+
+    window.addEventListener('git-expand-card', handleExpandCard);
+    window.addEventListener('git-navigate-to-card', handleExpandCard);
+    return () => {
+      window.removeEventListener('git-expand-card', handleExpandCard);
+      window.removeEventListener('git-navigate-to-card', handleExpandCard);
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    };
+  }, [item.id]);
 
   React.useEffect(() => {
     if (!expanded) return;
@@ -147,10 +179,12 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       ref={cardRef}
       id={`news-card-${item.id}`}
       data-disaster-card={item.isOngoingDisaster || item.disasterTracker || item.id === 'GID-JILONG-PORT-DISASTER' ? 'true' : undefined}
-      className={`scroll-mt-32 content-visibility-auto card-layout-isolate relative rounded-2xl transition-[border-color,box-shadow] duration-150 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} dark:bg-slate-900 dark:border-slate-800 border ${theme.cardBorder} ${
+      className={`scroll-mt-32 content-visibility-auto card-layout-isolate relative rounded-2xl transition-all duration-300 overflow-hidden border-l-8 ${theme.borderLeft} ${theme.cardBg} dark:bg-slate-900 dark:border-slate-800 border ${theme.cardBorder} ${
         isLead ? 'shadow-md ring-1 ring-black/5 dark:ring-white/10' : 'hover:shadow-md shadow-sm'
       } ${
-        expanded
+        isNavHighlighted
+          ? 'ring-4 ring-amber-400 dark:ring-amber-400 shadow-2xl scale-[1.006]'
+          : expanded
           ? `${theme.cardActiveBorder} shadow-xl ring-4 ${theme.cardActiveRing}`
           : ''
       }`}
