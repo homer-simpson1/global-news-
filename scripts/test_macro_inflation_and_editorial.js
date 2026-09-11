@@ -55,13 +55,40 @@ console.log('   核心CPI (同比):', coreYoY?.actual, '预期:', coreYoY?.expec
 console.log('   核心CPI (环比):', coreMoM?.actual, '预期:', coreMoM?.expected);
 console.log('   总体CPI (环比):', headlineMoM?.actual);
 
-// 动态文本抽取检验: 包含核心CPI环比0.3%与总体环比0.2%的文本
+// 动态文本抽取检验 1: 包含核心CPI环比0.3%与总体环比0.2%的标准文本
 const dynamicContent = '美国8月核心CPI环比上涨0.3%，预期0.2%；总体CPI环比上涨0.2%。';
 const dynamicBreakdown = getMacroInflationBreakdown('美国8月通胀数据发布', dynamicContent, 'us_macro');
 const dynCoreMoM = dynamicBreakdown?.headlineMetrics.find(m => m.name.includes('核心CPI (环比)'));
 const dynHeadlineMoM = dynamicBreakdown?.headlineMetrics.find(m => m.name.includes('总体CPI (环比)'));
+const dynCoreYoY = dynamicBreakdown?.headlineMetrics.find(m => m.name.includes('核心CPI (同比)'));
 assert('动态提取核心CPI环比0.3%成功', dynCoreMoM !== undefined && dynCoreMoM.actual === '0.3%');
 assert('动态提取总体CPI环比0.2%成功', dynHeadlineMoM !== undefined && dynHeadlineMoM.actual === '0.2%');
+assert('核心环比预期隔离未污染同比预期 (核心同比预期仍为2.4%)', dynCoreYoY?.expected === '2.4%');
+assert('核心环比状态正确标记为超预期 (ABOVE_EXPECTED)', dynCoreMoM?.status === 'ABOVE_EXPECTED');
+
+// 动态文本抽取检验 2: 非默认异构数值提取 (核心 0.4%, 总体 0.1%) 杜绝假通过与硬编码默认值
+const nonDefaultContent = '美国核心通胀环比上升0.4%，总体CPI环比录得0.1%。';
+const nonDefaultBreakdown = getMacroInflationBreakdown('宏观快讯', nonDefaultContent, 'us_macro');
+const ndCoreMoM = nonDefaultBreakdown?.headlineMetrics.find(m => m.name.includes('核心CPI (环比)'));
+const ndHeadlineMoM = nonDefaultBreakdown?.headlineMetrics.find(m => m.name.includes('总体CPI (环比)'));
+assert('非默认数值: 核心环比0.4%动态提取成功', ndCoreMoM?.actual === '0.4%');
+assert('非默认数值: 总体环比0.1%动态提取成功', ndHeadlineMoM?.actual === '0.1%');
+
+// 动态文本抽取检验 3: 总体在前、核心在后的倒序格式
+const reverseContent = '总体CPI环比上涨0.2%，核心CPI环比上涨0.38%。';
+const reverseBreakdown = getMacroInflationBreakdown('美国CPI', reverseContent, 'us_macro');
+const revCoreMoM = reverseBreakdown?.headlineMetrics.find(m => m.name.includes('核心CPI (环比)'));
+const revHeadlineMoM = reverseBreakdown?.headlineMetrics.find(m => m.name.includes('总体CPI (环比)'));
+assert('倒序文本: 总体环比0.2%未误伤核心', revHeadlineMoM?.actual === '0.2%');
+assert('倒序文本: 核心环比0.38%精准提取', revCoreMoM?.actual === '0.38%');
+
+// 动态文本抽取检验 4: 英文彭博/路透专业语态提取
+const enContent = 'US Core CPI rose 0.3% MoM while headline CPI increased 0.2% month-over-month.';
+const enBreakdown = getMacroInflationBreakdown('US Inflation Report', enContent, 'us_macro');
+const enCoreMoM = enBreakdown?.headlineMetrics.find(m => m.name.includes('核心CPI (环比)'));
+const enHeadlineMoM = enBreakdown?.headlineMetrics.find(m => m.name.includes('总体CPI (环比)'));
+assert('英文语态: Core CPI MoM 0.3% 提取成功', enCoreMoM?.actual === '0.3%');
+assert('英文语态: Headline CPI MoM 0.2% 提取成功', enHeadlineMoM?.actual === '0.2%');
 
 // ─────────────────────────────────────────────────────────────
 // 测试 2: 关键分项深度穿透 (解决“核心/服务类/食品类通胀不说”痛点)
