@@ -316,19 +316,36 @@ export function autoCorrect5W1H(
   let s = summary5W1H ? { ...summary5W1H } : null;
   let wasCorrected = false;
 
+  const authorityMatch = title.match(/(长鑫存储|长鑫|中芯国际|工信部|国家发改委|发改委|商务部|财政部|中国人民银行|央行|证监会|应急管理部|交通运输部|国务院|外交部|最高检|最高法|国资委|生态环境部|国家能源局|美联储|五角大楼|也门胡塞武装|胡塞武装|以军|俄军|乌军|台积电|英伟达|苹果|微软|SK海力士|三星电子|三星|比亚迪|宁德时代)/);
+  const detectedWho = authorityMatch ? (authorityMatch[1] === '长鑫' ? '长鑫存储' : (authorityMatch[1] === '三星' ? '三星电子' : (authorityMatch[1] === '胡塞武装' ? '也门胡塞武装' : authorityMatch[1]))) : '涉事当事方';
+
   if (!s) {
     s = {
-      who: '权威监管机构与一线处置指挥部',
+      who: detectedWho,
       what: title,
       when: '最新通报窗口',
-      where: '核心涉事现场与关联金融交易中心',
-      why: '重大实质事件触发供需与流动性重塑',
-      consequence: '引发全产业链决策机制与风险防范重估',
+      where: '',
+      why: '', // 有原因就写原因，没有不要硬编！
+      consequence: '',
     };
     wasCorrected = true;
   }
 
-  // 地域错位纠偏：非西藏事件严禁出现“喜马拉雅”、“樟木口岸”
+  // 1. 比较主动方主体校准：如标题为 "高达82%，长鑫利润率反超三星SK海力士"
+  // 若 who 被错填为 SK海力士 或 三星电子，纠正为主动方 "长鑫存储"
+  const compMatch = title.match(/(?:(?:高达|超|逾)?[0-9.%]+[，,\s]*)?([A-Za-z0-9\u4e00-\u9fa5]{2,10}?)(?:息税前利润率|利润率|毛利率|营收|净利润|净利|销量|市值|份额|产能)?(?:反超|超越|超过|领先|力压|创下|暴增|大增)/);
+  if (compMatch && compMatch[1]) {
+    const cand = compMatch[1].trim();
+    if (cand === '长鑫' && (s.who === 'SK海力士' || s.who === '三星电子' || s.who === '三星' || !s.who || s.who.includes('处置') || s.who.includes('监管机构'))) {
+      s.who = '长鑫存储';
+      wasCorrected = true;
+    } else if (cand === '中芯' && (!s.who || s.who.includes('处置') || s.who.includes('监管机构'))) {
+      s.who = '中芯国际';
+      wasCorrected = true;
+    }
+  }
+
+  // 2. 地域错位纠偏：非西藏事件严禁出现“喜马拉雅”、“樟木口岸”
   if (!/吉隆|西藏|中尼|日喀则|定日/.test(title)) {
     if (s.where && /喜马拉雅|樟木口岸|中尼公路/.test(s.where)) {
       const geoMatch = title.match(/([\u4e00-\u9fa5]{2,6}(?:省|市|县|区|江|河|山))/);
@@ -341,14 +358,13 @@ export function autoCorrect5W1H(
     }
   }
 
-  // 权威主体提取自愈（如工信部、发改委等）
-  const authorityMatch = title.match(/(工信部|国家发改委|发改委|商务部|财政部|中国人民银行|央行|证监会|应急管理部|交通运输部|国务院|外交部|最高检|最高法|国资委|生态环境部|国家能源局)/);
-  if (authorityMatch && (!s.who || s.who.includes('一线处置') || s.who.length < 4)) {
-    s.who = authorityMatch[1];
+  // 3. 权威主体提取自愈
+  if (authorityMatch && (!s.who || s.who.includes('一线处置') || s.who.includes('监管机构') || s.who.length < 4)) {
+    s.who = detectedWho;
     wasCorrected = true;
   }
 
-  // 霍尔木兹海峡/波斯湾护航主体精确归因：杜绝泛化“多国联军”
+  // 4. 霍尔木兹海峡/波斯湾护航主体精确归因：杜绝泛化“多国联军”
   if (/霍尔木兹|波斯湾.*(?:巡航|护航|保费|油轮)/.test(title)) {
     if (!s.who || /多国联军|联合海上护航编队指挥部/.test(s.who) || s.who.length < 8) {
       s.who = '国际海事安全构架（美、英、沙特等IMSC编队）、欧洲海事感知行动（法、荷、意、德等EMASOH编队）及伦敦保赔协会';
@@ -356,21 +372,42 @@ export function autoCorrect5W1H(
     }
   }
 
-  // 要素长度与完整性自愈
-  if (!s.who || s.who.length < 2) {
-    s.who = '核心决策层与一线处置机构';
-    wasCorrected = true;
+  // 5. 修复 what 字段前导残破连词（防止正则误切前半句后只留下“和三星电子...”）
+  if (s.what) {
+    const cleanWhat = s.what.replace(/^[，,和与以及同时因此使得导致]+/, '').trim();
+    if (cleanWhat !== s.what) {
+      if (title.includes('反超') && /SK海力士|三星/.test(cleanWhat) && !cleanWhat.includes('长鑫')) {
+        s.what = title;
+      } else {
+        s.what = cleanWhat;
+      }
+      wasCorrected = true;
+    }
   }
   if (!s.what || s.what.length < 8) {
     s.what = title;
     wasCorrected = true;
   }
-  if (!s.why || s.why.length < 6) {
-    s.why = '外部供需周期切换与突发地缘环境共振引发连锁反应';
-    wasCorrected = true;
+
+  // 6. 严禁硬编深层动因与起因：命中虚假套话直接物理清空，无原因绝不硬编！
+  if (s.why) {
+    if (/外部供需周期切换与突发地缘环境共振引发连锁反应|重大实质事件触发供需与流动性重塑|利益交织对立|宏观宏图|深层动因/.test(s.why)) {
+      s.why = '';
+      wasCorrected = true;
+    }
   }
-  if (!s.consequence || s.consequence.length < 6) {
-    s.consequence = '重塑市场预期底座并倒逼相关责任主体启动应急策略';
+
+  // 7. 严禁硬编后续影响：命中虚假套话直接物理清空，无后果绝不硬编！
+  if (s.consequence) {
+    if (/重塑市场预期底座并倒逼相关责任主体启动应急策略|引发全产业链决策机制与风险防范重估|直接影响相关领域/.test(s.consequence)) {
+      s.consequence = '';
+      wasCorrected = true;
+    }
+  }
+
+  // 8. 主体兜底清洗：严禁假大空套话
+  if (!s.who || /核心决策层与一线处置机构|权威监管机构与一线处置指挥部/.test(s.who)) {
+    s.who = detectedWho;
     wasCorrected = true;
   }
 
@@ -533,10 +570,22 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   const correctedTracker = autoCorrectDisasterTracker(item.disasterTracker);
 
   const cleanTitle = sanitizeEditorialTone(correctedTitle);
-  const cleanTakeaway = sanitizeEditorialTone(item.oneLineTakeaway || '');
+  let cleanTakeaway = sanitizeEditorialTone(item.oneLineTakeaway || '')
+    .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
+    .replace(/[：:][，,]/g, '：')
+    .replace(/[：:][。.]/g, '。')
+    .replace(/，{2,}/g, '，')
+    .replace(/。{2,}/g, '。')
+    .trim();
   const cleanTransmission = sanitizeEditorialTone(correctedTransmission);
   const cleanWatchlist = sanitizeEditorialTone(item.nextWatchlist || '');
-  const cleanParagraph = sanitizeEditorialTone(item.summaryParagraph || '');
+  let cleanParagraph = sanitizeEditorialTone(item.summaryParagraph || '')
+    .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
+    .replace(/[：:][，,]/g, '：')
+    .replace(/[：:][。.]/g, '。')
+    .replace(/，{2,}/g, '，')
+    .replace(/。{2,}/g, '。')
+    .trim();
 
   const details: string[] = [];
   if (cleanTitle !== item.title) details.push('标题脱水去噪与结构重组');
@@ -607,10 +656,22 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
   );
 
   const cleanContent = sanitizeEditorialTone(correctedContent);
-  const cleanTakeaway = sanitizeEditorialTone(flash.oneLineTakeaway || '');
+  let cleanTakeaway = sanitizeEditorialTone(flash.oneLineTakeaway || '')
+    .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
+    .replace(/[：:][，,]/g, '：')
+    .replace(/[：:][。.]/g, '。')
+    .replace(/，{2,}/g, '，')
+    .replace(/。{2,}/g, '。')
+    .trim();
   const cleanTransmission = sanitizeEditorialTone(correctedTransmission);
   const cleanWatchlist = sanitizeEditorialTone(flash.nextWatchlist || '');
-  const cleanParagraph = sanitizeEditorialTone(flash.summaryParagraph || '');
+  let cleanParagraph = sanitizeEditorialTone(flash.summaryParagraph || '')
+    .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
+    .replace(/[：:][，,]/g, '：')
+    .replace(/[：:][。.]/g, '。')
+    .replace(/，{2,}/g, '，')
+    .replace(/。{2,}/g, '。')
+    .trim();
 
   const details: string[] = [];
   if (cleanContent !== flash.content) details.push('速递简报脱水');

@@ -1535,7 +1535,7 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
 }
 
 // 核心结论生成引擎：说人话拒绝八股文，强制【硬核观点词】：【一句白话透视】格式，严禁禁忌词库与流水线连接词
-function generateCoreTakeaway(
+export function generateCoreTakeaway(
   cleanTitle: string,
   content: string,
   track: TrackId,
@@ -1711,11 +1711,15 @@ function generateCoreTakeaway(
       : /美股|纳指|标普|道指|财报/.test(t)
       ? '资产估值再定价'
       : '宏观流动性再平衡',
-    apac_tech: '产能极度紧缺',
-    commodities_shipping: '运力周转受限',
-    war_conflict: '筹码争夺升级',
+    apac_tech: /利润|营收|财报|业绩|反超|毛利/.test(t)
+      ? '行业盈利格局重塑'
+      : /模型|算力|推理|大模型|ai/.test(t)
+      ? 'AI算力架构演进'
+      : '先进制程供需动态',
+    commodities_shipping: '大宗供求与运力平衡',
+    war_conflict: '地缘局势与安全态势',
     china_domestic: '重大治理现实透视',
-    china_policy: '自立打破围堵',
+    china_policy: '经贸博弈与产业自立',
     china_macro: /cpi|居民消费价格/.test(t)
       ? '物价信号影响货币政策'
       : /ppi|生产者价格/.test(t)
@@ -1751,7 +1755,19 @@ function generateCoreTakeaway(
     connector = '前线博弈与战略威慑态势：';
   }
 
-  let view = `${why}，${connector}${consequence}。`;
+  let view = '';
+  if (why && consequence) {
+    view = `${why}，${connector}${consequence}。`;
+  } else if (why) {
+    view = `${why}。`;
+  } else if (consequence) {
+    view = `直接影响方面，${consequence}。`;
+  } else {
+    // 若无单独 why 与 consequence，基于客观事实 what 进行机构中性归纳
+    const factDesc = (summary5W1H.what || cleanTitle || '').trim().replace(/[。！!.]+$/, '');
+    view = `${factDesc}。`;
+  }
+
   // 严格在标点处自然截断，绝不硬切单词导致“大型。”等残句
   if (view.length > 82) {
     const sub = view.slice(0, 80);
@@ -1759,7 +1775,7 @@ function generateCoreTakeaway(
     if (punc >= 45) {
       view = sub.slice(0, punc) + '。';
     } else {
-      view = sub + '...';
+      view = sub + '。';
     }
   }
 
@@ -1920,7 +1936,7 @@ function generateBullBearDivergence(title: string, content: string, track: Track
   };
 }
 
-function build5W1HSummary(
+export function build5W1HSummary(
   title: string,
   content: string,
   time: string,
@@ -1948,33 +1964,82 @@ function build5W1HSummary(
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 1. Who (核心主体提取：优先解析真实机构、军队、企业或标题主语，严禁捏造虚构机构)
+  // 1. Who (核心主体提取：优先解析真实机构、军队、企业或标题主动方，严禁捏造虚构机构)
   // ─────────────────────────────────────────────────────────────
   let who = '';
 
-  // 1.1 显式冒号结构：如 "伊朗外交部：已向美方发出警告"
-  const colonMatch = cleanTitle.match(/^([^：:，,——]{2,20})[：:——]/);
-  if (colonMatch && !/提醒|提示|快讯|电讯|最新|据悉|权威|突发/.test(colonMatch[1])) {
-    who = colonMatch[1].trim();
-  }
-
-  // 1.2 知名政军/主权/监管实体识别（真实实体，严禁张冠李戴）
-  if (!who) {
-    const knownEntityMatch = rawTotal.match(/(也门胡塞武装|胡塞武装|以色列国防军|以军|哈马斯|真主党|黎巴嫩真主党|乌克兰武装部队|乌军|俄罗斯国防部|俄军|美军|五角大楼|美国国防部|北约|欧盟委员会|中国人民银行|国家发展改革委|财政部|商务部|证监会|国务院国资委|国家应急管理部|国家统计局|美联储|欧洲央行|日本央行|英国央行|澳洲联储|台积电|英伟达|苹果|微软|谷歌|Meta|OpenAI|ASML|SK海力士|三星电子|特斯拉|高通|博通|中芯国际|比亚迪|宁德时代|长鑫存储|沐曦集成电路|中金公司|淡水河谷|必和必拓|力拓|沙特阿美|OPEC\+?|国际海事组织)/);
-    if (knownEntityMatch) {
-      who = knownEntityMatch[1];
+  // 1.1 比较/主动句型判定（如 "高达82%，长鑫利润率反超三星SK海力士" -> 优先将主动方认定为 Who）
+  const compMatch = cleanTitle.match(/(?:(?:高达|超|逾)?[0-9.%]+[，,\s]*)?([A-Za-z0-9\u4e00-\u9fa5]{2,10}?)(?:息税前利润率|利润率|毛利率|营收|净利润|净利|销量|市值|份额|产能)?(?:反超|超越|超过|领先|力压|创下|暴增|大增)/);
+  if (compMatch && compMatch[1]) {
+    const cand = compMatch[1].trim();
+    if (!/最新|快讯|电讯|权威|统计|数据显示|据悉|原标题/.test(cand)) {
+      who = cand === '长鑫' ? '长鑫存储' : (cand === '中芯' ? '中芯国际' : cand);
     }
   }
 
-  // 1.3 语法主语识别：抓取动词前面的主语（例如 "也门胡塞武装完全控制曼德海峡" -> 抓取 "也门胡塞武装"）
+  // 1.2 显式冒号结构：如 "伊朗外交部：已向美方发出警告"
   if (!who) {
-    const subjMatch = cleanTitle.match(/^([A-Za-z0-9\u4e00-\u9fa5]{2,16}?)(?:完全控制|控制|宣布|发布|拟|称|表示|启动|完成|获批|遭遇|遭到|发生|空袭|打击|减产|加息|降息|公布|通报|裁定|判处|起诉|调查|决定|签署|呼吁|警告)/);
+    const colonMatch = cleanTitle.match(/^([^：:，,——]{2,20})[：:——]/);
+    if (colonMatch && !/提醒|提示|快讯|电讯|最新|据悉|权威|突发|数据显示/.test(colonMatch[1])) {
+      who = colonMatch[1].trim();
+    }
+  }
+
+  // 1.3 优先在标题 (cleanTitle) 中匹配知名实体，避免被正文里的对比方（如三星、海力士）偷换主语！
+  const KNOWN_ENTITIES_REGEX = /(长鑫存储|长鑫|中芯国际|沐曦集成电路|也门胡塞武装|胡塞武装|以色列国防军|以军|哈马斯|黎巴嫩真主党|真主党|乌克兰武装部队|乌军|俄罗斯国防部|俄军|美军|五角大楼|美国国防部|北约|欧盟委员会|中国人民银行|国家发展改革委|国家发改委|发改委|财政部|商务部|证监会|工信部|国务院国资委|国资委|国家应急管理部|应急管理部|国家统计局|统计局|交通运输部|外交部|美联储|欧洲央行|日本央行|英国央行|澳洲联储|台积电|英伟达|苹果|微软|谷歌|Meta|OpenAI|ASML|SK海力士|三星电子|三星|特斯拉|高通|博通|比亚迪|宁德时代|中金公司|淡水河谷|必和必拓|力拓|沙特阿美|OPEC\+?|国际海事组织)/;
+  if (!who) {
+    const titleEntityMatch = cleanTitle.match(KNOWN_ENTITIES_REGEX);
+    if (titleEntityMatch) {
+      let cand = titleEntityMatch[1];
+      if (cand === '长鑫') cand = '长鑫存储';
+      else if (cand === '三星') cand = '三星电子';
+      else if (cand === '胡塞武装') cand = '也门胡塞武装';
+      who = cand;
+    }
+  }
+
+  // 1.4 语法主语识别：抓取动词前面的主语（例如 "也门胡塞武装完全控制曼德海峡" -> 抓取 "也门胡塞武装"）
+  if (!who) {
+    const subjMatch = cleanTitle.match(/^(?:(?:高达|超|逾)?[0-9.%]+[，,\s]*)?([A-Za-z0-9\u4e00-\u9fa5]{2,16}?)(?:完全控制|控制|占领|宣布|发布|拟|称|表示|启动|完成|获批|遭遇|遭到|发生|空袭|打击|减产|加息|降息|公布|通报|裁定|判处|起诉|调查|决定|签署|呼吁|警告|反超|超越|超过|领先|力压)/);
     if (subjMatch) {
-      who = subjMatch[1].trim();
+      const cand = subjMatch[1].trim();
+      if (!/最新|快讯|电讯|权威|突发|据悉|统计|数据显示/.test(cand)) {
+        who = cand === '长鑫' ? '长鑫存储' : (cand === '中芯' ? '中芯国际' : cand);
+      }
     }
   }
 
-  // 1.4 若仍无独立实体，以报道信源为出处主体，绝不使用假大空虚构机构！
+  // 1.5 从正文首句识别知名实体
+  const sents = content
+    .replace(/\r\n/g, '\n')
+    .split(/[。！？\n]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 8);
+
+  if (!who && sents.length > 0) {
+    const leadEntityMatch = sents[0].match(KNOWN_ENTITIES_REGEX);
+    if (leadEntityMatch) {
+      let cand = leadEntityMatch[1];
+      if (cand === '长鑫') cand = '长鑫存储';
+      else if (cand === '三星') cand = '三星电子';
+      else if (cand === '胡塞武装') cand = '也门胡塞武装';
+      who = cand;
+    }
+  }
+
+  // 1.6 从全量文本兜底匹配知名实体
+  if (!who) {
+    const rawEntityMatch = rawTotal.match(KNOWN_ENTITIES_REGEX);
+    if (rawEntityMatch) {
+      let cand = rawEntityMatch[1];
+      if (cand === '长鑫') cand = '长鑫存储';
+      else if (cand === '三星') cand = '三星电子';
+      else if (cand === '胡塞武装') cand = '也门胡塞武装';
+      who = cand;
+    }
+  }
+
+  // 1.7 若仍无独立实体，以报道信源为出处主体，绝不使用假大空虚构机构！
   if (!who) {
     who = source ? `${source}报道` : '涉事当事方';
   }
@@ -1989,20 +2054,18 @@ function build5W1HSummary(
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 3. What (事实要点：客观陈述事实动作)
+  // 3. What (事实要点：客观陈述事实动作，严禁贪婪正则删掉关键前半句)
   // ─────────────────────────────────────────────────────────────
   let what = cleanTitle;
-  const sents = content
-    .replace(/\r\n/g, '\n')
-    .split(/[。！？\n]/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 8);
   if (sents.length > 0) {
     let cleanLead = sents[0]
-      .replace(/^.*?（.*?）/, '')
-      .replace(/^.*?(?:快讯|直发|电讯)[：:，,]/, '')
+      .replace(/^[0-9]{1,2}月[0-9]{1,2}日(?:电|讯|消息)?[，,\s]*/, '')
+      .replace(/^(?:据.*?电[：:，,\s]*|据.*?报道[：:，,\s]*)/, '')
+      .replace(/^[（(]?(?:法新社|新华社|路透社|彭博社|央视网|人民网|财新网|界面新闻|财联社|第一财经|经济观察网|证券时报|中新社|日经)[)）]?[，,\s]*/, '')
+      .replace(/^(?:快讯|电讯|直发|专电|通报|最新消息)[：:，,\s]*/, '')
       .trim();
-    if (cleanLead.length >= 12 && cleanLead.length <= 80) {
+    cleanLead = cleanLead.replace(/^[，,和与以及同时因此使得导致]+/, '').trim();
+    if (cleanLead.length >= 12 && cleanLead.length <= 90) {
       what = cleanLead;
     }
   }
@@ -2049,13 +2112,14 @@ function build5W1HSummary(
   };
 }
 
-function build5W1HParagraph(
+export function build5W1HParagraph(
   summary: Summary5W1H,
   title: string,
   content: string,
   source?: string
 ): string {
-  const cleanWhat = (summary.what || title || '').trim().replace(/[。！!.]+$/, '');
+  let cleanWhat = (summary.what || title || '').trim().replace(/[。！!.]+$/, '');
+  cleanWhat = cleanWhat.replace(/^[，,和与以及同时因此使得导致]+/, '').trim();
   const cleanWho = (summary.who || '').trim();
   const cleanWhere = (summary.where || '').trim();
   const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '');
@@ -2067,9 +2131,17 @@ function build5W1HParagraph(
   let factSentence = '';
   if (cleanWho && cleanWhat.startsWith(cleanWho)) {
     factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWhat}。`;
+  } else if (cleanWho && cleanWhat.includes(cleanWho)) {
+    factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWhat}。`;
   } else if (cleanWho && !cleanWhat.includes(cleanWho)) {
     const locPart = cleanWhere ? `在${cleanWhere}` : '';
-    factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWho}${locPart}${cleanWhat}。`;
+    // 仅当 cleanWhat 以动作动词开头时拼接主语；若 cleanWhat 自身已是完整主谓从句，则不强行在句首叠加主语避免主谓打架
+    const startsWithAction = /^(?:发布|宣布|拟|称|表示|启动|完成|获批|遭遇|遭到|发生|空袭|打击|减产|加息|降息|公布|通报|裁定|判处|起诉|调查|决定|签署|呼吁|警告|反超|超越|超过|领先|力压|大增|暴涨|达到|成为|实现)/.test(cleanWhat);
+    if (startsWithAction) {
+      factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWho}${locPart}${cleanWhat}。`;
+    } else {
+      factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWhat}。`;
+    }
   } else {
     factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWhat}。`;
   }
