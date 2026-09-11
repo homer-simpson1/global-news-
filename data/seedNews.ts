@@ -11,8 +11,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.bloomberg.com",
     publishedAt: "9月9日 06:10",
     impactLevel: 1,
-    oneLineTakeaway: "【降息预期时点后移】：非农就业数据展现抗跌韧性，短久期美债遭遇承压抛售，借贷成本高位运行，对冲基金逐步收窄激进宽松押注。",
-    transmissionImpact: "一级交易商与货币市场基金维持高息收益底座，高杠杆中小企业承担利息支出压力，配置型资金自高估值成长资产流向短久期国债。",
+    oneLineTakeaway: "【降息预期时点后移】：8月非农就业展现韧性，美债遭遇抛售推动收益率上行至4.37%，借贷成本高位运行，对冲基金收窄激进宽松押注。",
+    transmissionImpact: "① 强劲非农数据推迟降息时点预期，两年期美债收益率反弹至4.37% ➔ ② 一级交易商与货币市场基金收益底座抬高，高杠杆企业利息负担加重 ➔ ③ 跨资产配置资金自高估值成长股流向短久期国债。",
     sentiment: "BEARISH",
     nextWatchlist: "【后续观察哨】：锁定在 9月11日 20:30 美国 8 月 CPI 数据公布及 9 月 FOMC 议息决议降息幅度。",
     bullBearDivergence: {
@@ -43,8 +43,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.spglobal.com",
     publishedAt: "9月9日 05:49",
     impactLevel: 2,
-    oneLineTakeaway: "【优质资产防御配置】：高利率环境下依赖外部信贷的周期制造板块面临财务费用上升压力，具备充沛现金流的大型科技企业凸显抗周期防御属性。",
-    transmissionImpact: "高杠杆顺周期板块与区域性商业银行承接资金流出压力，高现金流科技龙头承接流动性避险买盘，场内资金加速向优质流动性资产集中。",
+    oneLineTakeaway: "【防御资产配置分化】：高利率环境下依赖外部信贷的顺周期板块承压，充沛现金流科技龙头展现抗周期韧性，股指内部呈现结构性分化。",
+    transmissionImpact: "① 利率高企引发高杠杆顺周期制造板块承接资金流出压力 ➔ ② 机构资金向资产负债表稳健、自由现金流充沛的科技龙头回流 ➔ ③ 场内避险流动性加速向核心权重流动性资产集中。",
     sentiment: "BEARISH",
     nextWatchlist: "【后续观察哨】：锁定在 下周美股标普500期权月度交割日（OpEx）波动率峰值。",
     bullBearDivergence: {
@@ -75,8 +75,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.bloomberg.com",
     publishedAt: "9月9日 05:44",
     impactLevel: 2,
-    oneLineTakeaway: "【多头获利了结与头寸再平衡】：连续上行后短期杠杆多头头寸获利丰厚，非农数据超预期推迟美联储降息时间表，主动型量化基金选择锁定浮盈控制组合回撤。",
-    transmissionImpact: "早期获利的主动型多头与量化基金适度平仓规避利息支出，高杠杆衍生品头寸面临资金费率调整，场外配置资金转向等待核心通胀数据验证。",
+    oneLineTakeaway: "【多头获利了结与头寸再平衡】：加密概念股经历阶段性涨幅后多头获利了结，非农超预期推迟美联储降息时点，主动型基金平抑风险敞口。",
+    transmissionImpact: "① 短期急涨后量化基金与主动型机构集中平仓锁定浮盈 ➔ ② 衍生品市场高杠杆多头减仓导致资金费率快速回落 ➔ ③ 场外增量配置资金在核心通胀数据出炉前维持观望。",
     sentiment: "NEUTRAL",
     nextWatchlist: "【后续观察哨】：锁定在 美国以太坊现货ETF日度净流入与美联储隔夜逆回购（RRP）存量水位。",
     bullBearDivergence: {
@@ -107,8 +107,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.spglobal.com",
     publishedAt: "9月9日 05:16",
     impactLevel: 2,
-    oneLineTakeaway: "【被动指数基金规则约束】：追踪标普500的万亿美元级指数基金必须严格在生效日前按权重建仓新成分股，被动资金流动性溢价短期显著抬升标的估值中枢。",
-    transmissionImpact: "被动指数ETF（如SPY、IVV）在生效日尾盘集中实施调仓买入Palantir [PLTR]与戴尔科技 [DELL]，被剔除标的面临时点被动资金流出，主动型对冲基金在流动性转换窗口博弈点差。",
+    oneLineTakeaway: "【被动指数基金规则约束】：标普道琼斯指数公司宣布将Palantir与戴尔纳入标普500指数，追踪该指数的万亿美元被动基金必须在生效日前完成硬性调仓配置。",
+    transmissionImpact: "① 标普500指数成分股调整直接触发追踪ETF（SPY/IVV）被动建仓买入Palantir [PLTR]与戴尔科技 [DELL] ➔ ② 对应被剔除标的面临同等规模被动资金刚性撤出 ➔ ③ 调仓窗口期流动性溢价推动新晋成分股溢价走高。",
     sentiment: "BULLISH",
     nextWatchlist: "【后续观察哨】：锁定在 9月15日美股收盘后标普成分股正式生效日的尾盘集合竞价成交峰值。",
     bullBearDivergence: {
@@ -139,8 +139,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.wsj.com",
     publishedAt: "9月9日 10:15",
     impactLevel: 1,
-    oneLineTakeaway: "【流动性缓冲持续收窄】：金融机构存放在美联储隔夜逆回购存量跌破3000亿，若财政部后续国债发售提速，货币市场短期拆借流动性或面临阶段性供给偏紧。",
-    transmissionImpact: "一级交易商提高短期过夜融资拆借报价，对冲基金被迫压缩高杠杆套利头寸，美国短期国库券拍卖承接力面临严峻考验。",
+    oneLineTakeaway: "【流动性缓冲收窄与拆借利率承压】：金融机构存放在美联储隔夜逆回购（ON RRP）存量跌破3000亿美元关口，显示货币市场缓冲流动性逐步消耗，短期资金面波动敏感度提升。",
+    transmissionImpact: "① 隔夜逆回购资金垫底持续消耗 ➔ ② 一级交易商短期过夜融资成本抬升，国债承接弹性减弱 ➔ ③ 货币市场借贷利率对财政部后续发债供给脉冲的敏感度显著上升。",
     sentiment: "BEARISH",
     nextWatchlist: "【后续观察哨】：锁定在 美联储公开市场操作办公室（FOMO）常备回购便利（SRF）动用规模。",
     bullBearDivergence: {
@@ -173,8 +173,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://asia.nikkei.com",
     publishedAt: "9月9日 09:30",
     impactLevel: 1,
-    oneLineTakeaway: "【垄断者的底气】：哪怕台积电涨价 15%，英伟达和苹果也必须全盘吞下，因为全球没有第二家能代工 2nm，尖端制程已进入绝对的卖方市场。",
-    transmissionImpact: "代工成本上涨不会压垮英伟达，反而会逼迫英伟达进一步调高 B200 整机售价，最终由下游自研大模型的云计算大厂买单。",
+    oneLineTakeaway: "【先进制程定价权确认】：供应链消息显示台积电 (TSMC) 拟针对2nm先进制程代工报价上调10%~15%，苹果与英伟达为锁定首批排产份额已全额锁定产能配额。",
+    transmissionImpact: "① 先进制程晶圆代工报价上调直接抬高先锋芯片设计商制造成本 ➔ ② 核心芯片原厂通过提高次世代整机与服务器售价将成本向下游转嫁 ➔ ③ 云计算服务商资本支出承压并加速论证自研芯片替代节点。",
     sentiment: "BULLISH",
     nextWatchlist: "【后续观察哨】：锁定在 下周英伟达全球开发者与台积电投资人法说会资本开支指引。",
     bullBearDivergence: {
@@ -205,8 +205,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.reuters.com/technology",
     publishedAt: "9月9日 04:15",
     impactLevel: 1,
-    oneLineTakeaway: "【模型架构升级与商业化落地】：前沿AI模型逐步转向推理时多轮计算与思维链验证架构，降低生成幻觉并加速在高门槛企业级业务场景渗透。",
-    transmissionImpact: "具备前沿推理架构的核心供应商享有技术定价权与企业级API溢价，缺乏技术护城河的包装层应用面临淘汰出清，云厂商算力采购向推理优化芯片倾斜。",
+    oneLineTakeaway: "【模型架构演进与推理算力扩展】：前沿AI模型逐步向强化推理与思维链验证架构演进，提升长逻辑链条与代码生成的准确率，拓展高门槛企业级应用场景。",
+    transmissionImpact: "① 推理架构普及直接带动单次推理计算量（Token推理开销）倍数级上升 ➔ ② 云厂商与芯片供应商算力采购重点向推理优化集群倾斜 ➔ ③ 缺乏技术护城河的表层封装应用面临加速淘汰出清。",
     sentiment: "BULLISH",
     nextWatchlist: "【后续观察哨】：锁定在 下周OpenAI企业开发者大会API调用定价与微软Copilot深度整合方案。",
     bullBearDivergence: {
@@ -237,8 +237,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.bloomberg.com/technology",
     publishedAt: "9月9日 21:30",
     impactLevel: 2,
-    oneLineTakeaway: "【电网与算力基础设施瓶颈】：芯片部署周期与高压变压器长达数年的交付周期形成供需错配，具备稳定电力直供和并网指标的数据中心优先释放算力变现能力。",
-    transmissionImpact: "大型变电与特种变压器供应商及独立核电运营商标的享有长期订单溢价，缺乏电力保障的算力托管企业面临硬件闲置折旧与资产周转压力。",
+    oneLineTakeaway: "【电网容量错配制约算力释放】：芯片部署周期与高压变压器长达数年的交付周期形成供需错配，电力并网指标成为制约北美AI数据中心算力扩张的关键约束。",
+    transmissionImpact: "① 变压器交付周期拉长直接限制新建AI数据中心并网通电进度 ➔ ② 具备就地供电与独立并网指标的成熟数据中心享有租赁溢价 ➔ ③ 电气设备制造龙头在长周期排产下享有长期订单定价权。",
     sentiment: "BEARISH",
     nextWatchlist: "【后续观察哨】：锁定在 美国联邦能源管理委员会（FERC）关于数据中心直连核电并网听证会。",
     bullBearDivergence: {
@@ -269,8 +269,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://asia.nikkei.com",
     publishedAt: "9月9日 09:20",
     impactLevel: 1,
-    oneLineTakeaway: "【存储代差决定算力生死】：下一代AI芯片谁能堆叠更多更快的HBM高带宽内存，谁就能拿下大模型训练霸权，存储巨头彻底摆脱传统周期沦为顶级高科技军火商。",
-    transmissionImpact: "海力士与晶圆代工厂紧密绑定巩固超额利润，竞争对手三星与美光面临追赶压力，AI服务器硬件物料成本中存储占比进一步攀升至历史极值。",
+    oneLineTakeaway: "【高带宽存储主导权确立】：SK海力士完成首批HBM4高带宽存储样品电气验证，次世代GPU算力架构对超高堆叠HBM形成刚性技术锁定。",
+    transmissionImpact: "① HBM4验证通过直接锁定顶级GPU供应商下代旗舰采购份额 ➔ ② 高带宽存储在AI服务器物料成本（BOM）占比持续处于历史高位 ➔ ③ 存储厂商先发优势加速行业资本开支分化。",
     sentiment: "BULLISH",
     nextWatchlist: "【后续观察哨】：锁定在 韩国半导体出口月度数据与台积电先进封装CoWoS扩产进度。",
     bullBearDivergence: {
@@ -301,8 +301,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.reuters.com/technology",
     publishedAt: "9月9日 07:45",
     impactLevel: 1,
-    oneLineTakeaway: "【三亿欧元一台的印钞机】：高数值孔径光刻机是突破 1nm 制程物理极限的唯一入场券，三大晶圆巨头谁也不敢掉队，哪怕背负天文数字折旧也要硬吃设备。",
-    transmissionImpact: "ASML长协订单壁垒高筑无视宏观周期，先进制程设备核心零部件配套商迎来技术改造大单，晶圆代工巨头重资产折旧压力短期显著攀升。",
+    oneLineTakeaway: "【先进制程光刻资本开支锁定】：ASML新一代高数值孔径（High-NA）EUV光刻设备完成晶圆代工产线吊装，成为向2nm以下物理极限演进的关键支撑。",
+    transmissionImpact: "① 先进光刻设备到位直接推动晶圆制造巨头次世代研发产线建设 ➔ ② 晶圆代工厂面临巨额重资产折旧与前置资本开支压力 ➔ ③ 先进制程设备核心零部件与光学精密制造配套商订单能见度提升。",
     sentiment: "BULLISH",
     nextWatchlist: "【后续观察哨】：锁定在 荷兰维尔德霍芬ASML全球客户技术日与先进制程良率报告。",
     bullBearDivergence: {
@@ -335,8 +335,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.spglobal.com/commodityinsights",
     publishedAt: "9月9日 10:15",
     impactLevel: 1,
-    oneLineTakeaway: "【精炼铜供需偏紧与升水走阔】：全球电网基础设施投资与新能源装备需求形成刚性支撑，现货可用库存处于低位，推动精炼铜现货较期货呈现高升水结构。",
-    transmissionImpact: "拥有优质铜矿资源与低开采成本的矿业龙头享有现货高升水收益，下游线缆制造加工企业面临原材料成本传导压力，产业资金在LME仓单间寻求套期保值。",
+    oneLineTakeaway: "【现货高升水反映紧平衡】：全球电网建设与新能源转型推升精炼铜即期消费，交割仓单处于低位，下游加工企业在升水走阔背景下刚性采购。",
+    transmissionImpact: "① 现货高升水直接提升拥有低成本优质铜矿资源的矿业龙头利润 ➔ ② 下游电线电缆与电气设备制造企业承受原材料采购资金占用成本 ➔ ③ 产业贸易商利用现货期货价差在LME仓单间实施套期保值。",
     sentiment: "BULLISH",
     nextWatchlist: "【后续观察哨】：锁定在 伦敦金属交易所（LME）铜注册仓单变动与智利国家铜业公司（Codelco）月报。",
     bullBearDivergence: {
@@ -367,8 +367,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.lloydslist.com",
     publishedAt: "9月9日 08:20",
     impactLevel: 1,
-    oneLineTakeaway: "【航程拉长约束有效运力供给】：商船绕行非洲好望角使亚欧航线单程航期延长10至14天，有效消耗全球活跃集装箱船队可用运力，对即期运价形成刚性底部支撑。",
-    transmissionImpact: "集装箱班轮头部运力享有即期订舱溢价与改道附加费支撑，跨国进出口外贸企业承担物流周期拉长与集运即期运价上涨成本。",
+    oneLineTakeaway: "【航程拉长约束有效运力供给】：商船绕行非洲好望角使亚欧航线单程航期延长10至14天，有效消耗全球活跃集装箱船队可用运力，对即期运价形成底部支撑。",
+    transmissionImpact: "① 绕航耗时延长直接吸收集装箱船队富余运力 ➔ ② 班轮航运公司维持欧线即期运价与燃油绕航附加费水平 ➔ ③ 跨国进出口货主承受供应链周转周期拉长与物流履约成本。",
     sentiment: "BULLISH",
     nextWatchlist: "【后续观察哨】：锁定在 上海航运交易所集装箱出口运价指数（SCFI）及苏伊士运河通行月报。",
     bullBearDivergence: {
@@ -394,13 +394,13 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
   {
     id: "GID-7C683C80",
     track: "commodities_shipping",
-    title: "谁也别想多卖油！OPEC+继续减产，死守90美元油价钱袋",
+    title: "OPEC+主要成员国探讨顺延自愿减产，布伦特原油在90美元上方筑底",
     source: "普氏能源资讯 (S&P Global Energy)",
     sourceUrl: "https://www.spglobal.com/commodityinsights",
     publishedAt: "9月9日 19:40",
     impactLevel: 2,
-    oneLineTakeaway: "【掐死龙头保高价】：面对欧美疲软需求和美国页岩油增产，中东产油国坚决不降价甩卖，宁可把产量龙头拧紧也要保住国内财政预算的平衡线。",
-    transmissionImpact: "沙特等低开采成本产油国继续靠高油价支撑国内超级工程，欧美炼油厂与航空公司承担昂贵航煤成本，游资正在期货盘面上反复围剿做空力量。",
+    oneLineTakeaway: "【供给侧自律平衡财政预算】：面对全球需求预期温和与非OPEC产油国增产，OPEC+核心成员国延续每日220万桶自愿减产，对冲现货市场季节性累库压力。",
+    transmissionImpact: "① 自愿减产配额顺延直接压低全球原油商业库存累库斜率 ➔ ② 下游炼化企业与航运物流业承担刚性燃料采购成本 ➔ ③ 产油国主权财政预算平衡线对国际油价形成阶段性底部支撑。",
     sentiment: "NEUTRAL",
     nextWatchlist: "【后续观察哨】：锁定在 下周 OPEC+ 联合部长级监督委员会（JMMC）正式决议及EIA原油库存报告。",
     bullBearDivergence: {
@@ -421,7 +421,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
       why: "应对非OPEC国家产量上升与全球传统能源季节性需求平淡，防止库存快速累积。",
       consequence: "为国际基准原油构筑稳固成本支撑平台，抑制油价因宏观情绪恐慌出现非理性踩踏。"
     },
-    summaryParagraph: "据9月9日 19:40（能源决策动态）消息，OPEC+推进自愿减产延期磋商。核心起因是产油国联盟通过灵活供应调节锚定全球油价底线，在多空分歧中为全球能源市场提供确定性支撑。"
+    summaryParagraph: "据大宗商品跟踪专电消息，OPEC+核心成员国探讨顺延自愿减产协议。起因是平衡全球供给并稳定产油国财政预算，后续传导将对下游航空燃油与石化原料成本形成刚性支撑。"
   },
   {
     id: "GID-7C683C81",
@@ -431,8 +431,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.spglobal.com/commodityinsights",
     publishedAt: "9月9日 11:05",
     impactLevel: 1,
-    oneLineTakeaway: "【多空深水博弈】：海外矿山倚仗垄断资源坚决不肯降价让利，下游钢厂面临微薄利润咬牙压制采购库存，现货与期货盘面展开长达数周的高频拉锯。",
-    transmissionImpact: "澳巴矿山航线好望角型散货船运价波动剧烈，高负债民营钢厂严格按需采销防范跌价损失，金融投机资金在新加坡掉期市场频繁大单多空搏杀。",
+    oneLineTakeaway: "【矿钢产业链供需博弈加剧】：海外铁矿石巨头坚持高报价策略，下游钢铁企业面临成材利润承压而严格控制原料厂内库存，长协定价谈判陷入拉锯。",
+    transmissionImpact: "① 矿山长协挺价直接推高钢铁生产企业即期采购成本 ➔ ② 利润收窄的钢铁厂通过维持低库存与按需采购压低原料风险敞口 ➔ ③ 原料供需僵持导致海运散货市场运价与新加坡掉期合约宽幅震荡。",
     sentiment: "NEUTRAL",
     nextWatchlist: "【后续观察哨】：锁定在 澳洲皮尔巴拉港口周度发运量与国内45个主港铁矿石到港总库存。",
     bullBearDivergence: {
@@ -453,7 +453,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
       why: "上游矿山力保高额开采利润，下游钢铁加工企业面临微薄加工毛利抵触高价原料。",
       consequence: "抑制短期原料大宗囤货投机冲动，推动大宗贸易结算向现货浮动与掉期对冲靠拢。"
     },
-    summaryParagraph: "据9月9日 11:05（黑色大宗权威动态）消息，西澳铁矿石长协议价陷入多空拉锯。起因是供需两端围绕原料溢价诉求产生分歧，该博弈将直接约束大宗商品投机热钱的定价边界。"
+    summaryParagraph: "据大宗商品市场跟踪消息，必和必拓与亚洲钢厂长协谈判进入胶着期。核心动因在于成材利润收窄倒逼钢厂压低原料库存，产业链进入低库存按需采购博弈模式。"
   },
   {
     id: "GID-7C683C82",
@@ -463,8 +463,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.spglobal.com/commodityinsights",
     publishedAt: "9月9日 18:30",
     impactLevel: 2,
-    oneLineTakeaway: "【物理咽喉决定跨洋套利】：降雨虽让运河吃水有所恢复，但通行预约拍卖费依然昂贵，美湾至东亚的液化天然气套利利润被高额过河费吞噬大半。",
-    transmissionImpact: "专业气体运输船船东继续收取高昂日租金，东亚公用事业燃气公司加大长协直采以平抑现货波动，国际能源贸易商转战欧洲近端交付。",
+    oneLineTakeaway: "【物理咽喉制约跨洋套利空间】：巴拿马运河通航吃水限制虽逐步恢复，但预约通航拍卖溢价高企，跨洋液化天然气（LNG）贸易套利价差被高额过河成本侵蚀。",
+    transmissionImpact: "① 运河预约槽位拍卖溢价抬高跨洋运输单位单船成本 ➔ ② 美湾至东亚跨洋LNG货流套利窗口收窄并促使部分船货改道欧洲 ➔ ③ 亚洲终端公用事业买家提升中长期长协履约比例以平抑即期现货波动。",
     sentiment: "NEUTRAL",
     nextWatchlist: "【后续观察哨】：锁定在 巴拿马运河管理局（ACP）每日预约通航配额与日韩LNG到岸价（JKM）。",
     bullBearDivergence: {
@@ -498,7 +498,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     publishedAt: "9月9日 08:54",
     impactLevel: 1,
     oneLineTakeaway: "【涉密安全审计与供应链合规】：涉密关键信息外溢促使防务机构启动最高等级内部安全审查，涉密合规与信息安全采购优先级提升。",
-    transmissionImpact: "网络安全与保密合规承包商突击斩获紧急审查大单，传统军火外包商因权限冻结被迫停滞交付，军费预算加速流向涉密审计防线。",
+    transmissionImpact: "① 涉密信息外泄直接触发防务机构反间谍测谎与权限冻结 ➔ ② 涉密网络安全与供应链合规服务商紧急承接审计排查大单 ➔ ③ 外部防务承包商资质审核周期延长，高精尖采购交付流程趋严。",
     sentiment: "BEARISH",
     nextWatchlist: "【后续观察哨】：锁定在 联合国安理会闭门磋商窗口及霍尔木兹海峡/红海商船通行量指数。",
     bullBearDivergence: {
@@ -524,13 +524,13 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
   {
     id: "GID-0EACE2B8",
     track: "war_conflict",
-    title: "战机呼啸导弹对轰！以军猛烈空袭黎南，中东停火谈判谈崩",
+    title: "以军连续空袭黎巴嫩南部目标，中东地缘交火推升区域风险溢价",
     source: "半岛电视台 (Al Jazeera)",
     sourceUrl: "https://www.aljazeera.com",
     publishedAt: "9月9日 03:20",
     impactLevel: 1,
-    oneLineTakeaway: "【停火谈判沦为掩护】：交火双方都在用炸弹争取以后的实控线缓冲区，谁都不肯在战场处于下风时签协议，所谓的和平斡旋不过是各方争取喘息的缓兵之计。",
-    transmissionImpact: "跨国军工复合体订单爆满股价逆市冲高，地中海东岸商业航运保费翻倍飙升，大量国际中东避险资金弃股买金、推升现货黄金避险溢价。",
+    oneLineTakeaway: "【地缘冲突推升区域风险溢价】：以军对黎巴嫩南部目标持续展开空袭，区域安全局势恶化阻断停火磋商进程，全球大宗商品与航运风险溢价攀升。",
+    transmissionImpact: "① 冲突扩大直接抬升中东近海航运战争险费率与商船改道成本 ➔ ② 国际避险资金增配黄金与主权国债等避险标的 ➔ ③ 地缘溢价对国际原油近月交割期价形成刚性脉冲支撑。",
     sentiment: "BEARISH",
     nextWatchlist: "【后续观察哨】：锁定在 埃及开罗与卡塔尔多哈停火斡旋代表团新一轮穿梭外交联合声明。",
     bullBearDivergence: {
@@ -551,7 +551,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
       why: "双方在缓冲区实际控制权与停火准则上存在根本分歧，试图通过前线军事施压打破谈判僵局。",
       consequence: "加剧地缘风险溢价向全球大宗商品与国际物流外溢，推高防务安全警戒等级。"
     },
-    summaryParagraph: "据9月9日 03:20（战地实时直击）消息，以军在黎巴嫩南部展开空袭反击。动因是前线双方试图通过有限军事行动确立安全纵深优势，导致区域地缘风险溢价难以降温。"
+    summaryParagraph: "据地缘防务快报消息，以军对黎巴嫩南部实施密集空袭。起因是边境安全交火持续升级，后续传导将推高区域海空航运保险费率并加剧避险资金流向黄金资产。"
   },
   {
     id: "GID-0EACE2B9",
@@ -561,8 +561,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://ua.energy",
     publishedAt: "9月9日 06:40",
     impactLevel: 1,
-    oneLineTakeaway: "【系统性去工业化打击】：入冬前持续摧毁发供电枢纽，直接击溃了后方军工厂与铁路军运的电力生命线，逼迫欧洲不得不消耗更多资金提供紧急电网设备与跨境输电支援。",
-    transmissionImpact: "欧洲电力现货市场因东向反向输电预期价格小幅上扬，柴油发电机与工商业储能设备厂商迎来突发采购大单，乌克兰战时军工生产被迫向地下与境外疏散散布。",
+    oneLineTakeaway: "【能源基建受损与跨境电力支援】：乌克兰境内多座关键发供电枢纽遭打击损毁，全境实施限电管控，逼迫欧洲电网扩大跨境输电与应急备用电力设备调配。",
+    transmissionImpact: "① 枢纽电站损毁直接导致受损区域工业与民用用电负荷被迫压降 ➔ ② 应急发电机组、变压器与分布式储能系统出现紧急跨境采购需求 ➔ ③ 欧洲周边电力现货市场因东向净输电增加而产生阶段性价格上浮。",
     sentiment: "BEARISH",
     nextWatchlist: "【后续观察哨】：锁定在 国际原子能机构（IAEA）扎波罗热及核电安全简报与欧洲跨境输电容量更新。",
     bullBearDivergence: {
@@ -593,8 +593,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.aljazeera.com",
     publishedAt: "9月9日 22:15",
     impactLevel: 1,
-    oneLineTakeaway: "【原油咽喉战备升级】：美英主导的国际海事安全构架（IMSC）与法国主导的欧洲8国海峡感知编队（EMASOH）双向收紧巡逻戒备，伦敦劳合社维持高危海区评级，直接推升过境油轮战争险保费。",
-    transmissionImpact: "国际独立油轮船东协会（INTERTANKO）严核随船武装安保资质，波斯湾至远东超大型油轮（VLCC）运价指数逆势冲高，海湾产油国加速释放绕开海峡的陆上管道输油负荷。",
+    oneLineTakeaway: "【海峡通航戒备与保费成本抬升】：美英主导的海事安全联盟与欧洲护航编队提升霍尔木兹海峡戒备等级，伦敦保险市场维持高危评级，推升油轮战争险与过境成本。",
+    transmissionImpact: "① 巡航戒备升级直接导致穿行波斯湾油轮战争险费率翻倍上调 ➔ ② 超大型油轮（VLCC）船东通过运费附加费向租船买家转嫁保险成本 ➔ ③ 海湾产油国加速论证提高陆上管道输油配额以分散海运通道风险。",
     sentiment: "BEARISH",
     nextWatchlist: "【后续观察哨】：锁定在 国际海事安全构架（IMSC）巴林司令部通报、欧洲海峡感知行动（EMASOH）公报及伦敦劳合社战争险联合委员会（JWC）高危海区清单。",
     bullBearDivergence: {
@@ -626,8 +626,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.reuters.com",
     publishedAt: "9月9日 14:10",
     impactLevel: 2,
-    oneLineTakeaway: "【水下幽灵战常态化】：海底光缆与天然气管线是现代欧洲社会的隐形命脉，一次机械锚泊事故就能让整个国家断网，北约多国海军被迫把反潜巡逻常态化布设在海底。",
-    transmissionImpact: "水下自主潜航器（AUV）与海洋声学监测设备制造商接单暴涨，波罗的海商船锚泊与通航轨迹审查严苛数倍，涉外光缆跨境维修船队进入24小时战备待命。",
+    oneLineTakeaway: "【关键海缆基建声呐常态化巡检】：波罗的海沿岸多国对跨境通信光缆与天然气管线启动全天候声呐与巡逻监控，海事防务与海底资产安全防护常态化。",
+    transmissionImpact: "① 关键水下基建巡检直接拉动水下自主潜航器（AUV）与声学监测设备采购 ➔ ② 区域商业航运船舶锚泊管理与航路管制审查要求大幅趋严 ➔ ③ 跨国通信运营商提高海缆物理备份与快速抢修应急船队战备预算。",
     sentiment: "NEUTRAL",
     nextWatchlist: "【后续观察哨】：锁定在 北约联合海底基础设施保护中心（JMII）首期巡检报告发布。",
     bullBearDivergence: {
@@ -663,8 +663,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     spilloverCriterion: "系统性责任事故与地方大震荡",
     isOngoingDisaster: true,
     disasterTracker: GYIRONG_PORT_DISASTER_TRACKER,
-    oneLineTakeaway: "【跨国地质灾害击穿通关咽喉】：尼泊尔冰崩引发的泥石流直接冲垮了中尼最重要的陆路物流命脉，不仅考验跨境应急搜救，更迫使口岸重建必须重新评估地质选址与防灾冗余。",
-    transmissionImpact: "中尼跨境公路货运被迫大范围分流绕行樟木口岸或转走海运，口岸重建基建与高山边坡治理防灾工程紧急立项，边贸进出口企业正承受单证延误与滞港成本。",
+    oneLineTakeaway: "【跨境突发地质灾害应急响应】：境外雪山冰崩引发跨境泥石流冲击西藏吉隆口岸；应急管理部与工程抢险部队打通陆路便道展开搜救，同时启动口岸防灾减灾冗余与综合选址评估。",
+    transmissionImpact: "① 地质灾害直接破坏口岸道路与通关基础设施并阻断跨境货流 ➔ ② 边贸进出口货物紧急分流绕行相邻樟木口岸并承担转运滞港成本 ➔ ③ 属地应急管理与防灾工程部门加速推进灾区搜救抢险与选址评估。",
     sentiment: "BEARISH",
     nextWatchlist: "【后续观察哨】：锁定在 应急管理部关于失联人员搜救阶段性通报及国家口岸办关于吉隆口岸原址抗灾评估结论。",
     bullBearDivergence: {
@@ -690,14 +690,14 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
   {
     id: "GID-394CB5DA",
     track: "china_domestic",
-    title: "受贿逾九千万元！证监会原副主席王建军一审被判处无期徒刑",
+    title: "证监会原副主席王建军受贿逾九千万元，一审被判处无期徒刑",
     source: "财新网 (Caixin)",
     sourceUrl: "https://finance.caixin.com",
     publishedAt: "9月9日 15:20",
     impactLevel: 1,
     spilloverCriterion: "监管铁拳与准入颠覆",
-    oneLineTakeaway: "【司法惩戒与制度规范深化】：司法判决对资本市场发审寻租行为依法严厉追责，坚决消除制度寻租空间，确立资本市场公平透明与依法监管的法治底盘。",
-    transmissionImpact: "违法涉案人员与灰色寻租机构资产遭司法查封冻结，内控严谨的合规金融机构承接被挤出的优质客户，违规操纵热钱仓皇平仓离场。",
+    oneLineTakeaway: "【司法惩处与监管法治化底盘夯实】：司法机关依法严厉惩处证券发行监管寻租腐败行为，体现资本市场从严监管与消除制度寻租空间的法治决心。",
+    transmissionImpact: "① 司法严惩对资本市场发审违规寻租行为形成强大制度震慑 ➔ ② 金融机构自查自纠并提升发行承销与合规保荐内控标准 ➔ ③ 市场公信力与投资者对于公平透明制度环境的长期信心得到修复。",
     sentiment: "BEARISH",
     nextWatchlist: "【后续观察哨】：锁定在 证监会发审流程追责细则发布与涉案上市中介机构合规核查进展。",
     bullBearDivergence: {
@@ -718,7 +718,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
       why: "长期在证券发行审查和资本市场监管中利用职权为不法民企突击入股和违规审批输送利益。",
       consequence: "穿透式震慑资本市场发审腐败，倒逼所有券商保荐承销机构全面自查整改。"
     },
-    summaryParagraph: "据9月9日 15:20（司法权威通报）消息，青岛中院依法对证监会原副主席王建军受贿案宣判无期徒刑。深层本质是国家对金融审批寻租实施零容忍清洗，为资本市场平稳健康运行划定带电的高压红线。"
+    summaryParagraph: "据司法通报消息，证监会原副主席王建军受贿案一审宣判。起因是依法惩治证券发行环节寻租腐败，后续传导将从制度层面压实保荐机构看门人责任，维护市场公开公平公正。"
   },
   {
     id: "GID-394CB5DB",
@@ -729,8 +729,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     publishedAt: "9月9日 18:50",
     impactLevel: 1,
     spilloverCriterion: "系统性责任事故与地方大震荡",
-    oneLineTakeaway: "【中央信用硬核托底】：与其坐视地方金融机构缩表承压，国家直接用特别国债真金白银注资夯实资本金，筑牢阻断跨市场债务踩踏的堤坝。",
-    transmissionImpact: "国有大行与重点险企资本充足率得到硬核夯实、信贷投放能力激活，高负债主体获得低成本债务置换空间，避险资金持续涌入主权国债。",
+    oneLineTakeaway: "【特别国债注资补充银行核心资本】：中央财政发行特别国债专项注资国有大型商业银行，直接补充核心一级资本，增强信贷投放与风险抵御缓冲能力。",
+    transmissionImpact: "① 特别国债资金直接注资夯实国有大行核心一级资本充足率 ➔ ② 银行信贷扩张边界与不良资产处置抗压垫仓能力显著增强 ➔ ③ 实体经济优质信贷投放空间打开，提振全市场信贷稳定性预期。",
     sentiment: "BULLISH",
     nextWatchlist: "【后续观察哨】：锁定在 财政部特别国债续发日程及大行核心一级资本充足率季报更新。",
     bullBearDivergence: {
@@ -751,7 +751,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
       why: "应对地方化债攻坚期金融机构资产负债表防守压力，强化国有主力银行信贷托底稳固性。",
       consequence: "大幅提升金融体系风险加权承载力，确保实体经济重点项目信贷链条不断不乱。"
     },
-    summaryParagraph: "据9月9日 18:50（财政货币政策调查）消息，财政部2300亿元特别国债注资银行正式执行。核心起因是主权财政协同发力筑牢金融安全底座，阻断地方化债期间可能诱发的信用紧缩循环。"
+    summaryParagraph: "据金融宏观监管快报消息，中央财政通过特别国债为国有大行注资。起因是强化银行体系资本实力以抵御顺周期波动，后续传导将稳定信贷供给并防范金融资产负债表收缩。"
   },
   {
     id: "GID-394CB5DC",
@@ -762,8 +762,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     publishedAt: "9月9日 08:30",
     impactLevel: 1,
     spilloverCriterion: "系统性责任事故与地方大震荡",
-    oneLineTakeaway: "【安全红线一票否决】：致命安全事故击穿了基层合规防线，涉事企业被停业倒查整顿，全行业拉响隐患排查战备警报，安全成本被强制置顶。",
-    transmissionImpact: "涉事责任主体面临顶格行政索赔与资质注销，同区域同行业全面停产整顿隐患，具备成熟安全体系的龙头企业承接外溢订单。",
+    oneLineTakeaway: "【交通安全责任倒查与隐患整肃】：道路重大交通事故引发多部门联合责任倒查与源头治理，重点营运车辆与危化运输安全检查标准全面收紧。",
+    transmissionImpact: "① 事故责任倒查直接导致涉事营运企业面临顶格行政处罚与停运整顿 ➔ ② 交通运输管理部门在全辖区开展营运车辆与道路隐患专项筛查 ➔ ③ 物流承运企业被动增加安全监控设备安装与合规管理支出。",
     sentiment: "BEARISH",
     nextWatchlist: "【后续观察哨】：锁定在 交通应急管理部门关于涉事重型营运车辆动态监控溯源报告。",
     bullBearDivergence: {
@@ -784,7 +784,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
       why: "恶劣路况下车辆涉嫌超限运行与视距盲区处置不当，暴露出基层运输安全生产履职漏洞。",
       consequence: "严厉启动事故问责程序，并在全省范围拉网式严查高危货运交通安全隐患。"
     },
-    summaryParagraph: "据9月9日 08:30（突发安全事故专电）消息，内蒙古阿拉善发生五人遇难重大交通事故。本质是重特大安全生产事故触碰法律底线，监管部门迅速启动严苛倒查追责，严厉遏制重大伤亡外溢。"
+    summaryParagraph: "据应急救援通报消息，内蒙古发生重大交通伤亡事故。起因是道路行车安全合规失守，后续传导将触发重点营运线路与大宗危化品运输的专项合规筛查。"
   },
   {
     id: "GID-394CB5DD",
@@ -795,8 +795,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     publishedAt: "9月9日 11:45",
     impactLevel: 1,
     spilloverCriterion: "系统性责任事故与地方大震荡",
-    oneLineTakeaway: "【真金白银撬动实物工作量】：国家发改委将特别国债资金直接划拨到地下管网、老旧设备改造和水利防灾现场，不搞撒胡椒面，每一笔资金都要换回实打实的有效投资。",
-    transmissionImpact: "高端智能制造装备与城市综合管廊承建商迎来政府直投订单，地方财政配套自筹压力因中央直达资金显著减轻，工程机械微观开工率拐点向上。",
+    oneLineTakeaway: "【特别国债资金加速重大工程落地】：国家发改委全面下达“两重”建设与“两新”改造特别国债项目资金，聚焦管网改造、设备更新与水利基建形成实物工作量。",
+    transmissionImpact: "① 中央直达资金下达直接缓解重大工程地方配套财政自筹资金压力 ➔ ② 高端工业母机、节能电气装备及综合管廊承包商获得实物订单 ➔ ③ 基建链条微观开工率回升，拉动上游特种材料与工程机械设备开工。",
     sentiment: "BULLISH",
     nextWatchlist: "【后续观察哨】：锁定在 9月中旬国家统计局月度规模以上工业增加值与固定资产投资数据。",
     bullBearDivergence: {
@@ -817,21 +817,21 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
       why: "以中央政府主权信用定向加杠杆，稳固制造业投资与基础设施抗灾短板，抵御外部宏观波动。",
       consequence: "直接激发中下游装备制造与工程技术需求，为下半年宏观经济平稳向好注入确定性动能。"
     },
-    summaryParagraph: "据9月9日 11:45（宏观政策权威直击）消息，国家发改委全部下达本年度超长期特别国债资金。核心动因在于以国家信用支撑重大战略安全与工业升级，推动实物投资工作量加速形成支撑。"
+    summaryParagraph: "据国家发改委投资通报消息，“两重两新”特别国债投资加速下达。起因是扩充制造业技改与地下管网实物投资，后续传导将提升工业装备与基础设施产业链有效需求。"
   },
 
   // ================= 6. 发达国家对华举措与博弈 (china_policy) =================
   {
     id: "GID-287BCF46",
     track: "china_policy",
-    title: "滥用管制必遭反制！商务部重磅亮剑，启动反歧视救济评估",
+    title: "商务部针对歧视性贸易限制措施启动反歧视救济评估",
     source: "路透中文网 (Reuters)",
     sourceUrl: "https://www.reuters.com",
     spilloverCriterion: "地缘与涉外高危擦枪",
     publishedAt: "9月9日 07:15",
     impactLevel: 1,
-    oneLineTakeaway: "【亮出家底以战止戈】：单方面限制只会逼得国内全产业链加快自主造血，商务部拿出多边反歧视工具箱，直接把贸易摩擦摆在阳光下对等算账。",
-    transmissionImpact: "全栈国产替代产业链龙头获得政策倾斜与国内采购大单，严重依赖海外代理资质的中间商面临断供退场，出海合规律所与咨询业务迎来暴单。",
+    oneLineTakeaway: "【反歧视多边救济评估启动】：商务部依法对单边经贸限制展开反歧视审查评估，中方依据世贸组织规则维护合法权益，推动多边经贸机制回归常态。",
+    transmissionImpact: "① 贸易救济调查启动直接倒逼关键元器件国内采购配额加速提升 ➔ ② 严重依赖单边进口渠道的代理商加快调整备件与合规架构 ➔ ③ 关键工业原料与核心零部件国产化验证周期显著压缩。",
     sentiment: "NEUTRAL",
     nextWatchlist: "【后续观察哨】：锁定在 欧盟委员会对华关税投票窗口与美商务部实体清单更新动态。",
     bullBearDivergence: {
@@ -852,7 +852,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
       why: "部分发达经济体人为设置排他性技术壁垒扰乱全球产业链，中方依法依规维护公平经贸秩序。",
       consequence: "推动双边经贸谈判重回世贸规则轨道，倒逼国内核心产业全栈自主替代加速完成闭环。"
     },
-    summaryParagraph: "据9月9日 07:15（经贸热点直报）消息，商务部展开技术限制合规应对评估。起因是坚决反对外部歧视性贸易壁垒，后续传导将坚定引导国内高新技术产业链走通自主可控之路。"
+    summaryParagraph: "据商务部通报消息，针对不合理贸易限制措施的救济评估全面展开。起因是依据世贸组织多边规则维护企业公平经贸权益，后续传导将驱动核心技术链条提升自主配套保障能力。"
   },
   {
     id: "GID-287BCF47",
@@ -863,8 +863,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     spilloverCriterion: "地缘与涉外高危擦枪",
     publishedAt: "9月9日 08:50",
     impactLevel: 1,
-    oneLineTakeaway: "【谈比打好，以打促谈】：高额关税虽然剑拔弩张，但欧洲车企更害怕中国反制大排量燃油车，双方经贸团队正在最低承诺价格与合资建厂细节上极限拉扯。",
-    transmissionImpact: "国内头部新能源整车厂加速推进欧洲本土化组装建厂以绕开整车关税，欧洲传统车企管理层密集奔走布鲁塞尔游说求和，涉外经贸合规诉讼与贸易仲裁业务暴增。",
+    oneLineTakeaway: "【电动车反补贴税终裁博弈与价格承诺磋商】：欧盟对华电动汽车反补贴税终裁临近，中欧经贸团队就最低承诺价格与本土化投资安排展开密集技术层磋商。",
+    transmissionImpact: "① 关税压力促使中国新能源车企加速欧洲本地化KD组装与电池建厂落地 ➔ ② 欧洲跨国车企因担忧对等经贸反制加大对布鲁塞尔决策层的游说 ➔ ③ 跨国物流与关税合规筹划服务机构需求显著攀升。",
     sentiment: "NEUTRAL",
     nextWatchlist: "【后续观察哨】：锁定在 欧盟27国成员国委员会最终关税投票及中欧技术磋商联合公报。",
     bullBearDivergence: {
@@ -885,7 +885,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
       why: "单边惩罚性关税面临破坏中欧整体经贸合作大局风险，双方在经贸理性和产业诉求中寻求最大公约数。",
       consequence: "决定中欧汽车产业跨国投资合作走向，推动跨国供应链向共同出资、联合研发模式演进。"
     },
-    summaryParagraph: "据9月9日 08:50（经贸博弈深度关注）消息，中欧展开电动汽车关税终裁技术谈判。本质是全球高端制造优势重塑背景下的经贸博弈与利益再平衡，直接牵动跨国车企全球产业链布局与成本中枢。"
+    summaryParagraph: "据中欧经贸磋商快讯消息，电动汽车反补贴案进入终裁技术磋商窗口。起因是平衡双边贸易摩擦与产业诉求，后续传导将加速国内主机厂在欧洲本地化产能布局落地。"
   },
   {
     id: "GID-287BCF48",
@@ -896,8 +896,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     spilloverCriterion: "地缘与涉外高危擦枪",
     publishedAt: "9月9日 16:30",
     impactLevel: 2,
-    oneLineTakeaway: "【层层设卡逼向极限】：借道中东云计算数据中心转售算力卡的路子被彻底盯上，海外买家必须经过更严苛的终端用户审查，这反而倒逼国内大厂下定决心全盘转向国产算力生态。",
-    transmissionImpact: "中东第三方数据中心项目审批周期拉长面临断供风险，海外芯片转口贸易商面临资金冻结与吊销资质，国产全自主GPU生态适配与集群替代订单爆棚。",
+    oneLineTakeaway: "【算力转运审查收紧与供应链自主化】：美商务部拟对转口中东的先进算力芯片实施更为严格的最终用户验证，限制算力卡通过第三方枢纽转运流向。",
+    transmissionImpact: "① 转口中东高性能算力硬件最终用户审查趋严直接拉长审批周期 ➔ ② 中东第三方算力数据中心面临货源采购不确定性与合规改造成本 ➔ ③ 限制加码倒逼国内算力需求方进一步向本土自主芯片生态迁移。",
     sentiment: "BEARISH",
     nextWatchlist: "【后续观察哨】：锁定在 美国工业与安全局（BIS）关于先进计算与半导体制造物品出口管制临时最终规则（IFR）。",
     bullBearDivergence: {
@@ -918,7 +918,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
       why: "堵塞高端算力流向非授权最终用户的合规监管漏洞，强化单边技术出口封锁效能。",
       consequence: "加剧中东地区算力基建采购阻滞，进一步强化全栈国产自主算力研发攻关的必要性与紧迫感。"
     },
-    summaryParagraph: "据9月9日 16:30（管制动态追踪）消息，美商务部计划对中东算力出口实施更严苛牌照审查。动因在于封堵跨国转运监管盲区，后续传导将坚定引导国内人工智能基础设施加速走通全链条国产替代。"
+    summaryParagraph: "据半导体贸易管制动态消息，算力芯片第三方转口审查程序趋紧。起因是防止高端AI算力经中间渠道非授权流动，后续传导将促使国内企业加大对国产异构算力集群的迁移验证力度。"
   },
 
   // ================= 7. 全球宏观认知与深度要闻 (global_cognition) =================
@@ -930,8 +930,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.economist.com",
     publishedAt: "9月9日 09:22",
     impactLevel: 1,
-    oneLineTakeaway: "【检疫铁幕瞬间落下】：高致病禽流感一旦蔓延到周边巴西养殖带，全球鸡肉供给就得断档，各国海关宁可错杀也不敢放行南美禽肉。",
-    transmissionImpact: "欧美本土替代蛋白与大型家禽养殖巨头坐享短期提价红利，南美出口型牧场承受封关退运损失，国际对冲基金正借机炒作农畜产品期货。",
+    oneLineTakeaway: "【农业生物安全防控与检疫拦截收紧】：乌拉圭因高致病性禽流感疫情启动国家卫生紧急状态，南美主要农牧出口国升级边境检疫，防止疫情扩散波及核心养殖带。",
+    transmissionImpact: "① 疫情通报直接引发涉事国禽肉出口临时封关与边境检疫拦截 ➔ ② 具备生物安全隔离认证的非疫区规模养殖企业承接替代性供应配额 ➔ ③ 终端消费端蛋白原料采购成本阶段性上行。",
     sentiment: "BEARISH",
     nextWatchlist: "【后续观察哨】：锁定在 国际货币基金组织（IMF）全球经济展望秋季报告更新。",
     bullBearDivergence: {
@@ -952,7 +952,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
       why: "散养家禽检测出高致病性禽流感毒株，为阻断向规模化肉类出口产业链渗透而升级防控。",
       consequence: "导致部分区域性农牧出口遭遇临时限制，推高跨国冷链食品海关抽检周期与检验成本。"
     },
-    summaryParagraph: "据9月9日 09:22（电讯直报）消息，乌拉圭启动最高级别卫生紧急响应。核心原因在于阻断禽类疫情向全球贸易产业链扩散，体现出全球供应链面对突发生物安全冲击的即时防御。"
+    summaryParagraph: "据全球农业宏观快报消息，乌拉圭因禽流感进入卫生紧急状态。起因是防范高致病性毒株向核心农牧区扩散，后续传导将对区域冷链禽肉出口与国际动物蛋白即期供给构成扰动。"
   },
   {
     id: "GID-2DE608F3",
@@ -962,8 +962,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://asia.nikkei.com",
     publishedAt: "9月9日 10:40",
     impactLevel: 1,
-    oneLineTakeaway: "【套息盘梦魇重现】：只要日本央行嘴上稍微露出一丝加息意图，全球借超低息日元炒美股炒加密的几万亿杠杆资金就得吓出一身冷汗，谁都不敢赌日元突然升值引发的爆仓踩踏。",
-    transmissionImpact: "全球高杠杆跨国套利对冲基金未雨绸缪削减风险资产头寸，美元兑日元汇率在142-145关口剧烈宽幅震荡，日本本土银行与寿险机构享受收益率回升红利。",
+    oneLineTakeaway: "【日元套息交易平仓与利差收窄】：日本央行委员释放偏鹰派货币政策信号，暗示不排除年内继续加息，利差收窄预期推动全球日元套息交易阶段性平仓。",
+    transmissionImpact: "① 加息预期走强促使高杠杆跨国宏观对冲基金被动减持套息多头资产 ➔ ② 美元兑日元汇率波动放大，部分流向全球资产的廉价融资盘回流平仓 ➔ ③ 日本国内商业银行与寿险机构净息差扩张预期带动金融股表现。",
     sentiment: "BEARISH",
     nextWatchlist: "【后续观察哨】：锁定在 9月20日日本央行货币政策决策声明与植田和男行长新闻发布会。",
     bullBearDivergence: {
@@ -984,7 +984,7 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
       why: "通胀指标稳步居于2%目标之上且薪资谈判结果支撑内需消费，促使央行摆脱超宽松非传统货币工具依赖。",
       consequence: "重构全球跨境日元流动性利差底座，促使国际游资提高风险溢价防范去杠杆脉冲冲击。"
     },
-    summaryParagraph: "据9月9日 10:40（央行权威动态）消息，日本央行再度释放利率正常化信号。起因在于物价与薪资企稳支撑紧缩空间，这一姿态直接触动了全球日元套息交易的脆弱神经，牵动跨国资本流动敏感神经。"
+    summaryParagraph: "据东京金融市场电讯消息，日本央行决策层释放紧缩信号。起因是物价与薪资良性循环初显端倪，后续传导将促使跨境高杠杆套息头寸适度降杠杆并提升外汇市场双向波动率。"
   },
   {
     id: "GID-2DE608F4",
@@ -994,8 +994,8 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
     sourceUrl: "https://www.economist.com",
     publishedAt: "9月9日 12:50",
     impactLevel: 1,
-    oneLineTakeaway: "【廉价资金时代一去不复返】：过去十几年发的零利率低息主权债陆续到期，现在换成 5% 以上的高息新债，很多欠发达国家的财政收入甚至不够还利息，主权违约暗礁隐现。",
-    transmissionImpact: "国际多边金融机构被迫追加紧急流动性救助额度，高负债新兴市场主权信用评级承压被下调，避险资本加速撤回发达经济体核心硬通货主权资产。",
+    oneLineTakeaway: "【高利率环境下的主权债务再融资压力】：国际货币基金组织与世界银行发布警告，前期发行的低息主权债集中面临到期重置，高利率推升新兴经济体偿债成本。",
+    transmissionImpact: "① 主权债务到期换发高息新债直接大幅抬高相关国家财政利息支出占比 ➔ ② 国际评级机构对部分脆弱新兴市场主权信用评级施加下调压力 ➔ ③ 全球避险资本进一步向发达经济体核心硬通货主权资产集聚。",
     sentiment: "BEARISH",
     nextWatchlist: "【后续观察哨】：锁定在 国际货币基金组织与世界银行秋季年会及全球债务可持续性分析报告（DSA）。",
     bullBearDivergence: {
@@ -1016,6 +1016,6 @@ export const SEED_NEWS_ITEMS: NewsItem[] = [
       why: "欧美长期利率中枢上移导致借新还旧再融资成本成倍攀升，严重侵蚀新兴市场公共预算平衡能力。",
       consequence: "促使全球主权投资者重估新兴市场信用风险溢价，引导避险资金向高公信力核心主权资产集中。"
     },
-    summaryParagraph: "据9月9日 12:50（宏观战略深度报告）消息，IMF警示全球主权债务再融资重置风险。核心原因在于全球基准利率中枢长期处于高位，加剧了借贷主体的偿债刚性负担，是透视全球宏观金融脆弱性的关键窗口。"
+    summaryParagraph: "据华盛顿多边金融机构快报消息，主权债务重置风险被重点提示。起因是全球基准利率中枢上移大幅增加了债务滚存成本，后续传导将加大高债务新兴市场的财政收支紧平衡压力。"
   }
 ];

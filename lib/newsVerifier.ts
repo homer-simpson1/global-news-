@@ -1,6 +1,8 @@
 import { NewsItem, FlashBrief, MarketQuote, Summary5W1H } from './types';
-import { getFastIntelSnapshot } from './rssFetcher';
+import { getFastIntelSnapshot, verify_fact_faithfulness, fallback_to_grounded_summary } from './rssFetcher';
 import { autoCorrectNewsItem, autoCorrectAllNews } from './selfHealingEngine';
+
+export { verify_fact_faithfulness, fallback_to_grounded_summary };
 
 export interface VerificationItemResult {
   id: string;
@@ -97,6 +99,11 @@ export async function runNewsAccuracyVerification(
       titleOk = false;
       reasons.push('标题违规包含冒号体');
     }
+    // 门禁红线：标题严禁感叹号、问号、省略号
+    if (/[！!？?]|……|\.{3}/.test(item.title)) {
+      titleOk = false;
+      reasons.push('标题违规包含感叹号、问号或省略号');
+    }
     // 严禁未经脱水的政治口号与形式主义修辞
     if (/领导高度重视|迅速启动预案|众志成城|坚决贯彻|牢牢把握|深入推进|统一思想|遥遥领先|彻底打破垄断|世界首创/.test(item.title + ' ' + (item.summaryParagraph || ''))) {
       titleOk = false;
@@ -106,6 +113,16 @@ export async function runNewsAccuracyVerification(
     if (/([并与等及但而或者]|通过|进行|以及)\s*\.{2,3}$/.test(item.title)) {
       titleOk = false;
       reasons.push('标题末尾存在残缺截断（如“并通过...”）');
+    }
+
+    // 1.1 事实一致性审查门禁核验
+    const faithfulness = verify_fact_faithfulness(item.summaryParagraph || item.title, {
+      title: item.title,
+      core_conclusion: item.oneLineTakeaway || '',
+      transmission_chain: item.transmissionImpact || '',
+    });
+    if (!faithfulness.pass) {
+      reasons.push(`事实一致性审查未通过: ${faithfulness.reason}`);
     }
 
     // 2. 一级权威信源与真实可访问 URL 核验

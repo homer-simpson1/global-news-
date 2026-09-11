@@ -176,6 +176,82 @@ check('Gate 5: 深度透视严禁负面词库审校（杜绝自媒体口水套�
 });
 
 // -------------------------------------------------------------
+// 门禁 6: 标题标点与全量负面口水词严禁审校 (Gate 6: Headline & Tone)
+// -------------------------------------------------------------
+check('Gate 6: 标题严谨性（严禁感叹号/问号/省略号）与全量口水词库审校', () => {
+  const seedFiles = [
+    path.join(ROOT, 'data', 'seedNews.ts'),
+    path.join(ROOT, 'data', 'seedLeadNews.ts')
+  ];
+
+  const fullBannedList = [
+    '垄断者的底气', '掐死龙头保高价', '停火谈判沦为掩护', '底牌外泄引发恐慌',
+    '做大做强不再单打', '亮出家底以战止戈', '检疫铁幕瞬间落下', '刮骨疗毒动真格',
+    '水下幽灵战常态化', '高科技军火商', '三亿欧元一台的印钞机', '谁也别想多卖油',
+    '战机呼啸导弹对轰', '滥用管制必遭反制', '重磅亮剑', '哭爹喊娘', '炸裂',
+    '大动作', '买显卡通不上电', '赚麻了', '中央信用硬核托底', '散户站岗',
+    '无情砸盘', '割韭菜', '暴力拉升', '洗盘', '血洗', '谈崩', '死守',
+    '一票否决', '真金白银撬动', '谈比打好', '以打促谈', '层层设卡逼向极限',
+    '套息盘梦魇重现', '廉价资金时代一去不复返'
+  ];
+
+  seedFiles.forEach(file => {
+    if (!fs.existsSync(file)) return;
+    const content = fs.readFileSync(file, 'utf8');
+    const relName = path.relative(ROOT, file);
+
+    // 检查口水词
+    fullBannedList.forEach(w => {
+      if (content.includes(w)) {
+        errors.push(`[${relName}] 存在严禁使用的自媒体口水词: "${w}"`);
+      }
+    });
+
+    // 检查标题标点符号 (严禁 ！! ？? …)
+    const titleMatches = [...content.matchAll(/["']?title["']?\s*:\s*['"]([^'"]+)['"]/g)];
+    titleMatches.forEach((m, idx) => {
+      const title = m[1];
+      if (/[！!？?…]/.test(title)) {
+        errors.push(`[${relName}] 标题 #${idx + 1} 含有违规标点符号（严禁感叹号/问号/省略号）: "${title}"`);
+      }
+    });
+  });
+});
+
+// -------------------------------------------------------------
+// 门禁 7: 深度传导 1-Hop 因果与 5W1H 结论标签审校 (Gate 7: 1-Hop & 5W1H)
+// -------------------------------------------------------------
+check('Gate 7: 深度传导 1-Hop 一级直接因果与 5W1H 结论定性审校', () => {
+  const seedFiles = [
+    path.join(ROOT, 'data', 'seedNews.ts'),
+    path.join(ROOT, 'data', 'seedLeadNews.ts')
+  ];
+
+  seedFiles.forEach(file => {
+    if (!fs.existsSync(file)) return;
+    const content = fs.readFileSync(file, 'utf8');
+    const relName = path.relative(ROOT, file);
+
+    const transMatches = [...content.matchAll(/["']?transmissionImpact["']?\s*:\s*['"]([^'"]+)['"]/g)];
+    transMatches.forEach((m, idx) => {
+      const trans = m[1];
+      const is1Hop = /①.*➔.*②.*➔.*③/.test(trans) || trans.includes('信源仅陈述单一动作');
+      if (!is1Hop) {
+        errors.push(`[${relName}] 传导链 #${idx + 1} 不符合 1-Hop 一级直接因果标准（格式必须为 "①... ➔ ②... ➔ ③..." 或退避句）: "${trans}"`);
+      }
+    });
+
+    const takeawayMatches = [...content.matchAll(/["']?oneLineTakeaway["']?\s*:\s*['"]([^'"]+)['"]/g)];
+    takeawayMatches.forEach((m, idx) => {
+      const takeaway = m[1];
+      if (!takeaway.startsWith('【') || !takeaway.includes('】：')) {
+        errors.push(`[${relName}] 核心结论 #${idx + 1} 缺少机构专业定性标签（格式必须为 "【定性标签】：..."）: "${takeaway}"`);
+      }
+    });
+  });
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {
@@ -190,6 +266,8 @@ if (errors.length > 0) {
   console.log('   - 0 处资产大类容差误判隐患');
   console.log('   - 0 处 UI 层叠穿透腰斩隐患');
   console.log('   - 0 处深度透视口水话与自媒体二极管套话');
+  console.log('   - 0 处标题感叹号/问号/省略号，且全量口水词库 100% 清零');
+  console.log('   - 100% 深度传导遵循 1-Hop 一级直接因果，5W1H 结论定性全闭环');
   console.log('================================================================\n');
   process.exit(0);
 }

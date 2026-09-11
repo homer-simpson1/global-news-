@@ -71,7 +71,7 @@ export function sanitizeEditorialTone(text: string): string {
   if (!text) return '';
   let cleaned = text;
 
-  // 1. 过滤严禁的情绪化口水词
+  // 1. 过滤严禁的情绪化口水词与夸张套话
   cleaned = cleaned.replace(/无情砸盘|砸盘/g, '集中抛售');
   cleaned = cleaned.replace(/割韭菜/g, '风险转嫁');
   cleaned = cleaned.replace(/站岗/g, '承担回撤风险');
@@ -80,19 +80,38 @@ export function sanitizeEditorialTone(text: string): string {
   cleaned = cleaned.replace(/惨遭爆仓/g, '触发被动平仓止损');
   cleaned = cleaned.replace(/连根拔起/g, '深度出清');
   cleaned = cleaned.replace(/风声鹤唳/g, '防务警戒级别显著上调');
-  cleaned = cleaned.replace(/干翻人类/g, '实现技术跨越');
-  cleaned = cleaned.replace(/彻底沦为军火商/g, '防务采购比重上升');
-  cleaned = cleaned.replace(/暴赚|大赚暴利|坐收抬轿暴利/g, '录得超额投资收益');
+  cleaned = cleaned.replace(/干翻人类|干翻/g, '实现技术跨越');
+  cleaned = cleaned.replace(/彻底沦为军火商|沦为军火商/g, '防务采购比重上升');
+  cleaned = cleaned.replace(/暴赚|大赚暴利|坐收抬轿暴利|赚麻了/g, '录得超额投资收益');
   cleaned = cleaned.replace(/大发横财/g, '盈利显著扩张');
   cleaned = cleaned.replace(/机械规则送钱/g, '被动配置资金硬性注入');
   cleaned = cleaned.replace(/高位接盘/g, '高位承接');
+  cleaned = cleaned.replace(/哭爹喊娘/g, '面临流动性冲击');
+  cleaned = cleaned.replace(/炸裂|大动作/g, '重大战略进展');
+  cleaned = cleaned.replace(/买显卡通不上电|买了显卡通不上电/g, '算力并网受限');
+  cleaned = cleaned.replace(/加速死掉/g, '加速淘汰出清');
+  cleaned = cleaned.replace(/掐死龙头保高价|掐死龙头/g, '供给侧调节平衡');
+  cleaned = cleaned.replace(/停火谈判沦为掩护/g, '停火谈判分歧难消');
+  cleaned = cleaned.replace(/底牌外泄引发恐慌/g, '涉密信息外泄引发安全审计');
+  cleaned = cleaned.replace(/做大做强不再单打/g, '集约化并购重组推进');
+  cleaned = cleaned.replace(/亮出家底以战止戈/g, '多边贸易救济合规评估启动');
+  cleaned = cleaned.replace(/检疫铁幕瞬间落下/g, '生物安全防控全面升级');
+  cleaned = cleaned.replace(/刮骨疗毒动真格|刮骨疗毒/g, '司法惩治严厉震慑发审寻租');
+  cleaned = cleaned.replace(/中央信用硬核托底/g, '财政注资夯实资本金');
+  cleaned = cleaned.replace(/战机呼啸导弹对轰[！!]/g, '边境密集交火对峙，');
+  cleaned = cleaned.replace(/谁也别想多卖油[！!]/g, 'OPEC+严格执行减产纪律，');
+  cleaned = cleaned.replace(/受贿逾九千万元[！!]/g, '受贿9340万元，');
+  cleaned = cleaned.replace(/滥用管制必遭反制[！!]/g, '商务部启动反歧视合规调查，');
+  cleaned = cleaned.replace(/仓库见底还要加价提货[！!]/g, '现货升水结构走阔，');
+  cleaned = cleaned.replace(/弹药库存涉嫌内部泄密[！!]/g, '敏感战备库存涉嫌泄露，');
+  cleaned = cleaned.replace(/禽流感逼近南美农牧圈[！!]/g, '禽流感蔓延风险显现，');
 
   // 2. 过滤严禁的泛化代词
-  cleaned = cleaned.replace(/三家新贵/g, '新纳入成分股企业');
+  cleaned = cleaned.replace(/三家新贵|几家新贵/g, '新纳入成分股企业');
   cleaned = cleaned.replace(/失势老股/g, '被调出成分股标的');
   cleaned = cleaned.replace(/某巨头|某科技大厂|某大厂/g, '行业龙头企业');
   cleaned = cleaned.replace(/某高官/g, '权威官员');
-  cleaned = cleaned.replace(/有关部门/g, '主管监管机构');
+  cleaned = cleaned.replace(/有关部门|相关部门/g, '主管监管机构');
   cleaned = cleaned.replace(/业内人士/g, '行业核心参与方');
 
   // 3. 过滤严禁的二极管句式
@@ -149,6 +168,9 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
       .replace(/波斯湾.*多国联军/g, '美英与欧洲护航编队');
   }
 
+  // 彻底剔除所有感叹号、问号、省略号，转换为逗号或清除
+  title = title.replace(/[！!？?]/g, '，').replace(/……|\.{2,}/g, '');
+
   // E. 修复断句残缺（如末尾留下“并通过...”、“以保证...”、“等...”）
   const danglingMatch = /([并与等及但而或者]|通过|进行|以及|以保证|以确保|正在全力|保障|为了|以实现)\s*\.{0,3}$/;
   if (danglingMatch.test(title)) {
@@ -159,7 +181,6 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
     }
   }
   title = title.replace(/[，、；\s]+$/, '');
-  title = title.replace(/[！!？?]+$/, ''); // 去除感叹号，保持客观
 
   // F. 标点净化
   title = title.replace(/\s{2,}/g, ' ').trim();

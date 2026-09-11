@@ -12,7 +12,7 @@ export const SEED_LEAD_NEWS_ITEMS: NewsItem[] = [
     "publishedAt": "9月5日 06:10",
     "impactLevel": 1,
     "oneLineTakeaway": "【降息预期时点后移】：非农就业数据展现抗跌韧性，短久期美债遭遇承压抛售，借贷成本高位运行，对冲基金逐步收窄激进宽松押注。",
-    "transmissionImpact": "一级交易商与货币市场基金维持高息收益底座，高杠杆中小企业承担利息支出压力，配置型资金自高估值成长资产流向短久期国债。",
+    "transmissionImpact": "① 强劲非农数据推迟降息时点预期，两年期美债收益率反弹至4.37% ➔ ② 一级交易商与货币市场基金收益底座抬高，高杠杆企业利息负担加重 ➔ ③ 跨资产配置资金自高估值成长股流向短久期国债。",
     "sentiment": "BEARISH",
     "nextWatchlist": "【后续观察哨】：锁定在 9月11日 20:30 美国 8 月 CPI 数据公布及 9 月 FOMC 议息决议降息幅度。",
     "bullBearDivergence": {
@@ -43,8 +43,8 @@ export const SEED_LEAD_NEWS_ITEMS: NewsItem[] = [
     "sourceUrl": "https://asia.nikkei.com",
     "publishedAt": "9月7日 09:30",
     "impactLevel": 1,
-    "oneLineTakeaway": "【垄断者的底气】：哪怕台积电涨价 15%，英伟达和苹果也必须全盘吞下，因为全球没有第二家能代工 2nm，尖端制程已进入绝对的卖方市场。",
-    "transmissionImpact": "代工成本上涨不会压垮英伟达，反而会逼迫英伟达进一步调高 B200 整机售价，最终由下游自研大模型的云计算大厂买单。",
+    "oneLineTakeaway": "【先进制程定价权确认】：供应链消息显示台积电 (TSMC) 计划针对 2nm 先进制程代工报价上调 10%~15%；苹果与英伟达为锁定首批排产份额已全额锁定前两批晶圆配额，推升次世代旗舰硬件采购成本中枢。",
+    "transmissionImpact": "① 先进制程晶圆代工报价上调直接抬高先锋芯片设计商制造成本 ➔ ② 核心芯片原厂通过提高次世代整机与服务器售价将成本向下游转嫁 ➔ ③ 云计算服务商资本支出承压并加速论证自研芯片替代节点。",
     "sentiment": "BULLISH",
     "nextWatchlist": "【后续观察哨】：锁定在 下周英伟达全球开发者与台积电投资人法说会资本开支指引。",
     "bullBearDivergence": {
@@ -63,20 +63,20 @@ export const SEED_LEAD_NEWS_ITEMS: NewsItem[] = [
       "when": "9月7日 09:30（行业追踪快报）",
       "where": "中国台湾新竹科学园区、台南科学园区与美国加州硅谷",
       "why": "先进制程研发边际成本递增叠加全球AI算力对于尖端制程的无限性刚性需求。",
-      "consequence": "代工成本上涨不会压垮英伟达，反而会逼迫英伟达调高整机售价并由下游云大厂买单。"
+      "consequence": "代工成本上涨推升整机售价，下游云计算大厂承担增量物料成本。"
     },
     "summaryParagraph": "据9月7日 09:30（行业追踪快报）消息，台积电先进制程晶圆代工调价预期落地。核心动因在于先进制程的垄断性技术壁垒与算力采购刚性，强化了龙头半导体供应链的利润扩张预期。"
   },
   {
     "id": "GID-7C683C7E",
     "track": "commodities_shipping",
-    "title": "仓库见底还要加价提货！伦铜现货大幅升水，电网抢光库存",
+    "title": "伦铜现货大幅升水突破高位，全球显性库存触底凸显供需紧平衡",
     "source": "标普全球商品 (S&P Commodities)",
     "sourceUrl": "https://www.spglobal.com/commodityinsights",
     "publishedAt": "9月7日 10:15",
     "impactLevel": 1,
     "oneLineTakeaway": "【现货高升水反映紧平衡】：全球电网建设与新能源转型推升精炼铜即期消费，交割仓单处于历史低位，下游加工企业在升水走阔背景下刚性采购。",
-    "transmissionImpact": "拥有上游优质铜矿资源的跨国矿业公司录得稳健投资收益，下游线缆加工企业利润率受到成本端抬升压制，产业链库存维持防御性周转。",
+    "transmissionImpact": "① 现货高升水直接提升拥有低成本优质铜矿资源的矿业龙头利润 ➔ ② 下游电线电缆与电气设备制造企业承受原材料采购资金占用成本 ➔ ③ 产业贸易商利用现货期货价差在 LME 仓单间实施套期保值。",
     "sentiment": "BULLISH",
     "nextWatchlist": "【后续观察哨】：锁定在 伦敦金属交易所（LME）铜注册仓单变动与智利国家铜业公司（Codelco）月报。",
     "bullBearDivergence": {
@@ -102,13 +102,13 @@ export const SEED_LEAD_NEWS_ITEMS: NewsItem[] = [
   {
     "id": "GID-0EACE2B7",
     "track": "war_conflict",
-    "title": "弹药库存涉嫌内部泄密！五角大楼急令数十名高级军官测谎",
+    "title": "五角大楼启动涉密战备库存泄密排查，多名指挥军官接受技术测谎",
     "source": "五角大楼官方通报 (DoD)",
     "sourceUrl": "https://www.defense.gov",
     "publishedAt": "9月7日 08:54",
     "impactLevel": 1,
-    "oneLineTakeaway": "【底牌外泄引发恐慌】：关键导弹库存被摸底直接瓦解了前线威慑力，军方高层不得不撕破脸对内部亲信测谎，整个防务供应链风声鹤唳。",
-    "transmissionImpact": "网络安全与保密合规承包商突击斩获紧急审查大单，传统军火外包商因权限冻结被迫停滞交付，军费预算加速流向涉密审计防线。",
+    "oneLineTakeaway": "【涉密合规与国防审计升级】：美国国防部（五角大楼）就关键战备库存泄露启动反间谍审查并执行测谎；涉密外包权限全面收紧，驱动防务数据安全与保密合规预算刚性扩张。",
+    "transmissionImpact": "① 涉密信息外泄直接触发防务机构最高等级反间谍测谎与权限冻结 ➔ ② 涉密网络安全与供应链合规服务商紧急承接审计排查大单 ➔ ③ 外部防务承包商资质审核周期延长，高科技弹药采购交付程序趋严。",
     "sentiment": "BEARISH",
     "nextWatchlist": "【后续观察哨】：锁定在 联合国安理会闭门磋商窗口及霍尔木兹海峡/红海商船通行量指数。",
     "bullBearDivergence": {
@@ -142,8 +142,8 @@ export const SEED_LEAD_NEWS_ITEMS: NewsItem[] = [
     "spilloverCriterion": "系统性责任事故与地方大震荡",
     "isOngoingDisaster": true,
     disasterTracker: GYIRONG_PORT_DISASTER_TRACKER,
-    "oneLineTakeaway": "【跨国地质灾害击穿通关咽喉】：尼泊尔冰崩引发的泥石流直接冲垮了中尼最重要的陆路物流命脉，不仅考验跨境应急搜救，更迫使口岸重建必须重新评估地质选址与防灾冗余。",
-    "transmissionImpact": "中尼跨境公路货运被迫大范围分流绕行樟木口岸或转走海运，口岸重建基建与高山边坡治理防灾工程紧急立项，边贸进出口企业正承受单证延误与滞港成本。",
+    "oneLineTakeaway": "【跨境突发地质灾害应急响应】：境外雪山冰崩引发跨境泥石流冲击西藏吉隆口岸；应急管理部与工程抢险部队打通陆路便道展开搜救，同时启动口岸防灾减灾冗余与综合选址评估。",
+    "transmissionImpact": "① 地质灾害直接破坏口岸道路与通关基础设施并阻断跨境货流 ➔ ② 边贸进出口货物紧急分流绕行相邻樟木口岸并承担转运滞港成本 ➔ ③ 属地应急管理与防灾工程部门加速推进灾区搜救抢险与选址评估。",
     "sentiment": "BEARISH",
     "nextWatchlist": "【后续观察哨】：锁定在 应急管理部关于失联人员搜救阶段性通报及国家口岸办关于吉隆口岸原址抗灾评估结论。",
     "bullBearDivergence": {
@@ -169,14 +169,14 @@ export const SEED_LEAD_NEWS_ITEMS: NewsItem[] = [
   {
     "id": "GID-287BCF46",
     "track": "china_policy",
-    "title": "滥用管制必遭反制！商务部重磅亮剑，启动反歧视救济评估",
+    "title": "商务部针对单边技术限制启动反歧视救济评估，维护公平经贸秩序",
     "source": "路透中文网 (Reuters)",
     "sourceUrl": "https://www.reuters.com",
     "spilloverCriterion": "地缘与涉外高危擦枪",
     "publishedAt": "9月7日 07:15",
     "impactLevel": 1,
-    "oneLineTakeaway": "【亮出家底以战止戈】：单方面限制只会逼得国内全产业链加快自主造血，商务部拿出多边反歧视工具箱，直接把贸易摩擦摆在阳光下对等算账。",
-    "transmissionImpact": "全栈国产替代产业链龙头获得政策倾斜与国内采购大单，严重依赖海外代理资质的中间商面临断供退场，出海合规律所与咨询业务迎来暴单。",
+    "oneLineTakeaway": "【多边贸易救济合规评估启动】：商务部依法对单边经贸限制展开反歧视审查评估；中方依据世贸组织规则维护合法权益，推动多边经贸机制回归常态。",
+    "transmissionImpact": "① 贸易救济调查启动直接倒逼关键元器件国内采购配额加速提升 ➔ ② 严重依赖单边进口渠道的代理商加快调整备件与合规架构 ➔ ③ 关键工业原料与核心零部件国产化验证周期显著压缩。",
     "sentiment": "NEUTRAL",
     "nextWatchlist": "【后续观察哨】：锁定在 欧盟委员会对华关税投票窗口与美商务部实体清单更新动态。",
     "bullBearDivergence": {
@@ -202,13 +202,13 @@ export const SEED_LEAD_NEWS_ITEMS: NewsItem[] = [
   {
     "id": "GID-2DE608F2",
     "track": "global_cognition",
-    "title": "禽流感逼近南美农牧圈！乌拉圭宣布紧急状态，多国拉响警报",
+    "title": "乌拉圭因禽流感疫情宣布卫生紧急状态，南美多国启动边境检疫拦截",
     "source": "经济学人 (The Economist)",
     "sourceUrl": "https://www.economist.com",
     "publishedAt": "9月5日 09:22",
     "impactLevel": 1,
-    "oneLineTakeaway": "【检疫铁幕瞬间落下】：高致病禽流感一旦蔓延到周边巴西养殖带，全球鸡肉供给就得断档，各国海关宁可错杀也不敢放行南美禽肉。",
-    "transmissionImpact": "欧美本土替代蛋白与大型家禽养殖巨头坐享短期提价红利，南美出口型牧场承受封关退运损失，国际对冲基金正借机炒作农畜产品期货。",
+    "oneLineTakeaway": "【生物安全防控升级防范外溢】：乌拉圭政府就禽流感疫情启动国家公共卫生紧急状态；周边主要农牧出口国提高海关边境抽检级别，防止疫情冲击南美核心蛋白供应产业链。",
+    "transmissionImpact": "① 疫情通报直接引发涉事国禽肉出口临时封关与边境检疫拦截 ➔ ② 具备生物安全隔离认证的非疫区规模养殖企业承接替代性供应配额 ➔ ③ 终端消费端蛋白原料采购成本阶段性上行。",
     "sentiment": "BEARISH",
     "nextWatchlist": "【后续观察哨】：锁定在 国际货币基金组织（IMF）全球经济展望秋季报告更新。",
     "bullBearDivergence": {
