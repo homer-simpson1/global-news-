@@ -64,6 +64,47 @@ const PROPAGANDA_REGEX = /领导高度重视|迅速启动预案|众志成城|坚
 const ENTERPRISE_HYPE_REGEX = /遥遥领先|彻底打破垄断|打破国外垄断|打破垄断|世界首创|填补国内空白|秒杀全场/g;
 
 /**
+ * 负面词库自动清洗与去自媒体口水化引擎 (Editorial Tone Sanitizer)
+ * 物理净化所有情绪化口水词、泛化代词与二极管套话，统一升级为机构投研语态
+ */
+export function sanitizeEditorialTone(text: string): string {
+  if (!text) return '';
+  let cleaned = text;
+
+  // 1. 过滤严禁的情绪化口水词
+  cleaned = cleaned.replace(/无情砸盘|砸盘/g, '集中抛售');
+  cleaned = cleaned.replace(/割韭菜/g, '风险转嫁');
+  cleaned = cleaned.replace(/站岗/g, '承担回撤风险');
+  cleaned = cleaned.replace(/躺赢|数钱|躺着数钱/g, '获取超额流动性收益');
+  cleaned = cleaned.replace(/吃大波红利|吃红利|吃下一大波流动性红利/g, '承接增量流动性溢价');
+  cleaned = cleaned.replace(/惨遭爆仓/g, '触发被动平仓止损');
+  cleaned = cleaned.replace(/连根拔起/g, '深度出清');
+  cleaned = cleaned.replace(/风声鹤唳/g, '防务警戒级别显著上调');
+  cleaned = cleaned.replace(/干翻人类/g, '实现技术跨越');
+  cleaned = cleaned.replace(/彻底沦为军火商/g, '防务采购比重上升');
+  cleaned = cleaned.replace(/暴赚|大赚暴利|坐收抬轿暴利/g, '录得超额投资收益');
+  cleaned = cleaned.replace(/大发横财/g, '盈利显著扩张');
+  cleaned = cleaned.replace(/机械规则送钱/g, '被动配置资金硬性注入');
+  cleaned = cleaned.replace(/高位接盘/g, '高位承接');
+
+  // 2. 过滤严禁的泛化代词
+  cleaned = cleaned.replace(/三家新贵/g, '新纳入成分股企业');
+  cleaned = cleaned.replace(/失势老股/g, '被调出成分股标的');
+  cleaned = cleaned.replace(/某巨头|某科技大厂|某大厂/g, '行业龙头企业');
+  cleaned = cleaned.replace(/某高官/g, '权威官员');
+  cleaned = cleaned.replace(/有关部门/g, '主管监管机构');
+  cleaned = cleaned.replace(/业内人士/g, '行业核心参与方');
+
+  // 3. 过滤严禁的二极管句式
+  cleaned = cleaned.replace(/谁能(.*?)谁才能真正(.*?)/g, '具备$1能力的主体将优先$2');
+  cleaned = cleaned.replace(/表面上看是(.*?)实际上是(.*?)/g, '除表层$1外，核心驱动在于$2');
+  cleaned = cleaned.replace(/谁也不想在高位给别人站岗/g, '机构资金审慎规避高位流动性收缩风险');
+  cleaned = cleaned.replace(/谁也不想在高位/g, '市场主体普遍规避高位');
+
+  return cleaned.trim();
+}
+
+/**
  * 1. 标题脱水、去杂与结构化自动纠偏 (Title Auto-Healing)
  */
 export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string; what?: string }): string {
@@ -463,11 +504,18 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
 
   const correctedTracker = autoCorrectDisasterTracker(item.disasterTracker);
 
+  const cleanTitle = sanitizeEditorialTone(correctedTitle);
+  const cleanTakeaway = sanitizeEditorialTone(item.oneLineTakeaway || '');
+  const cleanTransmission = sanitizeEditorialTone(correctedTransmission);
+  const cleanWatchlist = sanitizeEditorialTone(item.nextWatchlist || '');
+  const cleanParagraph = sanitizeEditorialTone(item.summaryParagraph || '');
+
   const details: string[] = [];
-  if (correctedTitle !== item.title) details.push('标题脱水去噪与结构重组');
+  if (cleanTitle !== item.title) details.push('标题脱水去噪与结构重组');
+  if (cleanTakeaway !== item.oneLineTakeaway) details.push('深度透视投研语态标准化去口水化');
   if (correctedTrack !== item.track) details.push(`赛道转轨纠偏: ${item.track} -> ${correctedTrack}`);
   if (correctedSource !== item.source || correctedUrl !== item.sourceUrl) details.push('信源与官方安全链接纠偏');
-  if (correctedTransmission !== item.transmissionImpact) details.push('利益链跨界污染清洗');
+  if (cleanTransmission !== item.transmissionImpact) details.push('利益链跨界污染清洗');
   if (correctedTime !== item.publishedAt || correctedWindow !== item.timeWindow) details.push('时效动态降级纠偏');
   if (correctedSentiment !== item.sentiment || correctedLevel !== item.impactLevel) details.push('情绪定级与冲击烈度对齐');
 
@@ -475,13 +523,16 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
 
   return {
     ...item,
-    title: correctedTitle,
+    title: cleanTitle,
     track: correctedTrack,
     source: correctedSource,
     sourceUrl: correctedUrl,
     publishedAt: correctedTime,
     timeWindow: correctedWindow,
-    transmissionImpact: correctedTransmission,
+    oneLineTakeaway: cleanTakeaway,
+    transmissionImpact: cleanTransmission,
+    summaryParagraph: cleanParagraph,
+    nextWatchlist: cleanWatchlist,
     summary5W1H: corrected5W1H,
     sentiment: correctedSentiment,
     impactLevel: correctedLevel,
@@ -527,23 +578,33 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
     flash.impactLevel
   );
 
+  const cleanContent = sanitizeEditorialTone(correctedContent);
+  const cleanTakeaway = sanitizeEditorialTone(flash.oneLineTakeaway || '');
+  const cleanTransmission = sanitizeEditorialTone(correctedTransmission);
+  const cleanWatchlist = sanitizeEditorialTone(flash.nextWatchlist || '');
+  const cleanParagraph = sanitizeEditorialTone(flash.summaryParagraph || '');
+
   const details: string[] = [];
-  if (correctedContent !== flash.content) details.push('速递简报脱水');
+  if (cleanContent !== flash.content) details.push('速递简报脱水');
+  if (cleanTakeaway !== flash.oneLineTakeaway) details.push('速递透视语态净化');
   if (correctedTrack !== flash.track) details.push(`速递转轨: ${flash.track} -> ${correctedTrack}`);
   if (correctedSource !== flash.source || correctedUrl !== flash.sourceUrl) details.push('信源链接纠偏');
-  if (correctedTransmission !== flash.transmission) details.push('速递利益链清洗');
+  if (cleanTransmission !== flash.transmission) details.push('速递利益链清洗');
   if (correctedSentiment !== flash.sentiment || correctedLevel !== flash.impactLevel) details.push('情绪定级校准');
 
   const isAutoCorrected = details.length > 0;
 
   return {
     ...flash,
-    content: correctedContent,
+    content: cleanContent,
     track: correctedTrack,
     source: correctedSource,
     sourceUrl: correctedUrl,
     time: correctedTime,
-    transmission: correctedTransmission,
+    oneLineTakeaway: cleanTakeaway,
+    transmission: cleanTransmission,
+    summaryParagraph: cleanParagraph,
+    nextWatchlist: cleanWatchlist,
     summary5W1H: corrected5W1H,
     sentiment: correctedSentiment,
     impactLevel: correctedLevel,

@@ -123,42 +123,83 @@ export const DOMESTIC_CLEANING_PROMPT_RULE = `
 `;
 
 // =========================================================================
-// 【资讯标题与深度小结大模型清洗与生成 Prompt 规范 (含安全物理隔离强约束)】
-// 彻底解决 AI 翻译腔、研报公文黑话、冒号八股、以及固定示范张冠李戴串味问题
+// 【深度透视 (Deep Dive) 权威 System Prompt 规范 (机构首席策略师标准)】
+// 杜绝自媒体口水套话，强化客观事实与投研增量，严格执行负面词库禁令
 // =========================================================================
 export const HEADLINE_AND_SUMMARY_GENERATION_PROMPT = `
-【资讯标题与深度小结生成规范】
-你是一个顶级宏观情报终端首席分析员。请对输入的实时单篇电讯进行事实抽取、观点提炼与结构化输出：
+role: 资深全球宏观策略首席分析师 (Global Macro & Sector Strategist)
+task: 基于输入的权威信源原文，生成客观、扎实、剔除所有口水话的【深度投研透视】。
 
-1. 标题生成规范（严禁通篇冒号体）：
-   - 禁止套路：严禁每条都采用 【事实】：【定性】 的单调冒号结构（如：“台积电2nm代工传涨价：英伟达锁定产能”）。
-   - 写作要求：控制在 22~28 字以内，自然断句，突出主体冲突、关键数字或反差。
-   - 正反范例：
-     ❌ 错误：台积电2nm代工传涨价15%：英伟达与苹果锁定先进制程
-     ✅ 正确：台积电 2nm 传涨价 15%，英伟达与苹果依然排队抢单锁定首批产能
-     ❌ 错误：北美AI算力集群遭遇电网瓶颈：多处数据中心并网延期
-     ✅ 正确：买得起显卡却通不上电！变压器排队 3 年，北美AI机房卡在电网
+output_format: 严格按以下 3 个具象化维度输出，拒绝长篇大论，每项直击本质：
 
-2. 核心结论与白话透视生成规范：
-   - 严禁机械复述标题与事实，必须写出底层商业逻辑、供需本质与博弈真相。
-   - 强制采用 【硬核观点词】：【一句白话透视】 结构，严禁研报黑话（如“顶层定价特权”、“精准阀门管理”）。
-   - 正反范例：
-     ❌ 错误：【产能锁定】：台积电2nm晶圆代工价格上调15%，显示其具有强大的技术定价权。
-     ✅ 正确：【垄断者的底气】：哪怕台积电涨价 15%，英伟达和苹果也必须全盘吞下，因为全球没有第二家能代工 2nm，尖端制程已进入绝对的卖方市场。
-     ❌ 错误：【电网瓶颈】：数据中心受制于电力基础设施建设周期，变压器采购成为核心制约因素。
-     ✅ 正确：【机房被电网卡脖子】：芯片几个月就能装满机柜，但高压变压器订货要等整整三年，谁能拿到电厂直供专线，谁才能真正把万卡算力点亮变现。
+1. 【客观事实与关键增量】(The Facts & Quantified Triggers)
+   - 必须用 2-3 句话还原核心事实，必须包含：
+     a) 具体的实体全称与代码（如：Palantir [PLTR]、戴尔 [DELL]、美联储隔夜逆回购 RRP、OpenAI o1 等，严禁泛指“某新贵/某巨头”）；
+     b) 具体的量化数据对比（如：金额、基点、溢价率、持仓量、财报指标或时间截点）；
+     c) 触发该事件的直接前置条件或官方文件来源。
 
-3. 深度小结（5W1H 深度连贯段落）与 决策传导（利益链传导）规范：
-   - 清晰还原：Who(谁)、What(何事)、When(时间)、Where(地点)、Why(归因)、Consequence(后果)。
-   - 传导分析说明谁是直接赢家？谁在承担代价？谁在观望博弈？
+2. 【机构博弈与供需机理】(Mechanisms & Institutional Flows)
+   - 严禁情绪化口水话（禁止使用“割韭菜”、“站岗”、“暴赚”、“惨遭砸盘”等自媒体词汇）。
+   - 从真正的金融/产业机理剖析各方行为：
+     - 被动资金 vs 主动资金的调仓测算（如被动追踪资金规模及强制建仓权重）；
+     - 资产负债表与现金流承受力对比；
+     - 上下游供应链与定价权的实质再分配逻辑。
 
-================================================================================
-【极其重要 · 安全隔离与防幻觉强警告 (Security Isolation Notice)】：
-“【警告】：上方所有示例仅作为结构与文风参考！你本次的分析必须严格基于下方【当前输入文本】，严禁引用、复用上方示例中的任何实体、事件或原句！”
-严禁将上方“台积电 2nm”、“变压器排队3年”、“北美AI机房”等任何示例中的词汇或结论强加到下方与此无关的当前输入文本上（如A股、国内治理、地质灾害等）！
-若当前输入文本与上方示范领域不符，必须 100% 针对当前输入文本的实体独立分析！
-================================================================================
+3. 【资产传导与验证拐点】(Transmission & Key Milestones)
+   - 直接点明最先受冲击的 2-3 个具体资产类别、行业或合约（如短久期美债 2Y、海运欧线集运期货 EC、英伟达 Blackwell 交付链等）。
+   - 给出未来 1-2 周内最具检验意义的“单一决定性指标或事件时间节点”（避免模糊的“后续保持关注”）。
+
+---
+
+### 负面词库禁令（Negative Prompting - 强行惩罚项与违规重算）：
+❌ 严禁的情绪化口水词：
+   - “站岗”、“躺赢”、“数钱”、“割韭菜”、“无情砸盘”、“吃大波红利”、“吃红利”
+   - “惨遭爆仓”、“连根拔起”、“风声鹤唳”、“干翻人类”、“彻底沦为军火商”
+❌ 严禁的泛化代词：
+   - “某巨头”、“三家新贵”、“某高官”、“有关部门”、“业内人士”、“失势老股”、“某科技大厂”
+❌ 严禁的二极管句式：
+   - “谁能...谁才能真正...”
+   - “表面上看是...实际上是...”
+   - “谁也不想在高位...”
 `;
+
+// 负面词库自动清洗与去自媒体口水化引擎 (Editorial Tone Sanitizer)
+export function sanitizeEditorialTone(text: string): string {
+  if (!text) return '';
+  let cleaned = text;
+
+  // 1. 过滤严禁的情绪化口水词
+  cleaned = cleaned.replace(/无情砸盘|砸盘/g, '集中抛售');
+  cleaned = cleaned.replace(/割韭菜/g, '风险转嫁');
+  cleaned = cleaned.replace(/站岗/g, '承担回撤风险');
+  cleaned = cleaned.replace(/躺赢|数钱|躺着数钱/g, '获取超额流动性收益');
+  cleaned = cleaned.replace(/吃大波红利|吃红利|吃下一大波流动性红利/g, '承接增量流动性溢价');
+  cleaned = cleaned.replace(/惨遭爆仓/g, '触发被动平仓止损');
+  cleaned = cleaned.replace(/连根拔起/g, '深度出清');
+  cleaned = cleaned.replace(/风声鹤唳/g, '防务警戒级别显著上调');
+  cleaned = cleaned.replace(/干翻人类/g, '实现重大突破');
+  cleaned = cleaned.replace(/彻底沦为军火商/g, '防务采购比重上升');
+  cleaned = cleaned.replace(/暴赚|大赚暴利|坐收抬轿暴利/g, '录得超额投资收益');
+  cleaned = cleaned.replace(/大发横财/g, '盈利显著扩张');
+  cleaned = cleaned.replace(/机械规则送钱/g, '被动配置资金硬性注入');
+  cleaned = cleaned.replace(/高位接盘/g, '高位承接');
+
+  // 2. 过滤严禁的泛化代词
+  cleaned = cleaned.replace(/三家新贵/g, '新纳入成分股企业');
+  cleaned = cleaned.replace(/失势老股/g, '被调出成分股标的');
+  cleaned = cleaned.replace(/某巨头|某科技大厂|某大厂/g, '行业龙头企业');
+  cleaned = cleaned.replace(/某高官/g, '权威官员');
+  cleaned = cleaned.replace(/有关部门/g, '主管监管机构');
+  cleaned = cleaned.replace(/业内人士/g, '行业核心参与方');
+
+  // 3. 过滤严禁的二极管句式
+  cleaned = cleaned.replace(/谁能(.*?)谁才能真正(.*?)/g, '具备$1能力的主体将优先$2');
+  cleaned = cleaned.replace(/表面上看是(.*?)实际上是(.*?)/g, '除表层$1外，核心驱动在于$2');
+  cleaned = cleaned.replace(/谁也不想在高位给别人站岗/g, '机构资金审慎规避高位流动性收缩风险');
+  cleaned = cleaned.replace(/谁也不想在高位/g, '市场主体普遍规避高位');
+
+  return cleaned.trim();
+}
 
 // 宣传套话与形式主义修辞过滤正则
 const PROPAGANDA_REGEX = /领导高度重视|迅速启动预案|众志成城|坚决贯彻|牢牢把握|深入推进|统一思想|真抓实干|凝心聚力|圆满完成|向好态势|积极成效|有力保障|喜迎|谱写新篇章|展现了人间大爱|谱写了生命的赞歌|涌现出感人事迹|舍己为人/g;
@@ -1054,31 +1095,31 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
   }
   // 6. 加密概念股 / 比特币
   if (/加密|比特币|btc|eth/.test(t)) {
-    return '早期低成本埋伏的海外量化大户大举出货锁定暴利，后知后觉追高的高杠杆散户惨遭流动性锁死，增量热钱全在场外观望不敢轻易接盘。';
+    return sanitizeEditorialTone('早期获利的主动型多头与量化基金平仓锁定浮盈，高杠杆衍生品头寸面临资金费率再平衡，场外配置资金转向等待宏观流动性指标明确。');
   }
   // 7. 标普500成分股调整
   if (/标普500纳入|成分股|因美纳/.test(t)) {
-    return '提前潜伏调仓名单的跨国对冲基金坐收抬轿暴利，被剔除的失势老股惨遭被动基金无情砸盘，散户跟风买入则极易在生效日高位接盘。';
+    return sanitizeEditorialTone('追踪标普500的被动指数基金按规则在生效日前后被动建仓配置新纳入标的，被调出标的面临时点被动抛压，主动型多空对冲基金在流动性转换时点博弈基差。');
   }
   // 7.1 日本财务省 / 日元汇率 / 植田和男
   if (/日元|财务省|财务大臣|加藤胜信|植田和男|日银|日本央行|东证/.test(t)) {
-    return '跨国套息交易平仓风险加剧，日本出口型跨国车企与半导体材料原厂承受汇率重估震荡，离岸套利资本正紧急对冲汇率敞口。';
+    return sanitizeEditorialTone('跨国套息交易平仓风险加剧，日本出口型跨国车企与半导体材料原厂承受汇率重估震荡，离岸套利资本正紧急对冲汇率敞口。');
   }
   // 8. 伦铜 / 金属升水
   if (/铜|伦铜|lme.*铜/.test(t)) {
-    return '拥有优质铜矿资源的跨国矿业巨头大发横财，毫无议价权的下游中小线缆加工厂被原料暴涨挤压到濒临亏损，产业资金加速囤货惜售。';
+    return sanitizeEditorialTone('拥有优质铜矿资源与低开采成本的矿业龙头享有现货高升水收益，下游线缆制造加工企业面临原材料成本传导压力，产业资金在LME仓单间寻求套期保值。');
   }
   // 9. 红海海运 / 集运欧线
   if (/集运|欧线|航运|海运|红海|好望角/.test(t)) {
-    return '集运班轮巨头手握绝对订舱议价权大赚暴利，亚欧跨国出口外贸企业硬抗翻倍运费，货主资金正被高额订舱押金与滞港费深度占用。';
+    return sanitizeEditorialTone('集装箱班轮头部运力享有即期订舱溢价与改道附加费支撑，跨国进出口外贸企业承担物流周期拉长与集运即期运价上涨成本。');
   }
   // 10. 原油 / OPEC+
   if (/opec|原油|减产|油价/.test(t)) {
-    return '沙特等低开采成本产油国继续靠高油价支撑国内超级工程，欧美炼油厂与航空公司承担昂贵航煤成本，游资正在期货盘面上反复围剿做空力量。';
+    return sanitizeEditorialTone('低开采成本主要产油国通过产量调节维持原油价格中枢与主权财政平衡，下游欧美炼油与航空运输企业面临燃料成本刚性压力，期货多空头寸围绕供需缺口博弈。');
   }
   // 11. 美军泄密 / 五角大楼
   if (/泄密|五角大楼|测谎|武器库存/.test(t)) {
-    return '网络安全与保密合规承包商突击斩获紧急审查大单，传统军火外包商因权限冻结被迫停滞交付，军费预算加速流向涉密审计防线。';
+    return sanitizeEditorialTone('涉密安全合规与审计服务采购优先级提升，部分传统外包项目面临阶段性资质复审与交付节奏调整。');
   }
   // 12. 黎以中东交火 / 空袭
   if (/空袭|导弹|以军|黎巴嫩|中东交火/.test(t)) {
@@ -1212,25 +1253,25 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
     }
   }
 
-  // 4. 特殊常见长难句提炼为 22~28 字高冲突自然标题（正反范例严选，严禁超标）
+  // 4. 重点领域高确定性事实标题提炼（中性专业机构投研语态，杜绝爽文口水词）
   if (/台积电.*2nm|2nm.*台积电/.test(title) && /涨价|报价/.test(title)) {
-    title = '台积电2nm传涨价15%，苹果英伟达排队抢单锁产能';
+    title = '台积电2nm代工传调升价格，英伟达与苹果锁定先进制程产能';
   } else if (/北美.*(?:变压器|电网)|算力.*变压器|变压器.*排队3年/.test(title) && !/a股|沪指|创业板|两市|上证/.test(title)) {
-    title = '买显卡通不上电！变压器排队3年，北美AI机房卡在电网';
+    title = '变压器交付周期长达数年，北美AI数据中心面临电网接入约束';
   } else if (/美债.*收益率|两年期美债/.test(title) && /非农|降息/.test(title)) {
-    title = '美债收益率飙至4.37%，强劲非农把降息预期打回原形';
+    title = '两年期美债收益率反弹走高，劳动力市场韧性推迟降息时间表';
   } else if (/集运|欧线|好望角|红海/.test(title) && /运价|绕航/.test(title)) {
-    title = '多绕好望角两周吞掉一成运力，红海不停火集运船东继续数钱';
+    title = '好望角绕航使航期延长约两周，集运有效运力供给持续受约束';
   } else if (/伦铜|铜价|lme.*铜/.test(title) && /库存|升水/.test(title)) {
-    title = '仓库见底还要加价提货！伦铜现货大幅升水，电网抢光库存';
+    title = '精炼铜现货出现大幅升水结构，全球基础设施备货需求坚挺';
   } else if (/opec|原油|减产/.test(title)) {
-    title = '谁也别想多卖油！OPEC+继续减产，死守90美元油价钱袋';
+    title = 'OPEC+维持产量自律调节机制，锚定国际原油边际成本与预算平衡';
   } else if (/泄密|五角大楼|测谎/.test(title)) {
-    title = '弹药库存涉嫌内部泄密！五角大楼急令数十名高级军官测谎';
+    title = '涉密关键信息外溢调查展开，防务机构启动高等级内部安全审计';
   } else if (/以军|空袭|黎巴嫩/.test(title)) {
-    title = '战机呼啸导弹对轰！以军猛烈空袭黎南，中东停火谈判谈崩';
+    title = '以军空袭黎巴嫩南部目标，中东地缘对抗升级推升区域风险溢价';
   } else if (/物流.*景气|物流.*50.9%/.test(title)) {
-    title = '全国货车跑起来了！8月物流景气回升，大宗与电商现货回暖';
+    title = '8月物流景气指数企稳回升，大宗商品与制造业货流周转提速';
   } else if (/中金.*合并|券商.*合并|中金.*停牌/.test(title)) {
     title = '证券超级航母出世！中金东兴信达三合一，A股股票停牌交割';
   } else if (/商务部.*贸易救济|反歧视|反倾销/.test(title)) {
@@ -1319,7 +1360,7 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
     }
   }
 
-  return title;
+  return sanitizeEditorialTone(title);
 }
 
 // 核心结论生成引擎：说人话拒绝八股文，强制【硬核观点词】：【一句白话透视】格式，严禁禁忌词库与流水线连接词
@@ -1385,26 +1426,26 @@ function generateCoreTakeaway(
     !/a股|沪指|上证|深成指|创业板|两市|板块|概念|涨停|特高压/.test(t) &&
     track === 'apac_tech'
   ) {
-    return '【机房被电网卡脖子】：芯片几个月就能装满机柜，但高压变压器订货要等整整三年，谁能拿到电厂直供专线，谁才能真正把万卡算力点亮变现。';
+    return sanitizeEditorialTone('【电网与算力基础设施瓶颈】：芯片部署周期与高压变压器长达数年的交付周期形成供需错配，具备稳定电力直供和并网指标的数据中心优先释放算力变现能力。');
   }
   // 2.1 A股电网设备与特高压板块
   if (/电网|特高压|变压器|电力设备/.test(t) && /a股|沪深|两市|板块|创业板|上证|指数|概念|涨停/.test(t)) {
-    return '【电网特高压与设备景气】：主网与特高压建设进入密集交付期，核心变电与特高压设备厂商在手订单充沛，受外需出海与国内电网双重驱动。';
+    return sanitizeEditorialTone('【电网特高压与设备景气】：主网与特高压建设进入密集交付期，核心变电与特高压设备厂商在手订单充沛，受外需出海与国内电网双重驱动。');
   }
   if (/openai|gpt|推理架构|思维链|agent/.test(t)) {
-    return '【给思考时间买单】：光堆参数已经摸到天花板，现在模型通过自我多轮推演与纠错消除幻觉，企业终于敢把核心业务系统交给AI智能体代管。';
+    return sanitizeEditorialTone('【模型架构升级与商业化落地】：前沿AI模型逐步转向推理时多轮计算与思维链验证架构，降低生成幻觉并加速在高门槛企业级业务场景渗透。');
   }
   // 3.1 澳洲联储 (RBA)
   if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
-    return '【抗通胀立场寸步不让】：澳洲联储咬死抗击通胀目标不松口，直接粉碎了市场关于过早降息的幻想，借贷高息环境将更长时间压制本土资产扩张。';
+    return sanitizeEditorialTone('【抗通胀立场寸步不让】：澳洲联储咬死抗击通胀目标不松口，直接粉碎了市场关于过早降息的预期，借贷高息环境将更长时间压制本土资产扩张。');
   }
   // 3.2 欧洲央行 (ECB)
   if (FOREIGN_ENTITIES.EUROPE_ECB.test(t)) {
-    return '【欧洲央行审慎权衡】：在通胀回落与欧洲经济疲软之间艰难权衡，降息窗口虽逐步打开但节奏极其克制。';
+    return sanitizeEditorialTone('【欧洲央行审慎权衡】：在通胀回落与欧洲经济疲软之间艰难权衡，降息窗口虽逐步打开但节奏极其克制。');
   }
   // 3.3 英国央行 (BOE)
   if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
-    return '【英国央行高息维稳】：薪资与服务业通胀粘性迫使英格兰银行保持审慎，全面宽松窗口被不断校准推迟。';
+    return sanitizeEditorialTone('【英国央行高息维稳】：薪资与服务业通胀粘性迫使英格兰银行保持审慎，全面宽松窗口被不断校准推迟。');
   }
   if (
     !FOREIGN_ENTITIES.AUSTRALIA.test(t) &&
@@ -1412,36 +1453,36 @@ function generateCoreTakeaway(
     !FOREIGN_ENTITIES.UK_BOE.test(t) &&
     (/美债|收益率|两年期|10年期/.test(t) || (/美联储|降息|非农/.test(t) && track === 'us_macro'))
   ) {
-    return '【宽松幻想破灭】：就业市场比华尔街预期的硬气得多，短端国债被疯狂抛售，借贷成本难以下降，指望美联储立刻大水漫灌的对冲基金只能认亏平仓。';
+    return sanitizeEditorialTone('【利率高位粘性与降息预期校准】：美国强劲就业与服务业通胀支撑政策利率中枢，短久期美债收益率反弹，依赖快速大幅宽松的主动多头策略面临再平衡。');
   }
   if (/期指|期货|美股三大|道指|标普|纳斯达克/.test(t)) {
-    return '【抱团巨头取暖】：高利率打趴了依赖银行贷款的传统制造业，但手握千亿现金的科技巨头靠吃高额利息就能活得很滋润，资金只能死抱大厂避险。';
+    return sanitizeEditorialTone('【资产负债表与现金流分化】：高利率环境对依赖外部信贷的高负债企业构成估值压制，具备充沛自由现金流的头部科技龙头展现出防御属性，资金向高确定性标的集聚。');
   }
   if (/加密|比特币|btc|eth/.test(t)) {
-    return '【短线客落袋为安】：连续暴涨后杠杆已经拉满，非农数据一公布降息预期推迟，投机热钱立刻抢着把浮盈套现，谁也不想在高位给别人站岗。';
+    return sanitizeEditorialTone('【多头获利了结与头寸再平衡】：连续上行后短期杠杆多头头寸获利丰厚，非农数据超预期推迟美联储降息时间表，主动型量化基金选择锁定浮盈控制组合回撤。');
   }
   // 7. 标普500成分股调整
   if (/标普500纳入|成分股|因美纳/.test(t)) {
-    return '【机械规则送钱】：被动指数基金没有选股自由，只要名单公布就必须无脑买入，入选新贵哪怕基本面一般也能平白无故吃下一大波流动性红利。';
+    return sanitizeEditorialTone('【被动指数基金配置效应】：被动指数基金依据基准指数纳入规则执行硬性调仓，新纳入成分股短期享受确定性被动配置增量，推动估值中枢与交易流动性抬升。');
   }
   // 7.1 日本财务省 / 日元汇率 / 植田和男
   if (/日元|财务省|财务大臣|加藤胜信|植田和男|日银|日本央行|东证/.test(t)) {
-    return '【日元汇率与官方干预】：日本财务省频频就汇率异动喊话施压，根本痛点在于输入型通胀加剧与海外息差悬殊；一旦关键防线失守，央行将面临被迫加息或真金白银直接入场干预的巨大压力。';
+    return sanitizeEditorialTone('【日元汇率与官方干预】：日本财务省频频就汇率异动喊话施压，根本痛点在于输入型通胀加剧与海外息差悬殊；一旦关键防线失守，央行将面临被迫加息或真金白银直接入场干预的巨大压力。');
   }
   if (/铜|伦铜|lme.*铜/.test(t)) {
-    return '【一铜难求现形记】：全球电网翻新加上新能源车抢铜，仓库里的精炼铜库存已经被掏空，下游加工厂就算明知涨价也只能硬着头皮加价现款提货。';
+    return sanitizeEditorialTone('【精炼铜供需偏紧与升水走阔】：全球电网基础设施投资与新能源装备需求形成刚性支撑，现货可用库存处于低位，推动精炼铜现货较期货呈现高升水结构。');
   }
   if (/集运|欧线|航运|海运|红海|好望角/.test(t)) {
-    return '【航程拉长吞噬运力】：多绕行好望角 14 天，直接吃掉了全球十分之一的可用集装箱船；只要红海地缘不停火，船东就能继续躺着数钱。';
+    return sanitizeEditorialTone('【航程拉长约束有效运力供给】：商船绕行非洲好望角使亚欧航线单程航期延长10至14天，有效消耗全球活跃集装箱船队可用运力，对即期运价形成刚性底部支撑。');
   }
   if (/opec|原油|减产|油价/.test(t)) {
-    return '【掐死龙头保高价】：面对欧美疲软需求和美国页岩油增产，中东产油国坚决不降价甩卖，宁可把产量龙头拧紧也要保住国内财政预算的平衡线。';
+    return sanitizeEditorialTone('【供给侧自律平衡财政预算】：面对全球宏观需求温和复苏与非OPEC国家增产博弈，核心产油国维持减产配额以锚定国际原油边际成本与本国财政盈亏平衡线。');
   }
   if (/泄密|五角大楼|测谎|武器库存/.test(t)) {
-    return '【底牌外泄引发恐慌】：关键导弹库存被摸底直接瓦解了前线威慑力，军方高层不得不撕破脸对内部亲信测谎，整个防务供应链风声鹤唳。';
+    return sanitizeEditorialTone('【涉密安全审计与供应链合规】：涉密关键信息外溢促使防务机构启动最高等级内部安全审查，涉密合规与信息安全采购优先级提升。');
   }
   if (/空袭|导弹|以军|黎巴嫩|中东交火/.test(t)) {
-    return '【停火谈判沦为掩护】：交火双方都在用炸弹争取以后的实控线缓冲区，谁都不肯在战场处于下风时签协议，所谓的和平斡旋不过是各方争取喘息的缓兵之计。';
+    return sanitizeEditorialTone('【地缘冲突溢价与防务战略对峙】：地缘交火推升区域物流与能源供应链安全溢价，中东商业航运与关键海峡风险溢价维持高位，驱动避险资金向实物黄金及避险资产配置。');
   }
   if (/物流.*景气|物流.*50.9%|货流/.test(t)) {
     return '【实物周转打破观望】：干线重卡与港口集装箱周转明显加快，说明制造业工厂不仅没有停工，反而开始真金白银备货补库，实体流动性正在打通。';
@@ -1558,7 +1599,7 @@ function generateCoreTakeaway(
     }
   }
 
-  return `【${tag}】：${view}`;
+  return sanitizeEditorialTone(`【${tag}】：${view}`);
 }
 
 // 情绪温度色彩判定
@@ -2150,10 +2191,14 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
     return null;
   }
 
-  bulletPoints = extractBulletPoints(cleanRawContent, primary.source, raw.time);
+  bulletPoints = extractBulletPoints(cleanRawContent, primary.source, raw.time).map(sanitizeEditorialTone);
   sentiment = generateSentiment(enrichedTitle, cleanRawContent, track);
-  nextWatchlist = generateNextWatchlist(enrichedTitle, cleanRawContent, track);
+  nextWatchlist = sanitizeEditorialTone(generateNextWatchlist(enrichedTitle, cleanRawContent, track));
   bullBearDivergence = generateBullBearDivergence(enrichedTitle, cleanRawContent, track);
+  enrichedTitle = sanitizeEditorialTone(enrichedTitle);
+  coreTakeaway = sanitizeEditorialTone(coreTakeaway);
+  transmissionImpact = sanitizeEditorialTone(transmissionImpact);
+  summaryParagraph = sanitizeEditorialTone(summaryParagraph);
 
   // 【通用重大外溢冲击收录标准】：命中 4 项外溢指标之一者强制为一级重大情报
   const spillover = evaluateSpilloverImpact(cleanRawTitle, cleanRawContent);
