@@ -648,6 +648,9 @@ async function buildNewspaper() {
   const outImgPath = path.resolve(__dirname, '../public/morning_paper.png');
   const brainImgPath = 'C:/Users/23972/.gemini/antigravity/brain/19b6deb0-a05a-4384-b3d5-361423100b27/morning_paper_sample.png';
 
+  if (!fs.existsSync(path.dirname(htmlPath))) {
+    fs.mkdirSync(path.dirname(htmlPath), { recursive: true });
+  }
   fs.writeFileSync(htmlPath, html, 'utf8');
 
   function getChromePath() {
@@ -657,6 +660,13 @@ async function buildNewspaper() {
     } else if (process.platform === 'darwin') {
       return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
     } else {
+      const candidates = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', '/usr/bin/google-chrome', '/usr/bin/chromium-browser'];
+      for (const cmd of candidates) {
+        try {
+          execSync(`which ${cmd} 2>/dev/null`);
+          return cmd;
+        } catch (e) {}
+      }
       return 'google-chrome';
     }
   }

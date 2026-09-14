@@ -49,12 +49,18 @@ async function sendMorningPaperToDiscord() {
 
   const webhookUrl = getWebhookUrl();
   if (!webhookUrl) {
-    console.log('\n[!] 提示：未检测到 Discord Webhook URL。');
-    console.log('长图已成功生成在本地：');
+    console.error('\n[!] 提示：未检测到 Discord Webhook URL。');
+    console.log('长图已成功生成：');
     console.log(' -> ' + imgPath);
-    console.log('\n如需自动推送到 Discord 群，只需将群频道的 Webhook URL 填入:');
-    console.log(' -> ' + path.resolve(__dirname, '../config/discord_webhook.txt'));
-    console.log('或直接运行：node scripts/send_discord_morning_paper.js <YOUR_DISCORD_WEBHOOK_URL>\n');
+    console.log('\n如需开启云端免开机自动推送，请在 GitHub 仓库中配置 Secret:');
+    console.log('  Settings -> Secrets and variables -> Actions -> New repository secret');
+    console.log('  名称: DISCORD_WEBHOOK_URL');
+    console.log('  内容: 填入你的 Discord Webhook URL 即可实现每日 08:00 云端全自动推送！\n');
+    console.log('本地运行则可直接填入配置文件:');
+    console.log(' -> ' + path.resolve(__dirname, '../config/discord_webhook.txt') + '\n');
+    if (process.env.CI || process.env.GITHUB_ACTIONS) {
+      process.exit(1);
+    }
     return { success: false, reason: 'no_webhook', imgPath };
   }
 

@@ -1,37 +1,43 @@
-name: Daily Morning Paper Discord Dispatch (云端关机全自动)
+﻿name: Global Intelligence Morning Paper Cloud Scheduler (云端免开机全自动推送)
 
 on:
   schedule:
-    # 每天北京时间 08:00 (UTC 00:00) 自动触发，电脑关机也能准时运行
+    # 每天北京时间 08:00 (即 UTC 时间 00:00) 自动云端执行，电脑关机断电也能准时送达
     - cron: '0 0 * * *'
-  workflow_dispatch: # 支持在 GitHub 网页上随时点击 Run workflow 手动测试
+  workflow_dispatch: # 允许在 GitHub 网页界面随时一键点击手动测试触发
 
 jobs:
-  dispatch-morning-paper:
+  morning-paper:
+    name: Generate & Dispatch Morning Paper to Discord
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-      - name: 检出仓库代码 (Checkout Repository)
+      - name: Checkout Codebase
         uses: actions/checkout@v4
 
-      - name: 配置 Node.js 环境 (Setup Node.js)
+      - name: Setup Node.js Environment
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
-      - name: 安装高清中文字体 (Install Chinese Fonts for Retina Print)
+      - name: Install System Dependencies & Chinese CJK Fonts
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y fonts-noto-cjk fonts-wqy-microhei fonts-wqy-zenhei
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-cjk fonts-wqy-zenhei fonts-wqy-microhei google-chrome-stable || true
 
-      - name: 生成晨报长图并推送到 Discord (Generate & Dispatch)
+      - name: Install NPM Dependencies
+        run: npm ci
+
+      - name: Render Ultra-HD Morning Paper & Push to Discord
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          API_BASE_URL: https://celebrated-custard-0fe903.netlify.app
+          API_BASE_URL: https://global-news-8lp.pages.dev
         run: |
           node scripts/send_discord_morning_paper.js
 
-      - name: 归档保存当日晨报长图 (Archive Morning Paper)
+      - name: Archive Daily Morning Paper Image Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
