@@ -989,7 +989,7 @@ function classifyTrack(item: RawLiveItem): TrackId {
     return 'global_cognition';
   }
 
-  if (FOREIGN_ENTITIES.US_MACRO.test(t) && !/涉华|对华|中美/.test(t)) {
+  if ((FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.US_MACRO.test(t)) && !/涉华|对华|中美/.test(t)) {
     return 'us_macro';
   }
   if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t)) {
@@ -1005,8 +1005,12 @@ function classifyTrack(item: RawLiveItem): TrackId {
     }
     // 门禁复核：若命中外国实体，严禁强制塞入国内赛道！
     if (FOREIGN_ENTITIES.JAPAN.test(t)) return 'apac_tech';
-    if (FOREIGN_ENTITIES.US_MACRO.test(t)) return 'us_macro';
+    if (FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.US_MACRO.test(t)) return 'us_macro';
     if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t)) return 'war_conflict';
+    if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(t)) return 'global_cognition';
+    if (/美国|美方|特朗普|拜登|密歇根|加州|德州|英国|法国|德国|日本|俄罗斯|乌克兰/.test(item.title) && !/涉华|对华|中美/.test(item.title)) {
+      return 'global_cognition';
+    }
     return 'china_domestic';
   }
 
@@ -1022,8 +1026,9 @@ function classifyTrack(item: RawLiveItem): TrackId {
     }
     // 门禁复核：若含有日本/美联储等外国实体，严禁默认归为国内要闻！
     if (FOREIGN_ENTITIES.JAPAN.test(t)) return 'apac_tech';
-    if (FOREIGN_ENTITIES.US_MACRO.test(t)) return 'us_macro';
+    if (FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.US_MACRO.test(t)) return 'us_macro';
     if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t)) return 'war_conflict';
+    if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(t)) return 'global_cognition';
     // 其余全量归属于国内要闻与社会治理
     return 'china_domestic';
   }
@@ -1065,13 +1070,21 @@ function classifyTrack(item: RawLiveItem): TrackId {
   }
 
   // 3. 中国国内要闻与社会治理 (聚焦国家治理、司法反腐、重特大事故、宏观财政化债、社会民生，严禁股票分时跳动)
-  const isForeignEntity = /(?:土耳其|阿根廷|巴西|印度|越南|泰国|德国|法国|英国|印尼|南非|墨西哥|加拿大|埃及|沙特|阿联酋|欧洲央行|日本央行|韩国央行|美联储|美国财政部)/.test(item.title);
+  const isForeignEntity =
+    FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(item.title) ||
+    FOREIGN_ENTITIES.US_ALL.test(item.title) ||
+    FOREIGN_ENTITIES.JAPAN.test(item.title) ||
+    /(?:土耳其|阿根廷|巴西|印度|越南|泰国|德国|法国|英国|印尼|南非|墨西哥|加拿大|埃及|沙特|阿联酋|欧洲央行|日本央行|韩国央行|美联储|美国财政部|美国|美方|特朗普|拜登|密歇根|加州)/.test(item.title);
   if (
     !isForeignEntity &&
     /特别国债|超长期国债|中国再保|进出口银行|中国信保|财政部|发改委|住建部|民政部|国家医保局|国家统计局|应急管理部|自然资源部|工信部|交通运输部|生态环境部|农业农村部|最高法|最高检|公安部|中纪委|国家监委|国资委|化债|地方债|隐性债务|债务置换|央行.*降准|央行.*逆回购|反腐|落马|被查|受贿|贪污|职务犯罪|双开|立案调查|立案侦查|判刑|判处|重特大事故|重大事故|相撞致.*死|致.*死|坍塌|火灾|爆炸|矿难|遇难|搜救|安全生产|暴雨洪涝|汛情|地质灾害|吉隆口岸|樟木口岸|泥石流|冰岩崩|山洪|山体滑坡|社保|养老|医保|常住人口|老龄化|人口下滑|生育|物流|货运|保供|民生|欠薪治理|破产重整|违约暴雷|专项整治|监管调查|行政叫停|拆违/.test(
       t
     )
   ) {
+    // 门禁终审：纯外国主权实体一票否决国内赛道
+    if ((FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(t)) && !/涉华|对华|中美/.test(t)) {
+      return FOREIGN_ENTITIES.US_ALL.test(t) ? 'us_macro' : 'global_cognition';
+    }
     return 'china_domestic';
   }
 
@@ -2025,6 +2038,12 @@ function generateBullBearDivergence(title: string, content: string, track: Track
     return {
       bullConsensus: '航母级现代投行诞生将显著提升证券业跨国资本中介能力，优化行业供给侧。',
       bearDivergence: '大型机构团队业务整合与系统融合周期较长，短时间内协同效应显现需要时间。',
+    };
+  }
+  if (/密歇根|燃煤电厂|特朗普政府.*强令|能源部.*紧急权力|联邦电力法|数据中心.*用电/.test(t)) {
+    return {
+      bullConsensus: '法院裁决维护州级电网规划与清洁能源法治权威，避免消费者承担过时高成本燃煤机组额外补贴。',
+      bearDivergence: 'AI数据中心算力激增引发的基荷电力缺口短期凸显，退役安排可能增加极端天气下的区域电网备用压力。',
     };
   }
   if (track === 'china_domestic') {

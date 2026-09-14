@@ -11,8 +11,12 @@ export const FOREIGN_ENTITIES = {
   AUSTRALIA: /澳洲|澳大利亚|澳联储|澳洲联储|rba|hunter|布洛克|澳元|悉尼/i,
   EUROPE_ECB: /欧洲央行|欧央行|拉加德|ecb|欧元区|欧元|德国|德债|bund|法国|法债|oat|意大利|意债|欧洲|欧盟/i,
   UK_BOE: /英国央行|英央行|贝利|boe|英格兰银行|英镑|英国国债|英债|gilt/i,
+  // 涵盖美国全境主权、政法、法院、能源与州级实体（绝对禁止进入国内板块）
+  US_ALL: /(?:美国|美方|特朗普|拜登|哈里斯|美联储|沃什|凯文·沃什|warsh|鲍威尔|耶伦|美债|美国国债|美国财政部|美国司法部|美国能源部|美国商务部|美国交通部|美国国务院|五角大楼|美国法院|巡回法院|联邦巡回|上诉法院|最高法院|美国法官|华尔街|纳斯达克|道琼斯|标普500|非农|初请|失业金|美股三大|fomc|白宫|众议院|参议院|国会山|密歇根|加利福尼亚|加州|得克萨斯|得州|德州|佛罗里达|伊利诺伊|明尼苏达|俄亥俄|宾夕法尼亚|哥伦比亚特区|华盛顿特区|联邦电力法|环境保护署|epa)/i,
   US_MACRO: /美联储|沃什|凯文·沃什|warsh|鲍威尔|美债|美国国债|耶伦|美国财政部|华尔街|纳斯达克|道琼斯|标普500|非农|初请|失业金|美股三大|fomc|(?:白宫|美国总统).*(?:预算|法案|关税|财政|赤字|行政令|经济顾问|债务上限|贸易|制裁|通胀|芯片)/i,
   WAR_DEFENSE: /五角大楼|防卫省|以军|俄军|乌军|克里姆林宫|北约|泽连斯基|普京|内塔尼亚胡|哈马斯|真主党|黎巴嫩|加沙|也门胡塞|霍尔木兹/i,
+  // 全球主要外国主权实体集合（与 china_domestic 绝对一票否决互斥）
+  GLOBAL_FOREIGN: /(?:美国|美方|美联储|特朗普|拜登|德国|德债|法国|法债|英国|英债|意大利|意债|西班牙|欧洲|欧盟|欧元区|瑞士|瑞典|乌克兰|俄罗斯|伊朗|以色列|加拿大|墨西哥|巴西|阿根廷|土耳其|印度|澳大利亚|澳洲|沙特|阿联酋|埃及|南非|印尼|越南|泰国|菲律宾|新加坡|韩国|韩元|日元|日本|日银)/i,
 };
 
 // 2. 中国国内专属治理与宏观词汇（用于串味污染检测）
@@ -61,14 +65,14 @@ export function enforceCountryEntityGuardrails(
       isInterceptionTriggered = true;
       interceptionReason = '物理剥离虚假中国官方信源，拨正为日经亚洲/海外电讯';
     }
-  } else if (FOREIGN_ENTITIES.US_MACRO.test(text) && !/涉华|对华|中美博弈/.test(text)) {
-    if (CHINESE_OFFICIAL_SOURCE_REGEX.test(correctedSource.source)) {
+  } else if ((FOREIGN_ENTITIES.US_ALL.test(text) || FOREIGN_ENTITIES.US_MACRO.test(text)) && !/涉华|对华|中美博弈/.test(text)) {
+    if (CHINESE_OFFICIAL_SOURCE_REGEX.test(correctedSource.source) || correctedSource.source.includes('中国专线') || correctedSource.source.includes('中国电讯')) {
       correctedSource = {
-        source: '华尔街日报 WSJ Markets',
-        sourceUrl: 'https://www.wsj.com',
+        source: '路透全球财经 Reuters Markets',
+        sourceUrl: 'https://www.reuters.com',
       };
       isInterceptionTriggered = true;
-      interceptionReason = '物理剥离虚假中国官方信源，拨正为华尔街日报';
+      interceptionReason = '物理剥离虚假中国专线/中国官方信源，拨正为路透全球财经';
     }
   } else if (FOREIGN_ENTITIES.WAR_DEFENSE.test(text)) {
     if (CHINESE_OFFICIAL_SOURCE_REGEX.test(correctedSource.source)) {
@@ -99,7 +103,7 @@ export interface ConsistencyCheckResult {
 /**
  * 规则 B：内容一致性自检与串味污染熔断器 (Rule B: Content Consistency Circuit Breaker)
  * 在后端写入前，对比标题核心实体与小结/核心结论/市场传导的内容一致性：
- * 如果标题包含“日本”，而内容充斥“中国、国债、内需、逆周期”，判定为严重串味污染，
+ * 如果标题包含“日本/美国/德国”，而内容充斥“中国、国债、内需、逆周期”，判定为严重串味污染，
  * 强制熔断拦截打回丢弃，严禁展示到前端！
  */
 export function checkCrossContamination(
@@ -124,14 +128,26 @@ export function checkCrossContamination(
     }
   }
 
-  // 2. 检测美联储/美债实体与中国财政的串味
-  if (FOREIGN_ENTITIES.US_MACRO.test(titleText) && !/对华|涉华|中美/.test(titleText)) {
-    const matches = bodyText.match(/中国财政部|特别国债|稳实体扩内需|地方债务置换/g) || [];
+  // 2. 检测美国实体（包括法院/白宫/能源/各州）与中国财政/国内治理的串味
+  if ((FOREIGN_ENTITIES.US_ALL.test(titleText) || FOREIGN_ENTITIES.US_MACRO.test(titleText)) && !/对华|涉华|中美/.test(titleText)) {
+    const matches = bodyText.match(/中国财政部|特别国债|稳实体扩内需|地方债务置换|逆周期财政|宏观统筹与司法治理举措直接优化关键行业准入|骨干合规实体承接市场出清/g) || [];
     if (matches.length >= 1) {
       return {
         isClean: false,
         contaminationScore: matches.length,
-        reason: `严重跨国串味：标题属于美国宏观实体，但内容出现中国财政词汇【${matches.join(', ')}】，已触发物理熔断拦截！`,
+        reason: `严重跨国串味：标题属于美国实体（法院/政府/州/宏观），但内容出现中国治理与财政词汇【${matches.join(', ')}】，已触发物理熔断拦截！`,
+      };
+    }
+  }
+
+  // 2.2 检测全球外国实体与中国国内治理八股的串味
+  if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(titleText) && !/对华|涉华|中美|中欧|中日/.test(titleText)) {
+    const matches = bodyText.match(/宏观统筹与司法治理举措直接优化关键行业准入与合规底盘|骨干合规实体承接市场出清后的结构性需求|逆周期财政与货币政策工具箱储备充裕/g) || [];
+    if (matches.length >= 1) {
+      return {
+        isClean: false,
+        contaminationScore: matches.length,
+        reason: `严重跨国串味：标题属于外国实体，但内容灌入中国国内治理与逆周期工具箱套话，已触发物理熔断拦截！`,
       };
     }
   }
