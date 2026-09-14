@@ -226,7 +226,14 @@ export function autoCorrectTrack(
   title: string,
   content?: string
 ): { track: TrackId; wasCorrected: boolean; reason?: string } {
-  // 赛道分类已由 classifyTrack() 唯一权威执行，此处不再重复判断
+  // 纠偏：欧洲/德国/英国/法国主权债与宏观事件被误划入 us_macro 或 china_domestic
+  const isEuropeanMacro = /(?:德国|德债|bund|欧洲|欧盟|欧元区|欧洲央行|欧央行|拉加德|ecb|法国|法债|oat|意大利|意债|英国|英债|gilt|英格兰银行)/i.test(title);
+  if (isEuropeanMacro && !/中美|美德|美欧|对美|中欧/.test(title)) {
+    if (currentTrack === 'us_macro' || currentTrack === 'china_domestic') {
+      return { track: 'global_cognition', wasCorrected: true, reason: '欧洲与德国主权债转轨至全球宏观认知赛道' };
+    }
+  }
+
   return { track: currentTrack, wasCorrected: false };
 }
 
@@ -986,7 +993,16 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   const detectedProfile = item.companyProfile || getCompanyProfileForNews(cleanTitle, item.summaryParagraph || item.bulletPoints?.join(' '));
 
   // 宏观通胀关键指标矩阵（双环比/双同比与5大分项穿透）检索与挂载
-  const detectedMacro = item.macroInflationBreakdown || getMacroInflationBreakdown(cleanTitle, cleanParagraph || item.summaryParagraph || item.bulletPoints?.join(' '), correctedTrack);
+  let detectedMacro: MacroInflationBreakdown | null | undefined = item.macroInflationBreakdown;
+  if (!detectedMacro) {
+    detectedMacro = getMacroInflationBreakdown(cleanTitle, cleanParagraph || item.summaryParagraph || item.bulletPoints?.join(' '), correctedTrack);
+  } else {
+    // 门禁复核：若原有 item 挂了非当前实体的通胀报告（如德国国债被误挂美国BLS数据），强制清空自愈！
+    const isForeignNonUS = /(?:德国|德债|bund|欧洲|欧盟|欧元区|法国|法债|意大利|意债|英国|英债|gilt|日本|日债|jgb)/i.test(cleanTitle);
+    if (isForeignNonUS && detectedMacro.reportName && detectedMacro.reportName.includes('美国劳工统计局')) {
+      detectedMacro = undefined;
+    }
+  }
 
   const details: string[] = [];
   if (cleanTitle !== item.title) details.push('标题脱水去噪与结构重组');
@@ -998,6 +1014,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   if (correctedSentiment !== item.sentiment || correctedLevel !== item.impactLevel) details.push('情绪定级与冲击烈度对齐');
   if (detectedProfile && !item.companyProfile) details.push(`涉事企业主体档案挂载: ${detectedProfile.name}`);
   if (detectedMacro && !item.macroInflationBreakdown) details.push('宏观通胀关键指标矩阵(环比/同比)与分项穿透挂载');
+  if (!detectedMacro && item.macroInflationBreakdown) details.push('跨国张冠李戴宏观数据物理清除自愈');
 
   const isAutoCorrected = details.length > 0;
 
@@ -1082,7 +1099,15 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
   );
 
   const detectedProfile = flash.companyProfile || getCompanyProfileForNews(cleanContent, flash.summaryParagraph);
-  const detectedMacro = flash.macroInflationBreakdown || getMacroInflationBreakdown(cleanContent, cleanParagraph || flash.summaryParagraph, correctedTrack);
+  let detectedMacro: MacroInflationBreakdown | null | undefined = flash.macroInflationBreakdown;
+  if (!detectedMacro) {
+    detectedMacro = getMacroInflationBreakdown(cleanContent, cleanParagraph || flash.summaryParagraph, correctedTrack);
+  } else {
+    const isForeignNonUS = /(?:德国|德债|bund|欧洲|欧盟|欧元区|法国|法债|意大利|意债|英国|英债|gilt|日本|日债|jgb)/i.test(cleanContent);
+    if (isForeignNonUS && detectedMacro.reportName && detectedMacro.reportName.includes('美国劳工统计局')) {
+      detectedMacro = undefined;
+    }
+  }
 
   const details: string[] = [];
   if (cleanContent !== flash.content) details.push('内容脱水去噪与标点重组');
@@ -1092,6 +1117,7 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
   if (cleanTransmission !== flash.transmission) details.push('利益链1-Hop真实因果修复');
   if (detectedProfile && !flash.companyProfile) details.push(`企业主体档案挂载: ${detectedProfile.name}`);
   if (detectedMacro && !flash.macroInflationBreakdown) details.push('宏观通胀关键指标矩阵(环比/同比)与分项穿透挂载');
+  if (!detectedMacro && flash.macroInflationBreakdown) details.push('跨国张冠李戴宏观数据物理清除自愈');
 
   const isAutoCorrected = details.length > 0;
 

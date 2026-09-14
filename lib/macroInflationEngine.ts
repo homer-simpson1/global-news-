@@ -59,9 +59,23 @@ export interface MacroInflationBreakdown {
  */
 export function isMacroInflationNews(text: string): boolean {
   const t = text.toLowerCase();
+
+  // 强行排除：债券收益率波动、利率基点跳动、外汇汇率、股市指数涨跌等纯行情资讯，
+  // 即使正文提及通胀背景或通胀预期，也绝不能判定为宏观通胀发布报告！
+  if (
+    /(?:国债|美债|德债|欧债|英债|日债|债券)?收益率.*(?:跌超|涨超|走高|走低|回落|攀升|上行|下行|倒挂|升破|跌破|基点|bps)/.test(t) ||
+    /(?:两年期|三年期|五年期|七年期|十年期|10年期|2年期|30年期).*(?:国债|收益率).*(?:跌|涨|升|降|报|创|触及|基点|bps)/.test(t) ||
+    /国债收益率.*跌|国债收益率.*涨/.test(t)
+  ) {
+    // 只有当明确宣布官方CPI/PPI数据出炉或通胀报告公布时才例外
+    if (!/(?:cpi|ppi|pce).*(?:公布|出炉|发布|读数|报告|同比|环比)|(?:公布|出炉|发布).*(?:cpi|ppi|pce|通胀数据)/i.test(t)) {
+      return false;
+    }
+  }
+
   return (
-    /cpi|居民消费价格|核心通胀|核心cpi|pce|ppi|工业生产者价格|通胀率|超级核心/.test(t) ||
-    (/(?:美国|中国|欧元区|日本).*通胀/.test(t) && !/抗通胀概念股|通胀概念/.test(t))
+    /cpi|居民消费价格|核心通胀|核心cpi|pce物价|ppi|工业生产者价格|超级核心/.test(t) ||
+    (/(?:美国|中国|欧元区|日本).*(?:cpi|通胀数据|物价指数)/.test(t) && !/抗通胀概念股|通胀概念/.test(t))
   );
 }
 
@@ -78,10 +92,21 @@ export function getMacroInflationBreakdown(
     return null;
   }
 
+  // 实体互斥校验：凡属德国、欧洲、英国、法国、意大利、日本、澳洲等非美非中海外实体，
+  // 坚决一票否决挂载美国 BLS CPI 报告（除非标题明确是涉美对比）
+  const isForeignNonUS = /(?:德国|德债|bund|欧洲|欧盟|欧元区|法国|法债|意大利|意债|英国|英债|gilt|日本|日债|jgb|澳洲|澳大利亚|加拿大|瑞士)/i.test(title);
+  if (isForeignNonUS && !/中美|美德|美欧|对美/.test(title)) {
+    return null;
+  }
+
   // ─────────────────────────────────────────────────────────────
   // 1. 美国 CPI / 核心 CPI 通胀报告深度穿透
   // ─────────────────────────────────────────────────────────────
-  if (/美国.*(?:cpi|通胀)|cpi.*(?:美国|预期|前值|同比|环比)|核心cpi|core\s*cpi|us.*(?:cpi|inflation)|headline\s*cpi/i.test(fullText) || track === 'us_macro') {
+  const isUSInflation =
+    !isForeignNonUS &&
+    (/美国.*(?:cpi|通胀|物价|pce)|cpi.*(?:美国|劳工统计局|bls|预期|前值|同比|环比)|核心cpi|core\s*cpi|us.*(?:cpi|inflation)|headline\s*cpi|美国劳工部/i.test(fullText));
+
+  if (isUSInflation) {
     // 动态提取核心与总体读数
     let coreYoY = '2.4%';
     let coreMoM = '0.3%';
@@ -249,7 +274,7 @@ export function getMacroInflationBreakdown(
   // ─────────────────────────────────────────────────────────────
   // 2. 中国 CPI / PPI 宏观数据穿透
   // ─────────────────────────────────────────────────────────────
-  if (/中国.*(?:cpi|ppi|居民消费价格|生产者价格)|(?:cpi|ppi).*(?:同比|环比).*中国/.test(fullText) || track === 'china_macro') {
+  if (!isForeignNonUS && (/中国.*(?:cpi|ppi|居民消费价格|生产者价格)|(?:cpi|ppi).*(?:同比|环比).*中国/.test(fullText) || track === 'china_macro')) {
     const headlineMetrics: InflationMetric[] = [
       {
         name: '居民消费价格 CPI (同比)',
@@ -344,6 +369,14 @@ export function getMacroInflationBreakdown(
 export function getMacroInflationTakeaway(title: string, content: string = ''): string {
   const t = (title + ' ' + content).toLowerCase();
 
+  const isForeignNonUS = /(?:德国|德债|bund|欧洲|欧盟|欧元区|法国|法债|意大利|意债|英国|英债|gilt|日本|日债|jgb)/i.test(title);
+  if (isForeignNonUS && !/中美|美德|美欧|对美/.test(title)) {
+    if (/德国|德债|bund/.test(title)) {
+      return '【德债收益率与欧央行政策预期】：德国主权债收益率边际波动折射市场对欧洲央行降息路径的动态定价，曲线平坦化引导跨市场流动性再平衡。';
+    }
+    return '【海外主权债定价与货币政策博弈】：境外主权债券收益率波动反映当地通胀预期与央行货币政策博弈，机构资本动态校准全球防御性久期敞口。';
+  }
+
   if (/美国.*(?:cpi|通胀)|cpi.*(?:美国|预期|前值|同比|环比)|核心cpi|core\s*cpi|us.*(?:cpi|inflation)|headline\s*cpi/i.test(t)) {
     const breakdown = getMacroInflationBreakdown(title, content, 'us_macro');
     const coreMoM = breakdown?.headlineMetrics.find(m => m.name.includes('核心CPI (环比)'))?.actual || '0.3%';
@@ -377,6 +410,14 @@ export function getMacroInflationTakeaway(title: string, content: string = ''): 
 export function getMacroInflationTransmission(title: string, content: string = ''): string {
   const t = (title + ' ' + content).toLowerCase();
 
+  const isForeignNonUS = /(?:德国|德债|bund|欧洲|欧盟|欧元区|法国|法债|意大利|意债|英国|英债|gilt|日本|日债|jgb)/i.test(title);
+  if (isForeignNonUS && !/中美|美德|美欧|对美/.test(title)) {
+    if (/德国|德债|bund/.test(title)) {
+      return '① 德国两年期等核心主权债收益率波动直接锚定欧洲无风险贴现率 ➔ ② 欧债利差交易与做市机构调整久期敞口 ➔ ③ 欧洲企业债与外汇掉期流动性完成动态重平衡。';
+    }
+    return '① 海外主权债收益率波动直接引导当地基准利率预期 ➔ ② 跨市场套利资金微调全球主权债资产配置 ➔ ③ 区域无风险溢价完成阶段性重定价。';
+  }
+
   if (/美国.*(?:cpi|通胀)|核心cpi|core\s*cpi|us.*(?:cpi|inflation)|headline\s*cpi/i.test(t)) {
     const breakdown = getMacroInflationBreakdown(title, content, 'us_macro');
     const coreMoM = breakdown?.headlineMetrics.find(m => m.name.includes('核心CPI (环比)'))?.actual || '0.3%';
@@ -409,6 +450,11 @@ export function buildMacroInflationFactParagraph(
   time: string = '9月11日 20:30'
 ): string {
   const t = (title + ' ' + content).toLowerCase();
+
+  const isForeignNonUS = /(?:德国|德债|bund|欧洲|欧盟|欧元区|法国|法债|意大利|意债|英国|英债|gilt|日本|日债|jgb)/i.test(title);
+  if (isForeignNonUS && !/中美|美德|美欧|对美/.test(title)) {
+    return `据${time}（${source}）电讯，${title}。欧洲及海外主权债二级市场收益率出现边际波动，市场交易主体主要根据欧洲央行等货币当局后续政策预期与区域经济基本面进行持仓久期调整。`;
+  }
 
   if (/美国.*(?:cpi|通胀)|核心cpi|core\s*cpi|us.*(?:cpi|inflation)|headline\s*cpi/i.test(t)) {
     const breakdown = getMacroInflationBreakdown(title, content, 'us_macro');

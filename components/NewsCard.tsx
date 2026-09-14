@@ -61,10 +61,16 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
 
   // 宏观通胀关键分项矩阵穿透检索 (解决“环比不说、核心/服务/食品分项不说”)
   const macroBreakdown: MacroInflationBreakdown | null = React.useMemo(() => {
-    return (
+    const raw =
       item.macroInflationBreakdown ||
-      getMacroInflationBreakdown(cleanTitle, item.summaryParagraph || (item.bulletPoints && item.bulletPoints.join(' ')), item.track)
-    );
+      getMacroInflationBreakdown(cleanTitle, item.summaryParagraph || (item.bulletPoints && item.bulletPoints.join(' ')), item.track);
+    if (!raw) return null;
+    // 门禁复核：若新闻为非美海外实体（如德国国债），严禁挂载美国劳工统计局通胀卡片！
+    const isForeignNonUS = /(?:德国|德债|bund|欧洲|欧盟|欧元区|法国|法债|意大利|意债|英国|英债|gilt|日本|日债|jgb)/i.test(cleanTitle);
+    if (isForeignNonUS && raw.reportName && raw.reportName.includes('美国劳工统计局')) {
+      return null;
+    }
+    return raw;
   }, [item.macroInflationBreakdown, cleanTitle, item.summaryParagraph, item.bulletPoints, item.track]);
 
   // 1. 核心事实客观叙事通报（直接讲清具体是怎么样的，前因后果与最新进展，彻底消除没头没尾）

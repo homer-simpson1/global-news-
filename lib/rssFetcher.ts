@@ -957,6 +957,8 @@ export function detectPrimarySource(
       { source: '华尔街日报 WSJ China', sourceUrl: 'https://www.wsj.com/world/china' },
     ],
     global_cognition: [
+      { source: '英国金融时报 FT Markets', sourceUrl: 'https://www.ft.com/markets' },
+      { source: '彭博欧洲宏观 Bloomberg Europe', sourceUrl: 'https://www.bloomberg.com/europe' },
       { source: '经济学人 The Economist', sourceUrl: 'https://www.economist.com' },
       { source: '标普全球 S&P Global Intelligence', sourceUrl: 'https://www.spglobal.com' },
       { source: '彭博商业周刊 Bloomberg Businessweek', sourceUrl: 'https://www.bloomberg.com' },
@@ -976,6 +978,17 @@ function classifyTrack(item: RawLiveItem): TrackId {
     if (/涉华|对华|中日/.test(t)) return 'china_policy';
     return 'apac_tech';
   }
+
+  // 欧洲、德国、英国、法国等欧洲主权债与欧洲宏观：必须归入全球认知 (global_cognition)，严禁误归入 us_macro！
+  const isEuropeanOrUK =
+    /(?:德国|德债|bund|欧洲|欧盟|欧元区|欧洲央行|欧央行|拉加德|ecb|法国|法债|oat|意大利|意债|英国|英债|gilt|英格兰银行)/i.test(item.title) ||
+    ((FOREIGN_ENTITIES.EUROPE_ECB.test(t) || FOREIGN_ENTITIES.UK_BOE.test(t)) && !/(?:美股|标普|纳斯达克|道琼斯|美联储|沃什)/.test(item.title));
+
+  if (isEuropeanOrUK && !/中美|美德|美欧|对美/.test(item.title)) {
+    if (/涉华|对华|中欧|中英/.test(t)) return 'china_policy';
+    return 'global_cognition';
+  }
+
   if (FOREIGN_ENTITIES.US_MACRO.test(t) && !/涉华|对华|中美/.test(t)) {
     return 'us_macro';
   }
@@ -1079,10 +1092,11 @@ function classifyTrack(item: RawLiveItem): TrackId {
     return 'china_macro';
   }
 
-  // 5. 美股与美元宏观（严格约束：必须有明确的美国/联储主语，不能裸匹配 cpi/通胀 造成中国宏观误归）
+  // 5. 美股与美元宏观（严格约束：必须有明确的美国/联储主语，不能裸匹配 cpi/通胀 造成中国宏观或欧洲宏观误归）
   if (
-    /美联储|沃什|凯文·沃什|warsh|鲍威尔|标普|纳斯达克|道琼斯|美债|美国国债|10年期美债|2年期美债|美债收益率|非农|美股|华尔街|摩根|高盛|期权|波动率|美元指数/.test(t) ||
-    /美国.*(?:cpi|pce|ppi|通胀|失业金|初请|就业|制造业|服务业pmi)/i.test(t)
+    !isEuropeanOrUK &&
+    (/美联储|沃什|凯文·沃什|warsh|鲍威尔|标普|纳斯达克|道琼斯|美债|美国国债|10年期美债|2年期美债|美债收益率|非农|美股|华尔街|摩根|高盛|期权|波动率|美元指数/.test(t) ||
+    /美国.*(?:cpi|pce|ppi|通胀|失业金|初请|就业|制造业|服务业pmi)/i.test(t))
   ) {
     return 'us_macro';
   }
