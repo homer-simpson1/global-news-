@@ -317,6 +317,14 @@ export const CURATED_COMPANY_PROFILES: CompanyProfile[] = [
     coreProducts: ['GPT-4o / GPT-5', 'o1推理模型', 'ChatGPT平台', 'Sora视频生成模型'],
   },
   {
+    name: 'Anthropic',
+    aliases: ['Anthropic', 'Claude', '克劳德', '安东匹克'],
+    sector: 'AGI大模型 / 宪法式AI安全与前沿对齐',
+    description: '由OpenAI前研究副总裁Dario Amodei等人创立的全球前沿大模型与AI安全机构，推出Claude 3/3.5系列顶尖大模型，主打Constitutional AI宪法式对齐与企业级代码、逻辑推理安全，获亚马逊与谷歌数百亿美元战略注资。',
+    marketRole: '全球前沿大模型最高智力梯队，代码能力与长文本推理标杆，全球AI安全红队与系统防御标准制定者。',
+    coreProducts: ['Claude 3.5 Sonnet', 'Claude 3 Opus / Haiku', 'Constitutional AI宪法对齐框架', 'Artifacts协作引擎'],
+  },
+  {
     name: '微软',
     aliases: ['微软', 'Microsoft', 'MSFT', 'Azure'],
     sector: '全球云计算与软件巨头 / AI算力平台',

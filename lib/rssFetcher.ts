@@ -1046,6 +1046,15 @@ function classifyTrack(item: RawLiveItem): TrackId {
     return 'war_conflict';
   }
 
+  // 涉外AI出口管制/跨国大模型非法蒸馏与涉密防务博弈：一票落入发达国家对华博弈 (china_policy)
+  if (
+    /(?:anthropic|claude|openai|chatgpt).*(?:蒸馏|涉密|解放军|国安|出口管制|实体清单|穿透监管)|(?:中国模型|国内模型|非法蒸馏|接口直连|接口蒸馏).*(?:claude|anthropic|openai|防务|涉密)/i.test(
+      t
+    )
+  ) {
+    return 'china_policy';
+  }
+
   // 3. 算力硬件与前沿模型 (融合芯片硬件与OpenAI、Google、大模型突破)
   if (
     /openai|gpt|claude|anthropic|deepmind|大模型|llm|agent|多模态|生成式ai|端侧模型|算力|芯片|半导体|先进制程|台积电|联电|日月光|三星|海力士|sk海力士|铠侠|阿斯麦|asml|光刻|东京电子|爱德万|日经|东证|日银|日本央行|ai芯片|英伟达|高通|博通|超威|arm|数据中心|hbm|cowos|先进封装|matx|coatue/.test(
