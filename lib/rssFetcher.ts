@@ -379,9 +379,9 @@ export function evaluateSpilloverImpact(title: string, content: string): Spillov
     };
   }
 
-  // 4. 系统性责任事故与地方大震荡：重特大安全事故、地方公共信用/财政极端事件、跨区域公共危机
+  // 4. 系统性责任事故与地方大震荡 / 重大突发公共安全事件：包括无差别持刀伤人、恶性袭击、冲撞人群、重特大安全事故与公共危机
   if (
-    /重特大事故|特别重大|特大火灾|坍塌事故|重大伤亡|遇难|死亡(?:\d+|多)人|致死|相撞致.*死|致.*伤|爆炸事故|矿难|地方公共信用|地方债务展期|地方财政困难|破产重整|违约暴雷|停运|群体性事件|紧急状态|跨区域危机|特大自然灾害|特别国债注资|吉隆口岸|冰岩崩|泥石流|山洪|山体滑坡|口岸损毁|边境口岸|保通/.test(
+    /重特大事故|特别重大|特大火灾|坍塌事故|重大伤亡|遇难|死亡(?:\d+|多)人|致死|相撞致.*死|致.*伤|爆炸事故|矿难|无差别.*(?:伤人|袭击|行凶|持刀|攻击)|持刀.*(?:伤人|行凶|砍人|刺伤|袭击)|随机伤人|恶性伤人|驾车冲撞|冲撞人群|袭警|重大治安|校园暴力|商场伤人|伤及无辜|公共安全突发|地方公共信用|地方债务展期|地方财政困难|破产重整|违约暴雷|停运|群体性事件|紧急状态|跨区域危机|特大自然灾害|特别国债注资|吉隆口岸|冰岩崩|泥石流|山洪|山体滑坡|口岸损毁|边境口岸|保通/.test(
       text
     )
   ) {
@@ -389,7 +389,7 @@ export function evaluateSpilloverImpact(title: string, content: string): Spillov
       isSpilloverMajor: true,
       criteriaIndex: 4,
       criteriaName: '系统性责任事故与地方大震荡',
-      reason: '涉及重特大责任事故、边境口岸重大地质灾情、人员伤亡或跨区域突发危机',
+      reason: '涉及重特大突发公共安全事故、恶性治安突发、重大地质灾情或人员伤亡危机',
     };
   }
 
@@ -564,6 +564,16 @@ export function evaluateCapitalMarketRelevance(
     const score = Math.min(sovereignHits >= 2 ? 2 : 1, 2);
     totalScore += score;
     hitCategories.push(`H.主权信用债务(${sovereignHits}处)`);
+  }
+
+  // ── I. 重大突发公共安全与社会治安危机 ────────────────────────────────────
+  const publicSecurityHits = (text.match(
+    /无差别.*(?:伤人|袭击|行凶|持刀|攻击)|持刀.*(?:伤人|行凶|砍人|刺伤|袭击)|随机伤人|恶性伤人|驾车冲撞|冲撞人群|袭警|重大治安|校园暴力|商场伤人|伤及无辜|公共安全突发|重大安全事故|特别重大|重特大/gi
+  ) || []).length;
+  if (publicSecurityHits >= 1) {
+    const score = 3; // 强制赋予最高市场与治理实质分，防止被语义门禁丢弃
+    totalScore += score;
+    hitCategories.push(`I.突发公共安全与社会治理(${publicSecurityHits}处)`);
   }
 
   // ── 反向排除：文章以个人行为为核心且无数字型金融指标 ──────────────────────
@@ -1403,6 +1413,10 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
   if (/重大事故|特别重大|火灾|爆炸|坍塌|相撞致.*死|致.*死|致.*伤|伤亡|遇难|失联|矿难|停运整顿|安全事故/.test(t)) {
     return '① 致命安全事故直接导致涉事责任方停产整顿并面临顶格行政处罚 ➔ ② 行业主管部门对同区域同领域主体展开拉网式安全生产督查 ➔ ③ 具备全流程合规资质与安全生产体系的标杆企业承接外溢运营需求。';
   }
+  // 21.2 突发恶性治安与公共安全事件 (无差别伤人/持刀行凶/商圈袭击)
+  if (/无差别.*(?:伤人|袭击|行凶|持刀|攻击)|持刀.*(?:伤人|行凶|砍人|刺伤|袭击)|随机伤人|恶性伤人|驾车冲撞|冲撞人群|袭警|重大治安|校园暴力|商场伤人|伤及无辜/.test(t)) {
+    return '① 突发恶性治安事件直接促使属地公安与政法防线启动应急响应并强化巡逻 ➔ ② 涉事商圈、高校及公共交通枢纽紧急收紧安检门禁与人流管理 ➔ ③ 推动基层矛盾风险排查化解与公共场所立体化防控体系提档升级。';
+  }
   // 22. 医疗保障、养老民生与公共兜底
   if (/医保|社保|养老|集采|药品降价|民生兜底|低保/.test(t)) {
     return '① 医保集采与民生补贴直接压降终端流通环节成本 ➔ ② 规模化合规药企凭借成本控制与保供优势锁定采购量 ➔ ③ 居民基础医疗与民生负担实质性减轻。';
@@ -1782,6 +1796,10 @@ export function generateCoreTakeaway(
   if (/吉隆口岸|冰岩崩|泥石流.*口岸/.test(t)) {
     return '【跨境突发地质灾害应急响应】：境外雪山冰崩引发跨境泥石流冲击西藏吉隆口岸；应急管理部与工程抢险部队打通陆路便道展开搜救，同时启动口岸防灾减灾冗余与综合选址评估。';
   }
+  // 19.3 突发重大公共安全与社会治安事件 (大学城/商圈/学校/无差别伤人)
+  if (/无差别.*(?:伤人|袭击|行凶|持刀|攻击)|持刀.*(?:伤人|行凶|砍人|刺伤|袭击)|随机伤人|恶性伤人|驾车冲撞|冲撞人群|袭警|重大治安|校园暴力|商场伤人|伤及无辜/.test(t)) {
+    return '【公共安全应急处置与治安防线加固】：突发恶性伤人警情发生后，公安与应急力量快速出警控制嫌疑人并组织伤者救治；高校与重点商圈全面启动安防联动巡查，坚决守牢公共安全底线。';
+  }
   // 20. 关键底盘与供应链断裂 (零部件断供/停工)
   if (/突发断供|零部件断供|停工停产|断链|造假暴雷/.test(t)) {
     return '【核心供应链自主备份提速】：关键海外零部件断供风险促使主机制造企业启动二级供应商替代验证；国产自主元器件加速导入核心物料清单，提升产业抗单点冲击韧性。';
@@ -2044,6 +2062,12 @@ function generateBullBearDivergence(title: string, content: string, track: Track
     return {
       bullConsensus: '法院裁决维护州级电网规划与清洁能源法治权威，避免消费者承担过时高成本燃煤机组额外补贴。',
       bearDivergence: 'AI数据中心算力激增引发的基荷电力缺口短期凸显，退役安排可能增加极端天气下的区域电网备用压力。',
+    };
+  }
+  if (/无差别.*(?:伤人|袭击|行凶|持刀|攻击)|持刀.*(?:伤人|行凶|砍人|刺伤|袭击)|随机伤人|恶性伤人|驾车冲撞|冲撞人群|袭警|重大治安|校园暴力|商场伤人|伤及无辜/.test(t)) {
+    return {
+      bullConsensus: '属地公安出警处置果断，嫌疑人已被当场控制且涉案伤员均获全力救治，社会治安大局保持平稳。',
+      bearDivergence: '人流密集公共场所恶性突发事件冲击公众安全预期，重点商圈与高校常态化安防及基层矛盾排查成本上升。',
     };
   }
   if (track === 'china_domestic') {
@@ -2396,10 +2420,10 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
   let track: TrackId = classifyTrack(raw);
 
   // 0-B. 【语义资本市场相关性评分门禁】——通读全文，按8大传导向量类别打分
-  // 这是真正的"阅读全文"过滤层，替代纯关键词匹配的根本性升级
-  // 豁免赛道（外汇/大宗/债券）直接放行；其余需至少命中1个传导类别
+  // 豁免赛道（外汇/大宗/债券）或重大外溢突发事件直接放行；其余需至少命中1个传导类别
+  const spilloverPre = evaluateSpilloverImpact(raw.title, raw.content);
   const relevance = evaluateCapitalMarketRelevance(raw.title, raw.content, track);
-  if (!relevance.hasMarketSubstance) {
+  if (!relevance.hasMarketSubstance && !spilloverPre.isSpilloverMajor) {
     console.warn(
       `[SEMANTIC GATE] 无资本市场传导实质，物理丢弃: "${raw.title}" | 原因: ${relevance.reason}`
     );
