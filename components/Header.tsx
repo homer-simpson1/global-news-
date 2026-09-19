@@ -74,7 +74,7 @@ const SUBTITLE_KEYWORDS = [
   { label: '大宗航运', trackId: 'commodities_shipping' },
   { label: '俄乌美伊', trackId: 'war_conflict' },
   { label: '宏观大势', trackId: 'china_macro' },
-  { label: '国内金融治理', trackId: 'china_domestic' },
+  { label: '国内治理与安全应急', trackId: 'china_domestic' },
 ];
 
 // 独立自驱动倒计时胶囊：物理隔离 1 秒重渲染作用域，且支持页面可见性休眠 (Page Visibility Throttling)
