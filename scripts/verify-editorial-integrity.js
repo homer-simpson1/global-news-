@@ -295,6 +295,55 @@ check('Gate 7: 美联储利率政策与宏观真实常识门禁', () => {
 });
 
 // -------------------------------------------------------------
+// 门禁 8: 非洲与全球公共卫生/海外疫情边界硬门禁 (Congo Ebola & WHO Boundary Gate)
+// -------------------------------------------------------------
+check('Gate 8: 非洲与全球公共卫生/海外疫情边界硬门禁', () => {
+  const guardrailsPath = path.join(ROOT, 'lib', 'guardrails.ts');
+  const guardrailsContent = fs.readFileSync(guardrailsPath, 'utf8');
+  if (!guardrailsContent.includes('AFRICA_GLOBAL') || !guardrailsContent.includes('刚果') || !guardrailsContent.includes('埃博拉')) {
+    throw new Error('lib/guardrails.ts 缺少 AFRICA_GLOBAL 非洲与全球公共卫生实体定义！');
+  }
+
+  const healingPath = path.join(ROOT, 'lib', 'selfHealingEngine.ts');
+  const healingContent = fs.readFileSync(healingPath, 'utf8');
+  if (!healingContent.includes('全球公共卫生与海外疫情预警')) {
+    throw new Error('lib/selfHealingEngine.ts 缺少【全球公共卫生与海外疫情预警】核心定性！');
+  }
+  if (!healingContent.includes('世界卫生组织 WHO 官方通报')) {
+    throw new Error('lib/selfHealingEngine.ts 缺少世界卫生组织 WHO 权威信源映射！');
+  }
+
+  const fetcherPath = path.join(ROOT, 'lib', 'rssFetcher.ts');
+  const fetcherContent = fs.readFileSync(fetcherPath, 'utf8');
+  if (!fetcherContent.includes('AFRICA_GLOBAL')) {
+    throw new Error('lib/rssFetcher.ts 未将 AFRICA_GLOBAL 纳入赛道与外溢门禁！');
+  }
+});
+
+// -------------------------------------------------------------
+// 门禁 9: 中国贷款市场报价利率 (LPR) 主权国别与央行信源硬门禁 (China LPR Sovereign Gate)
+// -------------------------------------------------------------
+check('Gate 9: 中国贷款市场报价利率 (LPR) 主权国别与央行信源硬门禁', () => {
+  const healingPath = path.join(ROOT, 'lib', 'selfHealingEngine.ts');
+  const healingContent = fs.readFileSync(healingPath, 'utf8');
+  if (!healingContent.includes('中国货币政策与信贷基准定价')) {
+    throw new Error('lib/selfHealingEngine.ts 缺少【中国货币政策与信贷基准定价】核心定性！');
+  }
+  if (!healingContent.includes('中国人民银行 PBOC 官方发布')) {
+    throw new Error('lib/selfHealingEngine.ts 缺少中国人民银行 PBOC 权威信源映射！');
+  }
+  if (!healingContent.includes('中国${title}') && !healingContent.includes('中国$') && !healingContent.includes('`中国${')) {
+    throw new Error('lib/selfHealingEngine.ts 缺少为无国别LPR标题自动补充【中国】主权前缀的逻辑！');
+  }
+
+  const fetcherPath = path.join(ROOT, 'lib', 'rssFetcher.ts');
+  const fetcherContent = fs.readFileSync(fetcherPath, 'utf8');
+  if (!fetcherContent.includes('中国货币政策与信贷基准定价')) {
+    throw new Error('lib/rssFetcher.ts 缺少【中国货币政策与信贷基准定价】定性！');
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {

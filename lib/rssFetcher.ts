@@ -342,6 +342,19 @@ export interface SpilloverImpactResult {
 export function evaluateSpilloverImpact(title: string, content: string): SpilloverImpactResult {
   const text = (title + ' ' + content).toLowerCase();
 
+  // 门禁：纯外国主权实体或海外事件（刚果金、非洲疫情、美德法日等）一票否决国内重大外溢标签
+  const isPureForeign = (
+    FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(text) ||
+    FOREIGN_ENTITIES.AFRICA_GLOBAL.test(text) ||
+    FOREIGN_ENTITIES.US_ALL.test(text) ||
+    FOREIGN_ENTITIES.EUROPE_ECB.test(text) ||
+    FOREIGN_ENTITIES.JAPAN.test(text)
+  ) && !/涉华|对华|中美|中欧|中日|中国|两岸|海警|边境口岸|吉隆|樟木/.test(text);
+
+  if (isPureForeign) {
+    return { isSpilloverMajor: false };
+  }
+
   // 1. 监管铁拳与准入颠覆：引发国家级跨部门叫停、行业准入牌照大整顿、推倒重来式重塑（如教培叫停、网络安全审查、高危行业全国叫停整顿）
   if (
     /跨部门叫停|全面叫停|暂停准入|牌照整顿|牌照吊销|推倒重来|网络安全审查|行业叫停|全国排查|立案调查|专项整治|反腐|被查|落马|判处无期|被判无期|被判死刑|受贿|被逮捕|重罚|取消资质|暂停业务|强制下架|退市|操纵市场|突击调查|立案侦查|约谈高管|清退|注销许可/.test(
@@ -995,6 +1008,17 @@ function classifyTrack(item: RawLiveItem): TrackId {
     return 'apac_tech';
   }
 
+  // 非洲与全球公共卫生事件（刚果、埃博拉、世卫组织等）一票归入全球认知 (global_cognition)
+  if (FOREIGN_ENTITIES.AFRICA_GLOBAL && FOREIGN_ENTITIES.AFRICA_GLOBAL.test(t)) {
+    if (/涉华|对华|中国援非/.test(t)) return 'china_policy';
+    return 'global_cognition';
+  }
+
+  // 【中国LPR / 贷款市场报价利率】：一票归入中国宏观数据与景气 (china_macro)
+  if (/lpr|贷款市场报价利率|全国银行间同业拆借中心/i.test(t) && !/美联储|美债/.test(t)) {
+    return 'china_macro';
+  }
+
   // 欧洲、德国、英国、法国等欧洲主权债与欧洲宏观：必须归入全球认知 (global_cognition)，严禁误归入 us_macro！
   const isEuropeanOrUK =
     /(?:德国|德债|bund|欧洲|欧盟|欧元区|欧洲央行|欧央行|拉加德|ecb|法国|法债|oat|意大利|意债|英国|英债|gilt|英格兰银行)/i.test(item.title) ||
@@ -1024,7 +1048,8 @@ function classifyTrack(item: RawLiveItem): TrackId {
     if (FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.US_MACRO.test(t)) return 'us_macro';
     if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t)) return 'war_conflict';
     if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(t)) return 'global_cognition';
-    if (/美国|美方|特朗普|拜登|密歇根|加州|德州|英国|法国|德国|日本|俄罗斯|乌克兰/.test(item.title) && !/涉华|对华|中美/.test(item.title)) {
+    if (FOREIGN_ENTITIES.AFRICA_GLOBAL && FOREIGN_ENTITIES.AFRICA_GLOBAL.test(t)) return 'global_cognition';
+    if (/美国|美方|特朗普|拜登|密歇根|加州|德州|英国|法国|德国|日本|俄罗斯|乌克兰|刚果|非洲/.test(item.title) && !/涉华|对华|中美/.test(item.title)) {
       return 'global_cognition';
     }
     return 'china_domestic';
@@ -1040,11 +1065,12 @@ function classifyTrack(item: RawLiveItem): TrackId {
     if (/世界模型|大模型|生成式ai|算力|芯片|半导体|人形机器人/.test(t)) {
       return 'apac_tech';
     }
-    // 门禁复核：若含有日本/美联储等外国实体，严禁默认归为国内要闻！
+    // 门禁复核：若含有日本/美联储/非洲/全球疫情等外国实体，严禁默认归为国内要闻！
     if (FOREIGN_ENTITIES.JAPAN.test(t)) return 'apac_tech';
     if (FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.US_MACRO.test(t)) return 'us_macro';
     if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t)) return 'war_conflict';
     if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(t)) return 'global_cognition';
+    if (FOREIGN_ENTITIES.AFRICA_GLOBAL && FOREIGN_ENTITIES.AFRICA_GLOBAL.test(t)) return 'global_cognition';
     // 其余全量归属于国内要闻与社会治理
     return 'china_domestic';
   }
@@ -1088,9 +1114,10 @@ function classifyTrack(item: RawLiveItem): TrackId {
   // 3. 中国国内要闻与社会治理 (聚焦国家治理、司法反腐、重特大事故、宏观财政化债、社会民生，严禁股票分时跳动)
   const isForeignEntity =
     FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(item.title) ||
+    FOREIGN_ENTITIES.AFRICA_GLOBAL.test(item.title) ||
     FOREIGN_ENTITIES.US_ALL.test(item.title) ||
     FOREIGN_ENTITIES.JAPAN.test(item.title) ||
-    /(?:土耳其|阿根廷|巴西|印度|越南|泰国|德国|法国|英国|印尼|南非|墨西哥|加拿大|埃及|沙特|阿联酋|欧洲央行|日本央行|韩国央行|美联储|美国财政部|美国|美方|特朗普|拜登|密歇根|加州)/.test(item.title);
+    /(?:土耳其|阿根廷|巴西|印度|越南|泰国|德国|法国|英国|印尼|南非|刚果|非洲|苏丹|肯尼亚|尼日利亚|埃塞俄比亚|津巴布韦|加纳|几内亚|埃博拉|墨西哥|加拿大|埃及|沙特|阿联酋|欧洲央行|日本央行|韩国央行|美联储|美国财政部|美国|美方|特朗普|拜登|密歇根|加州|世卫组织|who)/i.test(item.title);
   if (
     !isForeignEntity &&
     /特别国债|超长期国债|中国再保|进出口银行|中国信保|财政部|发改委|住建部|民政部|国家医保局|国家统计局|应急管理部|自然资源部|工信部|交通运输部|生态环境部|农业农村部|最高法|最高检|公安部|中纪委|国家监委|国资委|国家疾控局|卫健委|疾控中心|气象局|地震局|化债|地方债|隐性债务|债务置换|央行.*降准|央行.*逆回购|反腐|落马|被查|受贿|贪污|职务犯罪|双开|立案调查|立案侦查|判刑|判处|重特大事故|重大事故|相撞致.*死|致.*死|致.*伤|坍塌|火灾|爆炸|矿难|遇难|搜救|安全生产|无差别.*(?:伤人|袭击|行凶|持刀|攻击)|持刀.*(?:伤人|行凶|砍人|刺伤|袭击)|随机伤人|恶性伤人|驾车冲撞|冲撞人群|袭警|重大治安|校园暴力|商场伤人|伤及无辜|公共安全突发|恶性案件|故意伤害|杀害|报复社会|社会应激|极端事件|公共卫生|突发疫情|传染病|疾控|确诊病例|聚集性疫情|突发感染|病毒感染|隔离管控|流行病|禽流感|登革热|炭疽|鼠疫|霍乱|诺如|食物中毒|甲流|自然灾害|特大暴雨|特大洪涝|特大干旱|超强台风|地震|强震|海啸|暴雨洪涝|汛情|地质灾害|吉隆口岸|樟木口岸|泥石流|冰岩崩|山洪|山体滑坡|堰塞湖|决口|破堤|溃坝|林火|森林火灾|受灾群众|紧急避险|转移安置|救灾应急|社保|养老|医保|常住人口|老龄化|人口下滑|生育|物流|货运|保供|民生|欠薪治理|破产重整|违约暴雷|专项整治|监管调查|行政叫停|拆违/.test(
@@ -1098,7 +1125,7 @@ function classifyTrack(item: RawLiveItem): TrackId {
     )
   ) {
     // 门禁终审：纯外国主权实体一票否决国内赛道
-    if ((FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(t)) && !/涉华|对华|中美/.test(t)) {
+    if ((FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(t) || FOREIGN_ENTITIES.AFRICA_GLOBAL.test(t)) && !/涉华|对华|中美/.test(t)) {
       return FOREIGN_ENTITIES.US_ALL.test(t) ? 'us_macro' : 'global_cognition';
     }
     return 'china_domestic';
@@ -1557,6 +1584,12 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
     title = '欧洲央行审慎权衡降息节奏，通胀回落与经济低迷拉锯加剧';
   } else if (/英国央行|英央行|贝利/.test(title) && /降息|加息|利率/.test(title)) {
     title = '英国央行抗通胀立场保持克制，薪资粘性推迟全面宽松窗口';
+  } else if (/刚果.*埃博拉|埃博拉疫情/.test(title)) {
+    title = '刚果（金）暴发埃博拉疫情累计确诊超7500例，世卫组织紧急协同阻击';
+  } else if (/(?:^[0-9]+月)?\s*lpr/i.test(title) || /贷款市场报价利率/.test(title)) {
+    if (!/中国|我国|央行|人民银行|pboc/i.test(title)) {
+      title = `中国${title}`;
+    }
   }
 
   // 彻底剔除所有感叹号、问号、省略号，转换为逗号或清除
@@ -1678,6 +1711,9 @@ export function generateCoreTakeaway(
     if (/gdp|国内生产总值/.test(t)) {
       return `【经济增速基准确立】：GDP增速${yoyStr || '最新发布'}${trend ? `（${trend}）` : ''}——超预期则外资加仓人民币资产，低于预期则财政刺激与降息预期升温，全年增长目标完成概率随之重估。`;
     }
+    if (/lpr|贷款市场报价利率/.test(t)) {
+      return '【中国货币政策与信贷基准定价】：中国人民银行授权全国银行间同业拆借中心公布最新LPR报价，1年期与5年期以上利率均按兵不动，体现央行在兼顾商业银行净息差与流动性充裕背景下稳步支持实体经济融资成本。';
+    }
     return `【中国宏观数据发布】：${yoyStr ? `同比${yoyStr}${trend ? `（${trend}）` : ''}，` : ''}该数据直接影响人民银行货币政策取向与A股整体流动性预期。`;
   }
 
@@ -1790,6 +1826,10 @@ export function generateCoreTakeaway(
   if (/禽流感|乌拉圭|卫生紧急状态/.test(t)) {
     return '【生物安全防控升级防范外溢】：乌拉圭政府就禽流感疫情启动国家公共卫生紧急状态；周边主要农牧出口国提高海关边境抽检级别，防止疫情冲击南美核心蛋白供应产业链。';
   }
+  // 16.2 刚果（金）埃博拉疫情与全球公共卫生预警
+  if (/刚果.*埃博拉|埃博拉疫情/.test(t)) {
+    return '【全球公共卫生与海外疫情预警】：刚果（金）卫生部门与世界卫生组织（WHO）推进埃博拉病毒流行病学溯源与疫苗阻击，跨国矿业物流与赴非人员严防输入性接触感染。';
+  }
   // 17. 监管铁拳与准入颠覆 (王建军/做空/操纵市场/反腐调查)
   if (/王建军|判处无期|被判无期|受贿|操纵市场|突击调查|立案侦查|反腐|做空/.test(t)) {
     return '【司法惩治严厉震慑发审寻租】：青岛市中院依法对证监会原副主席王建军受贿 9340 万元判处无期徒刑；司法机关严厉惩治资本市场审批腐败，从严确立制度规范与法治监管底盘。';
@@ -1878,8 +1918,12 @@ export function generateCoreTakeaway(
       ? '景气度先行指标'
       : /gdp|国内生产总值/.test(t)
       ? '经济增速基准'
+      : /lpr|贷款市场报价利率/.test(t)
+      ? '中国货币政策与信贷基准定价'
       : '宏观数据校准市场预期',
-    global_cognition: '供应链应急防守',
+    global_cognition: /埃博拉|疫情|世卫|who/.test(t)
+      ? '全球公共卫生与海外疫情预警'
+      : '全球宏观认知与产业链重塑',
   };
   let tag = hardcoreTagMap[track] || '商业现实透视';
   let connector = '使得市场面临现实痛点：';
@@ -2618,7 +2662,7 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
     nextWatchlist,
     bullBearDivergence,
     timeWindow: 'TODAY',
-    spilloverCriterion: spillover.isSpilloverMajor ? spillover.criteriaName : undefined,
+    spilloverCriterion: (track === 'china_domestic' || track === 'china_policy') && spillover.isSpilloverMajor ? spillover.criteriaName : undefined,
     isUnilateralClaim: isUnilateral,
   };
 

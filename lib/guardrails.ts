@@ -15,8 +15,10 @@ export const FOREIGN_ENTITIES = {
   US_ALL: /(?:美国|美方|特朗普|拜登|哈里斯|美联储|沃什|凯文·沃什|warsh|鲍威尔|耶伦|美债|美国国债|美国财政部|美国司法部|美国能源部|美国商务部|美国交通部|美国国务院|五角大楼|美国法院|巡回法院|联邦巡回|上诉法院|最高法院|美国法官|华尔街|纳斯达克|道琼斯|标普500|非农|初请|失业金|美股三大|fomc|白宫|众议院|参议院|国会山|密歇根|加利福尼亚|加州|得克萨斯|得州|德州|佛罗里达|伊利诺伊|明尼苏达|俄亥俄|宾夕法尼亚|哥伦比亚特区|华盛顿特区|联邦电力法|环境保护署|epa)/i,
   US_MACRO: /美联储|沃什|凯文·沃什|warsh|鲍威尔|美债|美国国债|耶伦|美国财政部|华尔街|纳斯达克|道琼斯|标普500|非农|初请|失业金|美股三大|fomc|(?:白宫|美国总统).*(?:预算|法案|关税|财政|赤字|行政令|经济顾问|债务上限|贸易|制裁|通胀|芯片)/i,
   WAR_DEFENSE: /五角大楼|防卫省|以军|俄军|乌军|克里姆林宫|北约|泽连斯基|普京|内塔尼亚胡|哈马斯|真主党|黎巴嫩|加沙|也门胡塞|霍尔木兹/i,
+  // 非洲与全球重大公共卫生/疫情实体集合（与 china_domestic 绝对一票否决互斥）
+  AFRICA_GLOBAL: /(?:刚果|刚果（金）|刚果(金)|刚果（布）|刚果民主共和国|非洲|中非|西非|东非|苏丹|埃塞俄比亚|尼日利亚|肯尼亚|津巴布韦|加纳|利比里亚|塞拉利昂|几内亚|索马里|马里|卢旺达|乌干达|安哥拉|莫桑比克|赞比亚|马达加斯加|喀麦隆|科特迪瓦|塞内加尔|埃博拉|世卫组织|who|世卫)/i,
   // 全球主要外国主权实体集合（与 china_domestic 绝对一票否决互斥）
-  GLOBAL_FOREIGN: /(?:美国|美方|美联储|特朗普|拜登|德国|德债|法国|法债|英国|英债|意大利|意债|西班牙|欧洲|欧盟|欧元区|瑞士|瑞典|乌克兰|俄罗斯|伊朗|以色列|加拿大|墨西哥|巴西|阿根廷|土耳其|印度|澳大利亚|澳洲|沙特|阿联酋|埃及|南非|印尼|越南|泰国|菲律宾|新加坡|韩国|韩元|日元|日本|日银)/i,
+  GLOBAL_FOREIGN: /(?:美国|美方|美联储|特朗普|拜登|德国|德债|法国|法债|英国|英债|意大利|意债|西班牙|欧洲|欧盟|欧元区|瑞士|瑞典|乌克兰|俄罗斯|伊朗|以色列|加拿大|墨西哥|巴西|阿根廷|土耳其|印度|澳大利亚|澳洲|沙特|阿联酋|埃及|南非|刚果|刚果金|刚果布|非洲|苏丹|肯尼亚|尼日利亚|埃塞俄比亚|加纳|津巴布韦|几内亚|塞拉利昂|利比里亚|印尼|越南|泰国|菲律宾|新加坡|韩国|韩元|日元|日本|日银|埃博拉|世卫组织|who)/i,
 };
 
 // 2. 中国国内专属治理与宏观词汇（用于串味污染检测）
@@ -83,11 +85,35 @@ export function enforceCountryEntityGuardrails(
       isInterceptionTriggered = true;
       interceptionReason = '物理剥离虚假中国官方信源，拨正为路透社防务';
     }
+  } else if (FOREIGN_ENTITIES.AFRICA_GLOBAL.test(text) && !/涉华|对华|中国援非/.test(text)) {
+    if (CHINESE_OFFICIAL_SOURCE_REGEX.test(correctedSource.source) || correctedSource.source.includes('中国')) {
+      correctedSource = {
+        source: '世界卫生组织 WHO 官方通报',
+        sourceUrl: 'https://www.who.int',
+      };
+      isInterceptionTriggered = true;
+      interceptionReason = '物理剥离虚假中国官方信源，拨正为世卫组织WHO官方通报';
+    }
+  }
+
+  // LPR 必须归入中国宏观与央行信源
+  if (/lpr|贷款市场报价利率/i.test(text)) {
+    if (currentTrack !== 'china_macro') {
+      currentTrack = 'china_macro';
+      isInterceptionTriggered = true;
+    }
+    if (!/人民银行|pboc/i.test(correctedSource.source)) {
+      correctedSource = {
+        source: '中国人民银行 PBOC 官方发布',
+        sourceUrl: 'http://www.pbc.gov.cn',
+      };
+      isInterceptionTriggered = true;
+    }
   }
 
   return {
     passed: true,
-    correctedTrack: currentTrack, // 不再覆写赛道
+    correctedTrack: currentTrack,
     correctedSource,
     isInterceptionTriggered,
     interceptionReason: interceptionReason || undefined,
@@ -142,7 +168,7 @@ export function checkCrossContamination(
 
   // 2.2 检测全球外国实体与中国国内治理八股的串味
   if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(titleText) && !/对华|涉华|中美|中欧|中日/.test(titleText)) {
-    const matches = bodyText.match(/宏观统筹与司法治理举措直接优化关键行业准入与合规底盘|骨干合规实体承接市场出清后的结构性需求|逆周期财政与货币政策工具箱储备充裕/g) || [];
+    const matches = bodyText.match(/宏观统筹与司法治理举措直接优化关键行业准入与合规底盘|骨干合规实体承接市场出清后的结构性需求|逆周期财政与货币政策工具箱储备充裕|卫生疾控部门启动突发公共卫生事件应急预案/g) || [];
     if (matches.length >= 1) {
       return {
         isClean: false,

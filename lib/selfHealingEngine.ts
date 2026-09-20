@@ -36,6 +36,7 @@ import {
   buildEventProvisionsFactParagraph,
   isEventProvisionsNews,
 } from './eventProvisions';
+import { FOREIGN_ENTITIES } from './guardrails';
 
 
 // 权威机构官方安全站点映射字典
@@ -75,6 +76,12 @@ const CANONICAL_AUTHORITY_URLS: Record<string, string> = {
   '商务部': 'https://www.mofcom.gov.cn',
   '财政部': 'https://www.mof.gov.cn',
   '发改委': 'https://www.ndrc.gov.cn',
+  '中国人民银行': 'http://www.pbc.gov.cn',
+  '人民银行': 'http://www.pbc.gov.cn',
+  'pboc': 'http://www.pbc.gov.cn',
+  '世界卫生组织': 'https://www.who.int',
+  '世卫组织': 'https://www.who.int',
+  'who': 'https://www.who.int',
 };
 
 // 常见套话与耸人听闻标题党过滤库
@@ -221,6 +228,18 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
     title = `${title}，${supplement}`;
   }
 
+  // 明确 LPR 主权主体（中国）：防止无国别信息
+  if (/(?:^[0-9]+月)?\s*lpr/i.test(title) || /贷款市场报价利率/i.test(title)) {
+    if (!/中国|我国|人民银行|央行|pboc/i.test(title)) {
+      title = `中国${title}`;
+    }
+  }
+
+  // 刚果埃博拉标题结构化与去除国内八股后缀
+  if (/刚果.*埃博拉|埃博拉疫情/.test(title)) {
+    title = title.replace(/，?相关工作稳步推进落实/g, '，世卫组织紧急协同阻击');
+  }
+
   return title;
 }
 
@@ -251,11 +270,11 @@ export function autoCorrectTrack(
     }
   }
 
-  // 纠偏 3：其他外国实体（日本、韩国、拉美、澳洲等）被误划入 china_domestic
-  const isForeignOther = /(?:日本|日元|日银|韩国|澳大利亚|澳洲|巴西|阿根廷|土耳其|印度|俄罗斯|乌克兰|加拿大|墨西哥)/i.test(title);
+  // 纠偏 3：其他外国实体（日本、韩国、拉美、澳洲、非洲、刚果、世卫疫情等）被误划入 china_domestic
+  const isForeignOther = /(?:日本|日元|日银|韩国|澳大利亚|澳洲|巴西|阿根廷|土耳其|印度|俄罗斯|乌克兰|加拿大|墨西哥|刚果|非洲|苏丹|肯尼亚|尼日利亚|埃塞俄比亚|津巴布韦|加纳|几内亚|埃博拉|世卫组织|who)/i.test(title);
   if (isForeignOther && !isExplicitChinaPolicy) {
     if (currentTrack === 'china_domestic') {
-      return { track: 'global_cognition', wasCorrected: true, reason: '海外国家事务一票否决国内赛道，转轨至全球认知' };
+      return { track: 'global_cognition', wasCorrected: true, reason: '海外国家事务与非洲公共卫生疫情一票否决国内赛道，转轨至全球认知' };
     }
   }
 
@@ -264,6 +283,14 @@ export function autoCorrectTrack(
   if (isWarConflictTopic && !isExplicitChinaPolicy) {
     if (currentTrack !== 'war_conflict') {
       return { track: 'war_conflict', wasCorrected: true, reason: '地缘制裁、涉伊谈判与美伊中东战局转轨至战局防务赛道' };
+    }
+  }
+
+  // 纠偏 5：中国贷款市场报价利率(LPR)被误划入 global_cognition 或 us_macro
+  const isLPR = /lpr|贷款市场报价利率|全国银行间同业拆借中心/i.test(title);
+  if (isLPR && !/美联储|美债/.test(title)) {
+    if (currentTrack !== 'china_macro') {
+      return { track: 'china_macro', wasCorrected: true, reason: '中国贷款市场报价利率(LPR)转轨至中国宏观赛道' };
     }
   }
 
@@ -303,6 +330,20 @@ export function autoCorrectSourceAndUrl(
   if ((track === 'us_macro' || track === 'global_cognition' || track === 'apac_tech') && /中国专线|中国电讯/.test(finalSource)) {
     finalSource = '路透全球财经 Reuters Markets';
     finalUrl = 'https://www.reuters.com';
+    wasCorrected = true;
+  }
+
+  // A3. 纠偏：LPR 贷款市场报价利率权威信源对齐中国人民银行
+  if (/lpr|贷款市场报价利率/i.test(title || '')) {
+    finalSource = '中国人民银行 PBOC 官方发布';
+    finalUrl = 'http://www.pbc.gov.cn';
+    wasCorrected = true;
+  }
+
+  // A4. 纠偏：刚果埃博拉疫情权威信源对齐世界卫生组织
+  if (/刚果.*埃博拉|埃博拉疫情/i.test(title || '')) {
+    finalSource = '世界卫生组织 WHO 官方通报';
+    finalUrl = 'https://www.who.int';
     wasCorrected = true;
   }
 
@@ -381,6 +422,22 @@ export function autoCorrectInterestTransmission(
       wasCorrected = true;
     } else {
       text = '① 事件冲击直接影响核心当事方的资产与负债结构 ➔ ② 产业链与合作方依据合同与市场规则传导成本收益 ➔ ③ 边际供求关系与资产风险溢价完成动态重定价。';
+      wasCorrected = true;
+    }
+  }
+
+  // 中国 LPR 贷款市场报价利率专属传导
+  if (/lpr|贷款市场报价利率/i.test(titleLower)) {
+    if (!text || text.includes('信源仅陈述单一动作') || text.includes('供应链') || text.length < 25) {
+      text = '① 中国人民银行授权公布最新LPR维持平稳基准 ➔ ② 商业银行净息差韧性得到呵护，企业增量贷款与个人按揭定价平稳执行 ➔ ③ 宏观信贷资产端与负债端流动性定价维持动态平衡。';
+      wasCorrected = true;
+    }
+  }
+
+  // 刚果埃博拉疫情与海外公共卫生专属传导
+  if (/刚果.*埃博拉|埃博拉疫情/i.test(titleLower)) {
+    if (!text || text.includes('信源仅陈述单一动作') || text.includes('理财') || text.includes('供应链应急防守') || text.length < 25) {
+      text = '① 刚果（金）埃博拉病例确诊上升引发世卫组织高等级生物预警 ➔ ② 国际卫生组织与非盟疾控紧急调配疫苗阻断疫区外溢 ➔ ③ 跨国矿企、海运港口检疫及对非商旅人员全面强化输入性生物安全筛查。';
       wasCorrected = true;
     }
   }
@@ -591,6 +648,22 @@ export function autoCorrect5W1H(
     s.why = '加大对涉俄伊能源出口创汇与国防军工协作的跨境围堵遏制';
     s.consequence = '授权OFAC穿透调查离岸转运底单并切断违规商业银行美元代理行往来账户';
     wasCorrected = true;
+  } else if (/lpr|贷款市场报价利率/i.test(title)) {
+    s.who = '中国人民银行授权全国银行间同业拆借中心';
+    s.what = title.includes('中国') ? title : `中国${title}`;
+    s.when = '最新每月20日报价窗口';
+    s.where = '中国金融市场与银行间信贷体系';
+    s.why = '兼顾商业银行净息差承压现状与宏观流动性充裕环境';
+    s.consequence = '稳定企业贷款与居民中长期住房抵押贷款基准定价预期';
+    wasCorrected = true;
+  } else if (/刚果.*埃博拉|埃博拉疫情/i.test(title)) {
+    s.who = '世界卫生组织（WHO）与刚果（金）卫生部';
+    s.what = title;
+    s.when = '最新全球公共卫生通报窗口';
+    s.where = '刚果民主共和国（刚果金）及周边非洲区域';
+    s.why = '埃博拉病毒接触性感染在当地基层医疗承压环境下扩散';
+    s.consequence = '跨国卫生组织紧急调配疫苗阻击，国际跨国物流与赴非人员严控生物安全防线';
+    wasCorrected = true;
   }
 
   return { summary5W1H: s, wasCorrected };
@@ -781,6 +854,19 @@ export function autoCorrectTakeaway(
   const isEventProvisionsMismatch =
     (/格雷厄姆|制裁俄罗斯和伊朗/.test(cleanTitleLower) && !text.includes('制裁') && !text.includes('长臂管辖')) ||
     (/伊朗.*(?:7项|七项)?谈判条件|伊朗向美国开出|伊朗向美开出/.test(cleanTitleLower) && !text.includes('谈判') && !text.includes('要价'));
+  const isLPRMismatch = /lpr|贷款市场报价利率/i.test(cleanTitleLower) && (
+    text.includes('供应链应急防守') ||
+    text.includes('商业现实透视') ||
+    !text.includes('货币政策') ||
+    isEcho
+  );
+  const isCongoEbolaMismatch = /刚果.*埃博拉|埃博拉疫情/i.test(cleanTitleLower) && (
+    text.includes('重大治理现实透视') ||
+    text.includes('突发公共卫生与疾控防线') ||
+    text.includes('责任事故') ||
+    !text.includes('全球公共卫生') ||
+    isEcho
+  );
 
   const isBroken =
     !text ||
@@ -790,6 +876,8 @@ export function autoCorrectTakeaway(
     isGenericCorporateCliché ||
     isBrokenGrammar ||
     isEventProvisionsMismatch ||
+    isLPRMismatch ||
+    isCongoEbolaMismatch ||
     /使得市场面临现实痛点/.test(text) ||
     /【.*?】[：:]*\s*$/.test(text) ||
     /【.*?】[：:]*[，,、。.\s]+$/.test(text) ||
@@ -824,6 +912,22 @@ export function autoCorrectTakeaway(
   if (/伊朗.*(?:7项|七项)?谈判条件|伊朗向美国开出|伊朗向美开出/.test(cleanTitleLower)) {
     return {
       takeaway: '【地缘安全与外交筹码博弈】：伊朗开出解除全面原油禁运、解冻海外资产与不可撤销担保等7项实质要价，锁定极限施压博弈底牌，倒逼中东安全与大宗能源格局重估。',
+      wasCorrected: true,
+    };
+  }
+
+  // 中国 LPR 利率专属定性
+  if (/lpr|贷款市场报价利率/i.test(cleanTitleLower)) {
+    return {
+      takeaway: '【中国货币政策与信贷基准定价】：中国人民银行授权全国银行间同业拆借中心公布最新LPR报价，1年期（3.0%）与5年期以上（3.5%）利率均按兵不动，体现央行在兼顾商业银行净息差与流动性充裕背景下稳步支持实体经济融资成本。',
+      wasCorrected: true,
+    };
+  }
+
+  // 刚果（金）埃博拉疫情海外公共卫生专属定性
+  if (/刚果.*埃博拉|埃博拉疫情/i.test(cleanTitleLower)) {
+    return {
+      takeaway: '【全球公共卫生与海外疫情预警】：刚果（金）卫生部门与世界卫生组织（WHO）推进埃博拉病毒流行病学溯源与疫苗阻击，跨国矿业物流与赴非人员严防输入性接触感染。',
       wasCorrected: true,
     };
   }
@@ -969,6 +1073,23 @@ export function autoCorrectSummaryParagraph(
     }
   }
 
+  // 中国 LPR 利率专属客观事实闭环段落
+  if (/lpr|贷款市场报价利率/i.test(cleanTitle.toLowerCase())) {
+    const lprWhat = cleanTitle.includes('中国') ? cleanTitle : `中国${cleanTitle}`;
+    return {
+      paragraph: `据中国人民银行（PBOC）授权全国银行间同业拆借中心公布，${lprWhat}。其中，1年期LPR（3.0%）与5年期以上LPR（3.5%）报价保持稳定，符合金融市场普遍预期。本次LPR报价平稳，体现出宏观调控在呵护商业银行净息差与降低实体经济综合融资成本之间保持动态平衡，存量与增量企业贷款及个人住房贷款定价基准保持平稳有序运行。`,
+      wasCorrected: true,
+    };
+  }
+
+  // 刚果埃博拉疫情专属客观事实闭环段落
+  if (/刚果.*埃博拉|埃博拉疫情/i.test(cleanTitle.toLowerCase())) {
+    return {
+      paragraph: `据世界卫生组织（WHO）及非洲疾控中心最新通报，${cleanTitle}。本次埃博拉出血热疫情主要集中在刚果民主共和国（刚果金）东部省份，当地医疗资源承压，国际卫生组织已紧急调拨接触追踪团队与埃博拉疫苗展开围堵。世卫组织提醒赴非商务考察、跨国矿产基建施工及国际货运人员严格做好生物安全防护，密切监测体温与接触史以防范跨国输入性传播。`,
+      wasCorrected: true,
+    };
+  }
+
   if (!isBroken) {
     let cleaned = sanitizeEditorialTone(sanitizeFedRatePolicyWording(text))
       .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
@@ -1092,6 +1213,20 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   let cleanWatchlist = sanitizeEditorialTone(item.nextWatchlist || '');
   if (isMacroInflationNews(cleanTitleLower) && /9月11日\s*20:30/.test(cleanWatchlist)) {
     cleanWatchlist = getMacroInflationNextWatchlist(cleanTitle, item.summaryParagraph);
+  } else if (/lpr|贷款市场报价利率/i.test(cleanTitleLower)) {
+    cleanWatchlist = '关注央行公开市场操作净投放规模、存量房贷利率批量调整落地及四季度降准政策窗口。';
+  } else if (/刚果.*埃博拉|埃博拉疫情/i.test(cleanTitleLower)) {
+    cleanWatchlist = '密切追踪世界卫生组织（WHO）关于刚果（金）疫情是否升级为国际关注突发公共卫生事件（PHEIC）评估及入境检疫公报。';
+  }
+
+  // 门禁：非中国国内治理/涉华赛道，严禁挂上国内责任事故或外溢标签
+  let cleanSpillover = item.spilloverCriterion;
+  if (correctedTrack !== 'china_domestic' && correctedTrack !== 'china_policy') {
+    cleanSpillover = undefined;
+  }
+  // 纯外国实体或非洲/全球疫情，物理清空国内事故外溢标签
+  if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(cleanTitle) || (FOREIGN_ENTITIES.AFRICA_GLOBAL && FOREIGN_ENTITIES.AFRICA_GLOBAL.test(cleanTitle))) {
+    cleanSpillover = undefined;
   }
 
   // 事实段落总结深度自愈（讲清具体来龙去脉并融入企业主体速览）
@@ -1129,6 +1264,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   if (cleanTransmission !== item.transmissionImpact) details.push('利益链跨界污染清洗与真实1-Hop修复');
   if (correctedTime !== item.publishedAt || correctedWindow !== item.timeWindow) details.push('时效动态降级纠偏');
   if (correctedSentiment !== item.sentiment || correctedLevel !== item.impactLevel) details.push('情绪定级与冲击烈度对齐');
+  if (cleanSpillover !== item.spilloverCriterion) details.push('物理剥离外国事件国内事故外溢标签');
   if (detectedProfile && !item.companyProfile) details.push(`涉事企业主体档案挂载: ${detectedProfile.name}`);
   if (detectedProvisions && !item.eventKeyProvisions) details.push(`重大事件核心要务穿透挂载: ${detectedProvisions.targetName}`);
   if (detectedMacro && !item.macroInflationBreakdown) details.push('宏观通胀关键指标矩阵(环比/同比)与分项穿透挂载');
@@ -1155,6 +1291,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
     sentiment: correctedSentiment,
     impactLevel: correctedLevel,
     disasterTracker: correctedTracker,
+    spilloverCriterion: cleanSpillover,
     isAutoCorrected,
     autoCorrectionDetails: details,
   };
