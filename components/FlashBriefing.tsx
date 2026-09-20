@@ -331,21 +331,6 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                   );
                 })()}
 
-                {/* 决策与市场传导条（彻底杜绝机械免责套话） */}
-                {(() => {
-                  const { transmission } = autoCorrectInterestTransmission(parsed.title, brief.transmission, brief.oneLineTakeaway);
-                  return (
-                    <div
-                      className={`flex items-start gap-2 p-3 rounded-xl border ${theme.conclusionBorder} ${theme.conclusionBg} dark:bg-slate-800/80 dark:border-slate-700 text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed`}
-                    >
-                      <span className={`font-bold ${theme.conclusionText} dark:text-blue-400 flex-shrink-0 flex items-center gap-1`}>
-                        <Sparkles className="w-3.5 h-3.5 inline" />
-                        利益链传导:
-                      </span>
-                      <span>{transmission}</span>
-                    </div>
-                  );
-                })()}
 
                 {/* 下一步观察哨 */}
                 {brief.nextWatchlist && (

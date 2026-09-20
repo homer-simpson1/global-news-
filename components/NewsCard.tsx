@@ -637,12 +637,6 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
             <p className="font-semibold text-slate-900 dark:text-slate-100">{displayTakeaway}</p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/50 border-l-4 border-slate-400 dark:border-slate-600 text-sm md:text-base leading-relaxed">
-            <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              🎯 市场传导与资产定价
-            </div>
-            <p className="text-slate-700 dark:text-slate-300">{displayTransmission}</p>
-          </div>
 
           {/* 下一步观察哨（关键时间窗口 / 待验证指标） */}
           {item.nextWatchlist && (

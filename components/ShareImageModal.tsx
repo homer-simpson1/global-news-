@@ -123,7 +123,7 @@ export default function ShareImageModal({
     // 绘图尺寸设定 (Retina 2x 超高清渲染)
     const width = 800;
     // 预估高度
-    const cardHeight = exportMode === 'brief' ? 280 : 255;
+    const cardHeight = exportMode === 'brief' ? 220 : 205;
     const estimatedHeight = 360 + selectedNews.length * cardHeight + 160;
     canvas.width = width * 2;
     canvas.height = estimatedHeight * 2;
@@ -185,7 +185,7 @@ export default function ShareImageModal({
     ctx.fillStyle = '#64748b';
     ctx.fillText(
       exportMode === 'brief'
-        ? '今日决策速递精萃 · 剔除杂音干扰 · 穿透利益链传导与多空博弈'
+        ? '今日决策速递精萃 · 剔除杂音干扰 · 穿透底层动因与多空博弈'
         : '全站全专区深度底稿 · 涵盖美股算力/大宗航运/地缘战局/治理追踪',
       40,
       curY
@@ -266,12 +266,12 @@ export default function ShareImageModal({
       const accentColor = TRACK_ACCENT_COLORS[item.track as TrackId] || '#38bdf8';
 
       // 资讯卡片背景
-      drawRoundedRect(ctx, 40, cardStartY, cardInnerWidth, 240, 14, '#090e1c', '#17223b');
+      drawRoundedRect(ctx, 40, cardStartY, cardInnerWidth, 195, 14, '#090e1c', '#17223b');
 
       // 左侧赛道专属彩色条
       ctx.fillStyle = accentColor;
       ctx.beginPath();
-      ctx.roundRect(40, cardStartY, 5, 240, [14, 0, 0, 14]);
+      ctx.roundRect(40, cardStartY, 5, 195, [14, 0, 0, 14]);
       ctx.fill();
 
       let itemY = cardStartY + 24;
@@ -332,18 +332,6 @@ export default function ShareImageModal({
       ctx.fillStyle = '#e2e8f0';
       wrapCanvasText(ctx, item.takeaway, 68, itemY + 25, cardInnerWidth - 56, 18, 2);
 
-      itemY += 66;
-
-      // 决策传导
-      ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillText('🎯 市场与决策传导:', 56, itemY + 6);
-      ctx.font = '12px system-ui, -apple-system, sans-serif';
-      ctx.fillStyle = '#cbd5e1';
-      wrapCanvasText(ctx, item.transmission, 172, itemY + 6, cardInnerWidth - 140, 18, 1);
-
-      itemY += 30;
-
       // 后续观察哨
       if (item.watchlist) {
         drawRoundedRect(ctx, 56, itemY - 10, cardInnerWidth - 32, 32, 6, 'rgba(49, 46, 129, 0.3)', '#3730a3');
@@ -353,7 +341,7 @@ export default function ShareImageModal({
         ctx.fillText(`🔭 后续观察哨: ${cleanWatchlist}`, 68, itemY + 11);
       }
 
-      curY += 260;
+      curY += 215;
     });
 
     // 5. 底部防伪印记与版权注记

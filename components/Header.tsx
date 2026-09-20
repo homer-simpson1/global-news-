@@ -592,14 +592,7 @@ export default function Header({
                                   </div>
                                 )}
 
-                                {impact && (
-                                  <div className="p-2 rounded-lg bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/50 dark:border-blue-800/40 text-blue-950 dark:text-blue-200">
-                                    <span className="font-bold">传导影响：</span>
-                                    <span>{impact}</span>
-                                  </div>
-                                )}
-
-                                {!takeaway && !summary && !impact && (
+                                {!takeaway && !summary && (
                                   <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[11px]">
                                     已记录采编自检诊断。点击下方按钮可直达正文深度展开查看。
                                   </div>
