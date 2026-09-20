@@ -13,6 +13,11 @@ import {
   getMacroInflationNextWatchlist,
   sanitizeFedRatePolicyWording,
 } from './macroInflationEngine';
+import {
+  getEventKeyProvisions,
+  buildEventProvisionsFactParagraph,
+  isEventProvisionsNews,
+} from './eventProvisions';
 
 let cachedNews: NewsItem[] | null = null;
 let cachedFlash: FlashBrief[] | null = null;
@@ -1847,6 +1852,10 @@ export function generateCoreTakeaway(
       ? '借贷成本高企'
       : /美股|纳指|标普|道指|财报/.test(t)
       ? '资产估值再定价'
+      : /格雷厄姆|制裁/.test(t)
+      ? '涉外长臂管辖与二级制裁升级'
+      : /伊朗|中东|谈判/.test(t)
+      ? '地缘安全与外交筹码博弈'
       : '宏观流动性再平衡',
     apac_tech: /利润|营收|财报|业绩|反超|毛利/.test(t)
       ? '行业盈利格局重塑'
@@ -1854,7 +1863,11 @@ export function generateCoreTakeaway(
       ? 'AI算力架构演进'
       : '先进制程供需动态',
     commodities_shipping: '大宗供求与运力平衡',
-    war_conflict: '地缘局势与安全态势',
+    war_conflict: /格雷厄姆|制裁/.test(t)
+      ? '涉外长臂管辖与二级制裁升级'
+      : /谈判条件|谈判|外交/.test(t)
+      ? '地缘安全与外交筹码博弈'
+      : '地缘局势与安全态势',
     china_domestic: '重大治理现实透视',
     china_policy: '经贸博弈与产业自立',
     china_macro: /cpi|居民消费价格/.test(t)
@@ -2289,6 +2302,9 @@ export function build5W1HSummary(
   const consequenceMatch = rawTotal.match(/(?:致使|导致|造成|引发|促使|使得|造成.*人死亡|造成.*人受伤|紧急分流|停航|中断|全境停电)([^。！？；\n]{4,60})/);
   if (consequenceMatch) {
     consequence = consequenceMatch[0].trim().replace(/^[，,]/, '');
+    if (/造成的困境|如果.*?那么除了|并避免越陷越深/.test(consequence)) {
+      consequence = '';
+    }
   }
 
   return {
@@ -2307,12 +2323,20 @@ export function build5W1HParagraph(
   content: string,
   source?: string
 ): string {
+  // 重大涉外法案与外交谈判专属高阶事实段落（详述具体要务）
+  if (title && isEventProvisionsNews(title, content)) {
+    return buildEventProvisionsFactParagraph(title, undefined, source, summary.when);
+  }
+
   let cleanWhat = (summary.what || title || '').trim().replace(/[。！!.]+$/, '');
   cleanWhat = cleanWhat.replace(/^[，,和与以及同时因此使得导致]+/, '').trim();
   const cleanWho = (summary.who || '').trim();
   const cleanWhere = (summary.where || '').trim();
   const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '');
-  const cleanConsequence = (summary.consequence || '').trim().replace(/[。！!.]+$/, '');
+  let cleanConsequence = (summary.consequence || '').trim().replace(/[。！!.]+$/, '');
+  if (/造成的困境|如果.*?那么除了|并避免越陷越深/.test(cleanConsequence)) {
+    cleanConsequence = '';
+  }
 
   const timePrefix = summary.when ? `据${summary.when}` : '据电讯';
   const sourceName = source || '信源';
@@ -2561,6 +2585,7 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
   const isUnilateral = checkUnilateralClaim(cleanRawTitle, cleanRawContent);
   const companyProfile = getCompanyProfileForNews(enrichedTitle, cleanRawContent);
   const macroBreakdown = getMacroInflationBreakdown(enrichedTitle, cleanRawContent, track);
+  const eventProvisions = getEventKeyProvisions(enrichedTitle, cleanRawContent);
 
   const verificationLevel = isUnilateral ? 'UNILATERAL_CLAIM' : cross.verificationLevel;
   const verificationBadge = isUnilateral ? '【单方通报·待验证】' : cross.verificationBadge;
@@ -2583,6 +2608,7 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
     summary5W1H,
     companyProfile: companyProfile || undefined,
     macroInflationBreakdown: macroBreakdown || undefined,
+    eventKeyProvisions: eventProvisions || undefined,
     verificationLevel,
     verificationBadge,
     crossSourceCount: cross.crossSourceCount,

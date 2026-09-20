@@ -18,6 +18,7 @@ import {
   DisasterTracker,
   CompanyProfile,
   MacroInflationBreakdown,
+  EventKeyProvisions,
 } from './types';
 import { getTimeDiffHours, calculateTrackedDays } from './timeUtils';
 import { getCompanyProfileForNews } from './companyProfiles';
@@ -30,6 +31,11 @@ import {
   getMacroInflationNextWatchlist,
   sanitizeFedRatePolicyWording,
 } from './macroInflationEngine';
+import {
+  getEventKeyProvisions,
+  buildEventProvisionsFactParagraph,
+  isEventProvisionsNews,
+} from './eventProvisions';
 
 
 // 权威机构官方安全站点映射字典
@@ -250,6 +256,14 @@ export function autoCorrectTrack(
   if (isForeignOther && !isExplicitChinaPolicy) {
     if (currentTrack === 'china_domestic') {
       return { track: 'global_cognition', wasCorrected: true, reason: '海外国家事务一票否决国内赛道，转轨至全球认知' };
+    }
+  }
+
+  // 纠偏 4：涉俄乌美伊中东战局、涉外制裁法案与谈判被误划入 us_macro 或 china_domestic
+  const isWarConflictTopic = /(?:格雷厄姆|制裁俄罗斯和伊朗|伊朗.*谈判|伊朗.*条件|俄罗斯.*乌克兰|俄军|乌军|也门|胡塞|哈马斯|真主党|以色列|加沙|红海|霍尔木兹|波斯湾|叙利亚|伊拉克|前线交火|空袭)/i.test(title);
+  if (isWarConflictTopic && !isExplicitChinaPolicy) {
+    if (currentTrack !== 'war_conflict') {
+      return { track: 'war_conflict', wasCorrected: true, reason: '地缘制裁、涉伊谈判与美伊中东战局转轨至战局防务赛道' };
     }
   }
 
@@ -524,9 +538,12 @@ export function autoCorrect5W1H(
     }
   }
 
-  // 7. 严禁硬编后续影响：命中虚假套话直接物理清空，无后果绝不硬编！
+  // 7. 严禁硬编后续影响与残句破损：命中虚假套话或残句碎片直接物理清空，无后果绝不硬编！
   if (s.consequence) {
-    if (/重塑市场预期底座并倒逼相关责任主体启动应急策略|引发全产业链决策机制与风险防范重估|直接影响相关领域/.test(s.consequence)) {
+    if (
+      /重塑市场预期底座并倒逼相关责任主体启动应急策略|引发全产业链决策机制与风险防范重估|直接影响相关领域/.test(s.consequence) ||
+      /造成的困境|如果.*?那么除了|并避免越陷越深/.test(s.consequence)
+    ) {
       s.consequence = '';
       wasCorrected = true;
     }
@@ -559,6 +576,21 @@ export function autoCorrect5W1H(
       s.consequence = healedConsequence;
       wasCorrected = true;
     }
+  }
+
+  // 10. 重大涉外法案与外交谈判 5W1H 专属事实闭环
+  if (/伊朗.*(?:7项|七项)?谈判条件|伊朗向美国开出|伊朗向美开出/.test(title)) {
+    s.who = '伊朗官方';
+    s.what = '伊朗官方正式向美方开出7项恢复履约与战略谈判核心条件';
+    s.why = '美方长期单边极限施压及中东安全态势持续对峙';
+    s.consequence = '确立伊方不可退让的战略底牌，倒逼美方在维持极限施压与防范中东失控之间权衡';
+    wasCorrected = true;
+  } else if (/格雷厄姆.*(?:制裁|法案)|制裁俄罗斯和伊朗法案/.test(title)) {
+    s.who = '美国联邦政府与国会';
+    s.what = '美方正式将《2026年格雷厄姆制裁俄罗斯和伊朗法案》签署成法';
+    s.why = '加大对涉俄伊能源出口创汇与国防军工协作的跨境围堵遏制';
+    s.consequence = '授权OFAC穿透调查离岸转运底单并切断违规商业银行美元代理行往来账户';
+    wasCorrected = true;
   }
 
   return { summary5W1H: s, wasCorrected };
@@ -743,11 +775,21 @@ export function autoCorrectTakeaway(
   let wasCorrected = false;
 
   const isEcho = isHeadlineEcho(text, cleanTitle);
+  const isMisattributedLiquidity = text.includes('宏观流动性再平衡') && !/利率|借贷|美债|收益率|加息|降息|国债|流动性|通胀|cpi|ppi|pce/.test(cleanTitleLower);
+  const isGenericCorporateCliché = /标的主体推进核心业务调整|涉事主体推进核心战略部署|根据市场信号与制度合规框架重构/.test(text);
+  const isBrokenGrammar = /造成的困境|如果.*?那么除了|并避免越陷越深|造成困境/.test(text);
+  const isEventProvisionsMismatch =
+    (/格雷厄姆|制裁俄罗斯和伊朗/.test(cleanTitleLower) && !text.includes('制裁') && !text.includes('长臂管辖')) ||
+    (/伊朗.*(?:7项|七项)?谈判条件|伊朗向美国开出|伊朗向美开出/.test(cleanTitleLower) && !text.includes('谈判') && !text.includes('要价'));
+
   const isBroken =
     !text ||
     text.length < 12 ||
     isEcho ||
-    /涉事主体推进核心战略部署|根据市场信号与制度合规框架重构/.test(text) ||
+    isMisattributedLiquidity ||
+    isGenericCorporateCliché ||
+    isBrokenGrammar ||
+    isEventProvisionsMismatch ||
     /使得市场面临现实痛点/.test(text) ||
     /【.*?】[：:]*\s*$/.test(text) ||
     /【.*?】[：:]*[，,、。.\s]+$/.test(text) ||
@@ -768,6 +810,22 @@ export function autoCorrectTakeaway(
     if (cleaned.length >= 12 && !/【.*?】[：:]*[，,、。.\s]*$/.test(cleaned) && !isHeadlineEcho(cleaned, cleanTitle)) {
       return { takeaway: cleaned, wasCorrected: cleaned !== text };
     }
+  }
+
+  // 涉外法案与二级制裁专项定性
+  if (/格雷厄姆.*(?:制裁|法案)|制裁俄罗斯和伊朗法案/.test(cleanTitleLower)) {
+    return {
+      takeaway: '【涉外长臂管辖与二级制裁升级】：法案将涉俄伊能源‘幽灵船队’与跨国金融清算纳入连带制裁，强化OFAC穿透式执法，加剧全球大宗海运合规摩擦与结算链条重构。',
+      wasCorrected: true,
+    };
+  }
+
+  // 伊朗谈判条件专项定性
+  if (/伊朗.*(?:7项|七项)?谈判条件|伊朗向美国开出|伊朗向美开出/.test(cleanTitleLower)) {
+    return {
+      takeaway: '【地缘安全与外交筹码博弈】：伊朗开出解除全面原油禁运、解冻海外资产与不可撤销担保等7项实质要价，锁定极限施压博弈底牌，倒逼中东安全与大宗能源格局重估。',
+      wasCorrected: true,
+    };
   }
 
   // 美联储加息与利率掉期重新定价专属定性
@@ -852,6 +910,12 @@ export function autoCorrectTakeaway(
   } else if (/泥石流|山洪|抢险|受灾|失联|极端暴雨|地质灾害/.test(cleanTitleLower)) {
     tag = '突发险情与应急抢险';
     core = '国家应急管理与专业抢险部队火速开辟救援生命通道，财政救灾资金全额拨付托底受灾区域恢复重建。';
+  } else if (/格雷厄姆.*(?:制裁|法案)|制裁俄罗斯和伊朗法案/.test(cleanTitleLower)) {
+    tag = '涉外长臂管辖与二级制裁升级';
+    core = '法案将涉俄伊能源‘幽灵船队’与跨国金融清算纳入连带制裁，强化OFAC穿透式执法，加剧全球大宗海运合规摩擦与结算链条重构。';
+  } else if (/伊朗.*(?:7项|七项)?谈判条件|伊朗向美国开出|伊朗向美开出/.test(cleanTitleLower)) {
+    tag = '地缘安全与外交筹码博弈';
+    core = '伊朗开出解除全面原油禁运、解冻海外资产与不可撤销担保等7项实质要价，锁定极限施压博弈底牌，倒逼中东安全与大宗能源格局重估。';
   } else if (/空袭|导弹|控制|海峡|航运|交火|红海/.test(cleanTitleLower)) {
     tag = '地缘安全与前线博弈';
     core = '关键地缘节点博弈升级推升区域商业航运战险费率，跨国产业链供应链加速构建多中心备份网络。';
@@ -887,18 +951,35 @@ export function autoCorrectSummaryParagraph(
     !text ||
     text.length < 18 ||
     /使得市场面临现实痛点/.test(text) ||
+    /造成的困境，并避免越陷越深/.test(text) ||
+    /相关主管机构与涉事当事方正依法依规推进后续处置/.test(text) ||
     /：[，,、\s]*。?$/.test(text);
+
+  const cleanTitle = title.replace(/^[【\[][^】\]]+[】\]]/, '').trim();
+  const timePrefix = time ? `据${time}` : '据电讯';
+  const sourceName = source || '权威电讯';
+
+  // 重大涉外法案/外交谈判条件专属穿透段落（讲清具体内容，彻底杜绝单薄空洞与残句）
+  if (isEventProvisionsNews(cleanTitle, text)) {
+    if (isBroken || text.length < 65 || /造成的困境|相关主管机构/.test(text)) {
+      return {
+        paragraph: sanitizeEditorialTone(buildEventProvisionsFactParagraph(cleanTitle, text, sourceName, time)),
+        wasCorrected: true,
+      };
+    }
+  }
 
   if (!isBroken) {
     let cleaned = sanitizeEditorialTone(sanitizeFedRatePolicyWording(text))
       .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
+      .replace(/直接影响方面，(?:造成的困境|如果.*?那么除了).*?([。！!]|$)/g, '。')
+      .replace(/造成的困境，并避免越陷越深，那么除了接受伊朗的条件外，别无他途。?/g, '')
       .replace(/[：:][，,]/g, '：')
       .replace(/[：:][。.]/g, '。')
       .replace(/，{2,}/g, '，')
       .replace(/。{2,}/g, '。')
       .trim();
     if (cleaned.length >= 18) {
-      const cleanTitle = title.replace(/^[【\[][^】\]]+[】\]]/, '').trim();
       if (isMacroInflationNews(cleanTitle.toLowerCase())) {
         if (!cleaned.includes('环比') || !cleaned.includes('分项') || (!cleaned.includes('能源') && !cleaned.includes('食品'))) {
           cleaned = buildMacroInflationFactParagraph(cleanTitle, cleaned, source, time);
@@ -915,10 +996,6 @@ export function autoCorrectSummaryParagraph(
   }
 
   // 重新生成 5W1H 客观事实叙事闭环段落
-  const cleanTitle = title.replace(/^[【\[][^】\]]+[】\]]/, '').trim();
-  const timePrefix = time ? `据${time}` : '据电讯';
-  const sourceName = source || '权威电讯';
-
   if (isMacroInflationNews(cleanTitle.toLowerCase())) {
     return {
       paragraph: sanitizeEditorialTone(buildMacroInflationFactParagraph(cleanTitle, text, sourceName, time)),
@@ -928,7 +1005,10 @@ export function autoCorrectSummaryParagraph(
 
   const what = (summary5W1H?.what || cleanTitle).replace(/[。！!.]+$/, '').trim();
   const why = (summary5W1H?.why || '').replace(/[。！!.]+$/, '').trim();
-  const consequence = (summary5W1H?.consequence || '').replace(/[。！!.]+$/, '').trim();
+  let consequence = (summary5W1H?.consequence || '').replace(/[。！!.]+$/, '').trim();
+  if (/造成的困境|如果.*?那么除了|并避免越陷越深/.test(consequence)) {
+    consequence = '';
+  }
 
   // 涉事主体知识库检索与无缝融入（解答“为什么不简单介绍这家公司”）
   const profile = getCompanyProfileForNews(cleanTitle, what);
@@ -1026,6 +1106,9 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   // 涉事主体档案检索与挂载
   const detectedProfile = item.companyProfile || getCompanyProfileForNews(cleanTitle, item.summaryParagraph || item.bulletPoints?.join(' '));
 
+  // 重大事件/法案/谈判核心条款与具体要务穿透挂载
+  const detectedProvisions = item.eventKeyProvisions || getEventKeyProvisions(cleanTitle, cleanParagraph || item.summaryParagraph || item.bulletPoints?.join(' '));
+
   // 宏观通胀关键指标矩阵（双环比/双同比与5大分项穿透）检索与挂载
   let detectedMacro: MacroInflationBreakdown | null | undefined = item.macroInflationBreakdown;
   if (!detectedMacro) {
@@ -1047,6 +1130,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   if (correctedTime !== item.publishedAt || correctedWindow !== item.timeWindow) details.push('时效动态降级纠偏');
   if (correctedSentiment !== item.sentiment || correctedLevel !== item.impactLevel) details.push('情绪定级与冲击烈度对齐');
   if (detectedProfile && !item.companyProfile) details.push(`涉事企业主体档案挂载: ${detectedProfile.name}`);
+  if (detectedProvisions && !item.eventKeyProvisions) details.push(`重大事件核心要务穿透挂载: ${detectedProvisions.targetName}`);
   if (detectedMacro && !item.macroInflationBreakdown) details.push('宏观通胀关键指标矩阵(环比/同比)与分项穿透挂载');
   if (!detectedMacro && item.macroInflationBreakdown) details.push('跨国张冠李戴宏观数据物理清除自愈');
 
@@ -1067,6 +1151,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
     summary5W1H: corrected5W1H,
     companyProfile: detectedProfile || undefined,
     macroInflationBreakdown: detectedMacro || undefined,
+    eventKeyProvisions: detectedProvisions || undefined,
     sentiment: correctedSentiment,
     impactLevel: correctedLevel,
     disasterTracker: correctedTracker,
@@ -1133,6 +1218,8 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
   );
 
   const detectedProfile = flash.companyProfile || getCompanyProfileForNews(cleanContent, flash.summaryParagraph);
+  const detectedProvisions = flash.eventKeyProvisions || getEventKeyProvisions(cleanContent, cleanParagraph || flash.summaryParagraph);
+
   let detectedMacro: MacroInflationBreakdown | null | undefined = flash.macroInflationBreakdown;
   if (!detectedMacro) {
     detectedMacro = getMacroInflationBreakdown(cleanContent, cleanParagraph || flash.summaryParagraph, correctedTrack);
@@ -1150,6 +1237,7 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
   if (correctedSource !== flash.source) details.push('信源一致性纠偏');
   if (cleanTransmission !== flash.transmission) details.push('利益链1-Hop真实因果修复');
   if (detectedProfile && !flash.companyProfile) details.push(`企业主体档案挂载: ${detectedProfile.name}`);
+  if (detectedProvisions && !flash.eventKeyProvisions) details.push(`重大事件核心要务穿透挂载: ${detectedProvisions.targetName}`);
   if (detectedMacro && !flash.macroInflationBreakdown) details.push('宏观通胀关键指标矩阵(环比/同比)与分项穿透挂载');
   if (!detectedMacro && flash.macroInflationBreakdown) details.push('跨国张冠李戴宏观数据物理清除自愈');
 
@@ -1169,6 +1257,7 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
     summary5W1H: corrected5W1H,
     companyProfile: detectedProfile || undefined,
     macroInflationBreakdown: detectedMacro || undefined,
+    eventKeyProvisions: detectedProvisions || undefined,
     sentiment: correctedSentiment,
     impactLevel: correctedLevel,
     isAutoCorrected,

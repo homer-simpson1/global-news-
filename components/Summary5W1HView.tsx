@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Summary5W1H } from '@/lib/types';
-import { FileText, AlertTriangle, X, Building2, BarChart3, Layers, Activity } from 'lucide-react';
+import { Summary5W1H, EventKeyProvisions } from '@/lib/types';
+import { FileText, AlertTriangle, X, Building2, BarChart3, Layers, Activity, ShieldAlert, FileCheck } from 'lucide-react';
 import { CompanyProfile, getCompanyProfileForNews } from '@/lib/companyProfiles';
 import {
   getMacroInflationBreakdown,
@@ -11,6 +11,11 @@ import {
   MacroInflationBreakdown,
   sanitizeFedRatePolicyWording,
 } from '@/lib/macroInflationEngine';
+import {
+  getEventKeyProvisions,
+  buildEventProvisionsFactParagraph,
+  isEventProvisionsNews,
+} from '@/lib/eventProvisions';
 
 interface Summary5W1HViewProps {
   summaryParagraph?: string;
@@ -23,6 +28,7 @@ interface Summary5W1HViewProps {
   clarificationNote?: string;
   companyProfile?: CompanyProfile;
   macroInflationBreakdown?: MacroInflationBreakdown;
+  keyProvisions?: EventKeyProvisions;
   onClose?: () => void;
 }
 
@@ -37,6 +43,7 @@ export default function Summary5W1HView({
   clarificationNote,
   companyProfile,
   macroInflationBreakdown,
+  keyProvisions,
   onClose,
 }: Summary5W1HViewProps) {
   // 1. 如果已有预生成的 5W1H 一段总结，且格式合规，直接使用
@@ -50,12 +57,26 @@ export default function Summary5W1HView({
     paragraph = undefined;
   }
 
+  // 1.1 清理语病残句（如“直接影响方面，造成的困境，并避免越陷越深…”）
+  if (paragraph) {
+    paragraph = paragraph
+      .replace(/直接影响方面，(?:造成的困境|如果.*?那么除了).*?([。！!]|$)/g, '。')
+      .replace(/，{2,}/g, '，')
+      .replace(/。{2,}/g, '。')
+      .trim();
+  }
+
   // 2. 如果只有结构化的 summary，根据实际披露要素客观叙述（无原因绝不硬编）
   if (!paragraph && summary) {
     const when = summary.when || (time ? `${time}` : '权威电讯通报');
     const cleanWhat = (summary.what || (title ? title.replace(/^【.*?】\s*/, '') : '发布最新核心进展')).trim().replace(/[。！!.]+$/, '');
     const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '');
-    const cleanConsequence = (summary.consequence || '').trim().replace(/[。！!.]+$/, '');
+    let cleanConsequence = (summary.consequence || '').trim().replace(/[。！!.]+$/, '');
+
+    // 剔除破损因果碎片
+    if (/造成的困境|如果.*?那么除了|并避免越陷越深/.test(cleanConsequence)) {
+      cleanConsequence = '';
+    }
 
     let text = `据${when}，${cleanWhat}。`;
     if (cleanWhy && cleanWhy.length >= 4 && !cleanWhy.includes('宏观宏图') && !cleanWhy.includes('利益交织对立')) {
@@ -83,6 +104,13 @@ export default function Summary5W1HView({
     paragraph = text;
   }
 
+  // 若属于重大涉外法案/外交谈判条件且段落单薄或存在残句，强化事实段落
+  if (title && isEventProvisionsNews(title, paragraph)) {
+    if (!paragraph || paragraph.length < 65 || paragraph.includes('相关主管机构与涉事当事方正依法依规推进后续处置') || paragraph.includes('造成的困境')) {
+      paragraph = buildEventProvisionsFactParagraph(title, paragraph, source, time);
+    }
+  }
+
   // 若属于宏观通胀且段落单薄，执行事实强化补全
   if (title && isMacroInflationNews(title.toLowerCase()) && (!paragraph || !paragraph.includes('环比') || !paragraph.includes('分项'))) {
     paragraph = buildMacroInflationFactParagraph(title, paragraph || '', source, time);
@@ -93,10 +121,12 @@ export default function Summary5W1HView({
     paragraph = sanitizeFedRatePolicyWording(paragraph);
   }
 
-  // 提取核心后果一句话提示（用于在段落下方醒目强调）
-  const consequenceHighlight = summary?.consequence || null;
+  // 提取核心后果一句话提示（用于在段落下方醒目强调，过滤破损片段）
+  const rawConsequence = summary?.consequence || null;
+  const consequenceHighlight = (rawConsequence && !/造成的困境|如果.*?那么除了|并避免越陷越深/.test(rawConsequence)) ? rawConsequence : null;
 
   const activeMacro = macroInflationBreakdown || (title ? getMacroInflationBreakdown(title, paragraph) : null);
+  const activeProvisions = keyProvisions || (title ? getEventKeyProvisions(title, paragraph) : null);
 
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/60 p-4 md:p-5 my-3.5 space-y-3.5">
@@ -230,6 +260,66 @@ export default function Summary5W1HView({
           {paragraph}
         </p>
       </div>
+
+      {/* 重大事件具体内容与核心条款穿透清单 (解答“具体内容是什么”) */}
+      {activeProvisions && (
+        <div className="p-4 md:p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 text-slate-100 border border-slate-700/80 shadow-md space-y-3.5">
+          <div className="flex items-center justify-between gap-2 flex-wrap pb-2.5 border-b border-slate-800">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <span className="font-extrabold text-amber-400 text-sm md:text-base tracking-tight">
+                {activeProvisions.badgeTitle}
+              </span>
+            </div>
+            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-mono font-bold text-xs border border-amber-500/30">
+              共 {activeProvisions.provisions.length} 项核心具体内容
+            </span>
+          </div>
+
+          <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
+            {activeProvisions.summary}
+          </p>
+
+          <div className="space-y-2 pt-1">
+            <div className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+              <FileCheck className="w-3.5 h-3.5 text-blue-400" />
+              <span>逐项核心条款 / 要价实质内容详述：</span>
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              {activeProvisions.provisions.map((prov) => (
+                <div
+                  key={prov.num}
+                  className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 hover:border-blue-500/50 transition-all text-xs"
+                >
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-blue-600/30 text-blue-400 border border-blue-500/40 text-xs font-mono font-bold">
+                      {prov.num}
+                    </span>
+                    <span className="font-bold text-slate-100 text-xs md:text-sm">
+                      {prov.title}
+                    </span>
+                    {prov.category && (
+                      <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-700/80 text-slate-300 border border-slate-600">
+                        {prov.category}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-slate-300 leading-relaxed pl-7 text-xs md:text-[13px]">
+                    {prov.detail}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {activeProvisions.strategicImplication && (
+            <div className="pt-2.5 border-t border-slate-800 text-xs flex items-start gap-2 text-slate-300 leading-relaxed">
+              <span className="font-bold text-amber-400 flex-shrink-0">战略博弈与传导影响：</span>
+              <span>{activeProvisions.strategicImplication}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 关键后果与传导高亮条 */}
       {consequenceHighlight && (

@@ -354,6 +354,7 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                       hasClarification={brief.hasClarification}
                       clarificationNote={brief.clarificationNote}
                       companyProfile={brief.companyProfile || getCompanyProfileForNews(parsed.title, brief.content) || undefined}
+                      keyProvisions={brief.eventKeyProvisions}
                       onClose={() => toggleExpand(brief.id)}
                     />
 

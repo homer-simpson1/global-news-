@@ -2,6 +2,23 @@ import type { CompanyProfile } from './companyProfiles';
 import type { MacroInflationBreakdown } from './macroInflationEngine';
 export type { CompanyProfile, MacroInflationBreakdown };
 
+export interface EventProvisionItem {
+  num: string;           // e.g. "01", "02", "03"...
+  title: string;         // 具体条款/诉求标题
+  detail: string;        // 深度条款细节
+  category?: string;     // 分类标签 (如 "能源与外汇结算", "主权资产解冻")
+}
+
+export interface EventKeyProvisions {
+  eventType: 'DIPLOMATIC_TERMS' | 'LEGISLATION_SANCTIONS' | 'POLICY_REGULATION' | 'OFFICIAL_DECREE';
+  badgeTitle: string;    // e.g. "【核心要务清单 · 伊朗向美开出7项谈判条件详述】"
+  targetName: string;    // e.g. "伊朗对美恢复履约7项谈判底线要价清单"
+  summary: string;       // 概要说明
+  totalCount?: number;   // 条目数量
+  provisions: EventProvisionItem[]; // 逐项具体条款
+  strategicImplication: string; // 战略博弈与传导影响
+}
+
 export type TrackId = 
   | 'us_macro' 
   | 'apac_tech' 
@@ -83,6 +100,7 @@ export interface NewsItem {
   summary5W1H?: Summary5W1H;
   companyProfile?: CompanyProfile; // 涉事核心主体/企业业务与生态背景速览
   macroInflationBreakdown?: MacroInflationBreakdown; // 宏观通胀关键指标矩阵（环比/同比）与分项深度穿透
+  eventKeyProvisions?: EventKeyProvisions; // 重大事件/法案/谈判核心要务与具体条款清单
   verificationLevel?: 'CROSS_VERIFIED' | 'OFFICIAL_DECREE' | 'SINGLE_SOURCE_FAST' | 'UNILATERAL_CLAIM';
   verificationBadge?: string;
   crossSourceCount?: number;
@@ -115,6 +133,7 @@ export interface FlashBrief {
   summary5W1H?: Summary5W1H;
   companyProfile?: CompanyProfile; // 涉事核心主体/企业业务与生态背景速览
   macroInflationBreakdown?: MacroInflationBreakdown; // 宏观通胀关键指标矩阵（环比/同比）与分项深度穿透
+  eventKeyProvisions?: EventKeyProvisions; // 重大事件/法案/谈判核心要务与具体条款清单
   verificationLevel?: 'CROSS_VERIFIED' | 'OFFICIAL_DECREE' | 'SINGLE_SOURCE_FAST' | 'UNILATERAL_CLAIM';
   verificationBadge?: string;
   crossSourceCount?: number;

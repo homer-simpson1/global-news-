@@ -702,6 +702,7 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
               hasClarification={item.hasClarification}
               clarificationNote={item.clarificationNote}
               companyProfile={companyProfile || undefined}
+              keyProvisions={item.eventKeyProvisions}
               onClose={() => setExpanded(false)}
             />
 
