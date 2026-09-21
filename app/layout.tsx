@@ -51,12 +51,37 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
+                  // 1. 主题偏好秒级应用
                   var saved = localStorage.getItem('theme');
                   var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
                   if (saved === 'dark' || (!saved && prefersDark)) {
                     document.documentElement.classList.add('dark');
                   } else {
                     document.documentElement.classList.remove('dark');
+                  }
+
+                  // 2. 核心版本防死锁与污染旧闻秒级熔断 (Hard Cache Purge)
+                  var APP_VERSION = 'v2026.09.21.v5';
+                  var cachedVer = localStorage.getItem('git_app_build_version');
+                  var cachedNews = localStorage.getItem('git_cached_news') || '';
+                  var isCorrupt = /美方将《|创去年|相关工作稳步推进|涉事主体推进核心战略部署/.test(cachedNews);
+                  
+                  if (cachedVer !== APP_VERSION || isCorrupt) {
+                    console.log('[Version Buster] 熔断过期/污染缓存，强制加载最新资讯');
+                    localStorage.removeItem('git_cached_news');
+                    localStorage.removeItem('git_cached_briefs');
+                    localStorage.setItem('git_app_build_version', APP_VERSION);
+                  }
+
+                  // 3. 清理旧版 Service Worker 缓存
+                  if ('caches' in window) {
+                    caches.keys().then(function(keys) {
+                      keys.forEach(function(k) {
+                        if (!k.includes('v4.0')) {
+                          caches.delete(k);
+                        }
+                      });
+                    });
                   }
                 } catch (e) {}
               })();
