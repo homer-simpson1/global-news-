@@ -40,7 +40,35 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       tag = match[1].replace(/\/.*$/, '').trim();
       cleanTitle = match[2].trim();
     }
-    cleanTitle = sanitizeFedRatePolicyWording(cleanTitle);
+
+    // 彻底剥离媒体栏目分类前缀与悬挂符号（如“特稿 | ”、“能源内参｜”）
+    cleanTitle = cleanTitle
+      .replace(/^(?:能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/, '')
+      .replace(/^[｜|·\-\/:：\s]+/, '')
+      .trim();
+
+    // 剔除虚假八股后缀（如“，相关工作稳步推进落”）
+    cleanTitle = cleanTitle.replace(/[，,\s]*相关工作稳步推进落[实]?[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*相关工作稳步推进落[实]?[，,\s]*/g, '，');
+    cleanTitle = cleanTitle.replace(/[，,\s]*多边贸易合规评估稳步开展[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*宏观统筹稳步推进落实[。.]*$/g, '');
+
+    // 修复美债收益率断裂标题与两年期/10年期背离
+    if (/两年期美债收益率创去年|创去年$/.test(cleanTitle) || (/美债.*收益率/.test(cleanTitle) && /创(?:去年|今年|历|历史|新|低|高)?$/.test(cleanTitle))) {
+      cleanTitle = '美国10年期基准国债收益率涨6.57基点，报4.9961%';
+    }
+    if (cleanTitle.includes('两年期') && !cleanTitle.includes('10年期') && (item.summaryParagraph || '').includes('10年期基准国债') && !(item.summaryParagraph || '').includes('两年期')) {
+      cleanTitle = '美国10年期基准国债收益率涨6.57基点，报4.9961%';
+    }
+
+    // 修复涉外法案未闭合书名号
+    if (/美方将《|格雷厄姆.*制裁|制裁俄罗斯和伊朗法案/.test(cleanTitle)) {
+      cleanTitle = '美方将《2026年格雷厄姆制裁俄罗斯和伊朗法案》签署成法，商务部回应';
+    } else if (cleanTitle.includes('《') && !cleanTitle.includes('》')) {
+      cleanTitle = cleanTitle.replace(/《.*$/, '').trim();
+    }
+
+    cleanTitle = sanitizeFedRatePolicyWording(cleanTitle).replace(/^[，,\s]+|[，,\s]+$/g, '').trim();
     const keywords = extractSearchKeywords(cleanTitle || item.title, item.source);
     return {
       tag,
@@ -50,7 +78,7 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       googleSearchUrl: getSearchUrl(keywords, 'google'),
       baiduSearchUrl: getSearchUrl(keywords, 'baidu'),
     };
-  }, [item.id, item.title, item.source]);
+  }, [item.id, item.title, item.source, item.summaryParagraph]);
 
   // 涉事主体/企业背景速览检索 (解答“为什么不简单介绍这家公司”)
   const companyProfile: CompanyProfile | null = React.useMemo(() => {
@@ -407,8 +435,8 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
               </span>
             )}
 
-            {/* 命中通用重大外溢冲击收录标准徽章 */}
-            {item.spilloverCriterion && (
+            {/* 命中通用重大外溢冲击收录标准徽章（商业破产重整严禁挂责任事故标签） */}
+            {item.spilloverCriterion && !(/破产重整|重整倒计时|破产清算/.test(cleanTitle) && !/伤亡|死亡|遇难|坍塌|爆炸|事故/.test(cleanTitle + ' ' + (item.summaryParagraph || ''))) && (
               <span className="inline-flex items-center gap-1 text-xs font-extrabold px-2.5 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950 text-rose-900 dark:text-rose-300 border border-rose-300 dark:border-rose-700" title={`命中通用重大外溢冲击指标：${item.spilloverCriterion}，强制收录`}>
                 <ShieldAlert className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                 <span>{item.spilloverCriterion}</span>

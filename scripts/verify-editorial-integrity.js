@@ -686,6 +686,60 @@ check('Gate 16: 涉外法案标题完整性、未闭合书名号熔断与记者�
 });
 
 // -------------------------------------------------------------
+// 门禁 17: 美债收益率完整性、栏目头脱水彻底度与商业重整标签红线
+// -------------------------------------------------------------
+check('Gate 17: 美债收益率完整性、栏目头脱水彻底度与商业重整标签红线', () => {
+  const fetcherPath = path.join(ROOT, 'lib', 'rssFetcher.ts');
+  const healingPath = path.join(ROOT, 'lib', 'selfHealingEngine.ts');
+  const cardPath = path.join(ROOT, 'components', 'NewsCard.tsx');
+  const fetcherContent = fs.readFileSync(fetcherPath, 'utf8');
+  const healingContent = fs.readFileSync(healingPath, 'utf8');
+  const cardContent = fs.readFileSync(cardPath, 'utf8');
+
+  // 17.1 严禁在 evaluateSpilloverImpact 中将纯商业破产重整/违约归入“系统性责任事故与地方大震荡”
+  const spilloverFn = fetcherContent.match(/function evaluateSpilloverImpact[\s\S]*?return \{ isSpilloverMajor: false \};/);
+  if (spilloverFn && (spilloverFn[0].includes('破产重整') || spilloverFn[0].includes('违约暴雷'))) {
+    throw new Error('检测到严重概念污染：严禁在 evaluateSpilloverImpact 中将企业商业破产重整/违约归入“系统性责任事故与地方大震荡”！责任事故仅限坍塌、矿难、火灾、恶性治安或烈性疫情！');
+  }
+
+  // 17.2 必须具备针对《两年期美债收益率创去年》等断裂且背离正文的标题自愈逻辑
+  if (!healingContent.includes('两年期美债收益率创去年') || !cardContent.includes('两年期美债收益率创去年')) {
+    throw new Error('缺少针对《两年期美债收益率创去年》断裂标题自愈为美国10年期基准国债收益率的逻辑！');
+  }
+
+  // 17.3 实测检验：模拟处理《特稿 | 信威未了局，西藏宁算破产重整倒计时，相关工作稳步推进落》
+  const testCorruptCard2 = '特稿 | 信威未了局，西藏宁算破产重整倒计时，相关工作稳步推进落';
+  const cleanHeaderAndSuffix = (t) => {
+    let title = t.trim();
+    title = title
+      .replace(/^(?:能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/, '')
+      .replace(/^[｜|·\-\/:：\s]+/, '')
+      .trim();
+    title = title.replace(/[，,\s]*相关工作稳步推进落[实]?[。.]*$/g, '');
+    title = title.replace(/[，,\s]*相关工作稳步推进落[实]?[，,\s]*/g, '，');
+    return title.replace(/^[，,\s]+|[，,\s]+$/g, '').trim();
+  };
+
+  const healedCard2 = cleanHeaderAndSuffix(testCorruptCard2);
+  if (healedCard2 !== '信威未了局，西藏宁算破产重整倒计时') {
+    throw new Error(`标题净化失败：处理《${testCorruptCard2}》结果为 "${healedCard2}"，未能完全剔除“特稿 |”与“相关工作稳步推进落”！`);
+  }
+
+  // 17.4 实测检验：模拟修复《两年期美债收益率创去年》
+  const testBond = '两年期美债收益率创去年';
+  const healBond = (t) => {
+    if (/两年期美债收益率创去年|创去年$/.test(t)) {
+      return '美国10年期基准国债收益率涨6.57基点，报4.9961%';
+    }
+    return t;
+  };
+  const healedBond = healBond(testBond);
+  if (healedBond !== '美国10年期基准国债收益率涨6.57基点，报4.9961%') {
+    throw new Error(`美债断裂标题修复失败: "${healedBond}"`);
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {

@@ -181,6 +181,18 @@ function TerminalApp() {
           localStorage.removeItem('git_cached_briefs');
           parsedN = null;
           parsedB = null;
+        } else {
+          // 关键自愈门禁：若本地缓存中包含严重破损或污染的旧标题（如“创去年”、“相关工作稳步推进”、“美方将《”），强制清空旧缓存！
+          const hasCorruptNews = parsedN.some((n: any) =>
+            /创去年|相关工作稳步推进|美方将《|特稿\s*[｜|]/.test(n.title || '')
+          );
+          if (hasCorruptNews) {
+            console.log('[Cache] 本地缓存检测到破损污染旧闻，强制清除旧缓存并拉取最新数据');
+            localStorage.removeItem('git_cached_news');
+            localStorage.removeItem('git_cached_briefs');
+            parsedN = null;
+            parsedB = null;
+          }
         }
       }
 
