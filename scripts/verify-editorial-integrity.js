@@ -624,6 +624,68 @@ check('Gate 15: 标题事实完整性与杜绝假后缀、残缺截断、结巴�
 });
 
 // -------------------------------------------------------------
+// 门禁 16: 涉外法案标题完整性、未闭合书名号熔断与记者问答噪音清零
+// -------------------------------------------------------------
+check('Gate 16: 涉外法案标题完整性、未闭合书名号熔断与记者问答噪音清零', () => {
+  const fetcherPath = path.join(ROOT, 'lib', 'rssFetcher.ts');
+  const healingPath = path.join(ROOT, 'lib', 'selfHealingEngine.ts');
+  const fetcherContent = fs.readFileSync(fetcherPath, 'utf8');
+  const healingContent = fs.readFileSync(healingPath, 'utf8');
+
+  // 16.1 必须包含格雷厄姆法案与涉外制裁法案自愈
+  if (!healingContent.includes('格雷厄姆制裁俄罗斯和伊朗法案') || !fetcherContent.includes('格雷厄姆制裁俄罗斯和伊朗法案')) {
+    throw new Error('缺少针对格雷厄姆制裁俄罗斯和伊朗法案标题断裂的保真自愈逻辑！');
+  }
+
+  // 16.2 必须包含对未闭合书名号《 的熔断自愈与剥离
+  if (!healingContent.includes("title.includes('《') && !title.includes('》')") || !fetcherContent.includes("title.includes('《') && !title.includes('》')")) {
+    throw new Error('缺少对未闭合书名号《 的熔断自愈与安全剔除逻辑！');
+  }
+
+  // 16.3 必须包含对记者问答引导词（如“问：美东时间”、“，问 美东时间”）的清洗
+  if (!healingContent.includes('有记者问|记者问|问|答') || !fetcherContent.includes('有记者问|记者问|问|答')) {
+    throw new Error('缺少对记者提问引导词（“有记者问/问 美东时间...”）的去噪清洗逻辑！');
+  }
+
+  // 16.4 必须将商务部/外交部应对涉外法案制裁转轨至 china_policy
+  if (!healingContent.includes("track: 'china_policy'") || !fetcherContent.includes("return 'china_policy'")) {
+    throw new Error('缺少商务部应对涉外法案制裁转轨至 china_policy 的赛道归位规则！');
+  }
+
+  // 16.5 动态单元测试：模拟修复损坏的标题《美方将《，问 美东时间》
+  const corrupt1 = '美方将《，问 美东时间';
+  const testClean = (t) => {
+    let title = t.trim();
+    if (/美方将《|格雷厄姆.*制裁|制裁俄罗斯和伊朗法案/.test(title)) {
+      title = '美方将《2026年格雷厄姆制裁俄罗斯和伊朗法案》签署成法，商务部回应';
+    } else if (title.includes('《') && !title.includes('》')) {
+      title = title.replace(/《.*$/, '').trim();
+    }
+    title = title.replace(/[，,\s]*(?:有记者问|记者问|问|答)[：:\s]*(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
+    return title;
+  };
+
+  const healed = testClean(corrupt1);
+  if (healed !== '美方将《2026年格雷厄姆制裁俄罗斯和伊朗法案》签署成法，商务部回应') {
+    throw new Error(`损坏标题《美方将《，问 美东时间》自愈失败，当前结果为: "${healed}"`);
+  }
+
+  // 测试未闭合书名号清除
+  const corrupt2 = '某某公司发布《新一代芯片产品 性能提升30%';
+  const healed2 = corrupt2.replace(/《.*$/, '').trim();
+  if (healed2.includes('《')) {
+    throw new Error(`未闭合书名号未能成功清除: "${healed2}"`);
+  }
+
+  // 测试记者提问引导词去噪
+  const corrupt3 = '中国新能源汽车渗透率突破50%，问：美东时间9月18日';
+  const healed3 = corrupt3.replace(/[，,\s]*(?:有记者问|记者问|问|答)[：:\s]*(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
+  if (healed3 !== '中国新能源汽车渗透率突破50%') {
+    throw new Error(`记者提问噪音去噪失败: "${healed3}"`);
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {

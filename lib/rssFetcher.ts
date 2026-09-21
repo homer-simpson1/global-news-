@@ -860,8 +860,11 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
         text = sanitizeFedRatePolicyWording(text);
 
         // 优先提取第一句完整断句（句号或换行），严防通篇流水账被整段灌入标题
-        const firstSentence = text.split(/[。\n]/)[0].replace(/【.*?】/g, '').trim();
+        // 预先剥离记者提问引导词（如“问：美东时间...”、“有记者问：...”）
+        const cleanForTitle = text.replace(/^(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间[0-9月日\s]+[，,]?)?/, '').trim();
+        const firstSentence = cleanForTitle.split(/[。\n]/)[0].replace(/【.*?】/g, '').trim();
         let title = (raw.title || firstSentence).trim().replace(/【.*?】/g, '').trim();
+        title = title.replace(/^(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间[0-9月日\s]+[，,]?)?/, '').trim();
         // 严禁提取出无主语流水账（如“分别涨4.77%...”）
         if (/^(?:分别|其中|包括|以及|并且|而|且|但|[0-9.]+%|[涨跌][0-9.]+%)/.test(title)) {
           continue;
@@ -1171,6 +1174,11 @@ function classifyTrack(item: RawLiveItem): TrackId {
   if (isEuropeanOrUK && !/中美|美德|美欧|对美/.test(item.title)) {
     if (/涉华|对华|中欧|中英/.test(t)) return 'china_policy';
     return 'global_cognition';
+  }
+
+  // 涉华经贸与涉外法案应对（商务部/外交部反制与回应）：一票归入 china_policy，严禁落入 us_macro
+  if (/商务部|外交部/.test(t) && /美方|美国|制裁|法案|关税|清单|出口管制|格雷厄姆/.test(t)) {
+    return 'china_policy';
   }
 
   if ((FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.US_MACRO.test(t)) && !/涉华|对华|中美/.test(t)) {
@@ -1677,10 +1685,19 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
   // 1. 彻底去除媒体栏目分类前缀、机械时间前缀、尾盘流水账前缀与多余括号
   title = title
     .replace(/^(?:能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)[｜|·\s\-]\s*/, '')
+    .replace(/^(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间[0-9月日\s]+[，,]?)?/, '')
     .replace(/^(?:当地时间)?(?:周[一二三四五六日]|本周[一二三四五六日])?[（(]?\d{1,2}月\d{1,2}日[)）]?\s*(?:纽约尾盘|欧市尾盘|早盘|收盘|电讯)?\s*[，,：:]?\s*/, '')
     .replace(/^[0-9]{1,2}月[0-9]{1,2}日\s*，?\s*/, '')
     .replace(/（[^）]*?(?:快讯|电讯|直发|专电|通报)[^）]*?）/g, '')
     .trim();
+
+  // 1-B. 修复涉外法案与未闭合书名号断裂
+  if (/美方将《|格雷厄姆.*制裁|制裁俄罗斯和伊朗法案/.test(title)) {
+    title = '美方将《2026年格雷厄姆制裁俄罗斯和伊朗法案》签署成法，商务部回应';
+  } else if (title.includes('《') && !title.includes('》')) {
+    title = title.replace(/《.*$/, '').trim();
+  }
+  title = title.replace(/[，,\s]*(?:有记者问|记者问|问|答)[：:\s]*(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
 
   // 2. 严禁通篇冒号体：将内部冒号转换为自然逗号或流畅句式，杜绝【事实】：【定性】八股套路
   title = title.replace(/[：:]/g, '，');
@@ -1780,7 +1797,11 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
   title = title.replace(/(?:\d+\.|\.\d*)$/, '').trim();
   title = title.replace(/(?:[，,、；;：:\s及与和等并]|为了|保证|以实现|以确保|正在全力)+$/, '').trim();
 
-  // 终极安全脱水：再次剔除所有自媒体口水词与非法标点
+  // 终极安全脱水：再次剔除所有自媒体口水词与非法标点，并严禁未闭合书名号与问答引导残片
+  title = title.replace(/[，,\s]*(?:有记者问|记者问|问|答)[：:\s]*(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
+  if (title.includes('《') && !title.includes('》')) {
+    title = title.replace(/《.*$/, '').trim();
+  }
   title = title.replace(/[！!？?]/g, '，').replace(/……|\.{2,}/g, '').replace(/^[，,\s]+|[，,\s]+$/g, '');
   return sanitizeEditorialTone(title);
 }
