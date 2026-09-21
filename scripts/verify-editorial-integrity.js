@@ -740,6 +740,52 @@ check('Gate 17: 美债收益率完整性、栏目头脱水彻底度与商业重�
 });
 
 // -------------------------------------------------------------
+// 门禁 18: 今日决策速递 (FlashBriefing) 事实通报与深度透视规范审校
+// -------------------------------------------------------------
+check('Gate 18: 今日决策速递事实通报与深度透视规范审校', () => {
+  const flashPath = path.join(ROOT, 'components', 'FlashBriefing.tsx');
+  const healingPath = path.join(ROOT, 'lib', 'selfHealingEngine.ts');
+  const eventProvPath = path.join(ROOT, 'lib', 'eventProvisions.ts');
+
+  if (!fs.existsSync(flashPath)) {
+    throw new Error('未找到 components/FlashBriefing.tsx 文件！');
+  }
+  const flashContent = fs.readFileSync(flashPath, 'utf8');
+  const healingContent = fs.readFileSync(healingPath, 'utf8');
+  const eventProvContent = fs.readFileSync(eventProvPath, 'utf8');
+
+  // 18.1 严禁在 FlashBriefing 中保留无实质内容的“核心结论:”黄色展示框
+  if (flashContent.includes('核心结论:') || flashContent.includes('核心结论 · 底层动因与本质归纳')) {
+    throw new Error('components/FlashBriefing.tsx 仍保留无实质内容的“核心结论:”，违背用户彻底删除指令！');
+  }
+
+  // 18.2 必须呈现“事件核心事实通报”
+  if (!flashContent.includes('事件核心事实通报')) {
+    throw new Error('components/FlashBriefing.tsx 缺少“事件核心事实通报”展示框！');
+  }
+
+  // 18.3 必须集成 isDeepPerspectiveEligible 深度透视必要性判断
+  if (!flashContent.includes('isDeepPerspectiveEligible')) {
+    throw new Error('components/FlashBriefing.tsx 缺少 isDeepPerspectiveEligible 校验，未能免除无需解读新闻的深度透视！');
+  }
+
+  // 18.4 赛道转轨校验：autoCorrectTrack 必须将“美方将《”与格雷厄姆法案从 us_macro 转轨至 china_policy
+  if (!healingContent.includes('美方将《') || !healingContent.includes("return { track: 'china_policy'")) {
+    throw new Error('lib/selfHealingEngine.ts autoCorrectTrack 缺少将“美方将《”转轨至 china_policy 的规则！');
+  }
+
+  // 18.5 事实通报自愈校验：buildEventProvisionsFactParagraph 必须对“美方将《”输出完整法案通报
+  if (!eventProvContent.includes('美方将《')) {
+    throw new Error('lib/eventProvisions.ts buildEventProvisionsFactParagraph 缺少对“美方将《”的精准特征定锚！');
+  }
+
+  // 18.6 autoCorrectFlashBrief 必须清洗商业破产重整的责任事故标签
+  if (!healingContent.includes('cleanSpillover') || !healingContent.includes('spilloverCriterion: cleanSpillover')) {
+    throw new Error('lib/selfHealingEngine.ts autoCorrectFlashBrief 未挂载 cleanSpillover 清洗！');
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {

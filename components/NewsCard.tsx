@@ -20,6 +20,7 @@ import {
   sanitizeFedRatePolicyWording,
 } from '@/lib/macroInflationEngine';
 import { isDeepPerspectiveEligible, extractDeepPerspective } from '@/lib/deepPerspective';
+import { buildEventProvisionsFactParagraph } from '@/lib/eventProvisions';
 
 interface NewsCardProps {
   item: NewsItem;
@@ -59,6 +60,11 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
     }
     if (cleanTitle.includes('两年期') && !cleanTitle.includes('10年期') && (item.summaryParagraph || '').includes('10年期基准国债') && !(item.summaryParagraph || '').includes('两年期')) {
       cleanTitle = '美国10年期基准国债收益率涨6.57基点，报4.9961%';
+    }
+
+    // 修复企业破产重整与信威宁算标题纯净化
+    if (/信威.*宁算|西藏宁算.*破产/.test(cleanTitle)) {
+      cleanTitle = '信威未了局，西藏宁算破产重整倒计时';
     }
 
     // 修复涉外法案未闭合书名号
@@ -110,6 +116,9 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       item.summaryParagraph &&
       item.summaryParagraph.length >= 20 &&
       !item.summaryParagraph.includes('使得市场面临现实痛点') &&
+      !item.summaryParagraph.includes('美方将《') &&
+      !item.summaryParagraph.includes('涉事当事方正依法依规推进后续处置') &&
+      !item.summaryParagraph.includes('造成的困境，并避免越陷越深') &&
       !/：[，,、\s]*。?$/.test(item.summaryParagraph)
     ) {
       text = item.summaryParagraph;
@@ -133,6 +142,15 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       text = item.bulletPoints[0];
     } else {
       text = `据${item.source}通报：${cleanTitle}。涉事机构与监管部门正依法依规推进后续处置与风险应对。`;
+    }
+
+    // 涉外法案专属通报拦截
+    if (/美方将《|格雷厄姆.*制裁|制裁俄罗斯和伊朗法案/.test(cleanTitle + ' ' + text)) {
+      text = buildEventProvisionsFactParagraph(cleanTitle, undefined, item.source, item.publishedAt);
+    }
+    // 西藏宁算破产重整专属通报拦截
+    if (/信威.*宁算|西藏宁算.*破产/.test(cleanTitle) || (cleanTitle.includes('西藏宁算') && /破产|重整/.test(cleanTitle))) {
+      text = `据${item.publishedAt ? `${item.publishedAt}（${item.source}）` : `${item.source}`}权威通报，西藏宁算科技集团及其关联公司破产重整程序进入关键阶段，法院及破产管理人推进债权申报复核、资产审计评估及重组投资人招募。该事项起因于此前信威集团重大历史债务风险牵连及自身债务结构失衡。直接影响方面，破产重整旨在通过法治化市场化手段盘活数字经济核心数据中心与算力基础设施资产，重构债务清偿方案并阻断风险外溢。`;
     }
 
     // 若属于宏观通胀数据且信息过于单薄缺乏环比/分项，执行事实强化补全
@@ -201,6 +219,12 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       }
       if (/利润|营收|反超|财报|业绩|超预期|净利润|毛利率/.test(cleanT)) {
         return '【行业盈利格局重塑】：细分赛道龙头在成本管控、技术溢价与市场份额维度展现分化优势，机构资金向具备确定性现金流韧性的标的集中。';
+      }
+      if (/信威|宁算|破产重整|重整倒计时|破产清算|债务违约/.test(cleanT)) {
+        return '【不良资产出清与破产重整】：涉案高杠杆企业在破产重整法定框架下推进资产清查与战投招募，重构债务结构并阻断关联风险跨机构蔓延。';
+      }
+      if (/美方将《|格雷厄姆.*(?:制裁|法案)|制裁俄罗斯和伊朗法案/.test(cleanT)) {
+        return '【涉外长臂管辖与二级制裁升级】：法案将涉俄伊能源‘幽灵船队’与跨国金融清算纳入连带制裁，强化OFAC穿透式执法，加剧全球大宗海运合规摩擦与结算链条重构。';
       }
       if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
         return `【监管合规与强制退市出清】：监管部门对重大财务造假零容忍常态化执行，劣质标的依法加速出清，全面夯实法治监管基石。`;

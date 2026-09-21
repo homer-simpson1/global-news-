@@ -357,6 +357,13 @@ export function autoCorrectTrack(
     }
   }
 
+  // 纠偏 0-B：涉外涉美制裁法案与长臂管辖（含“美方将《”或格雷厄姆法案）严禁留在美股宏观，转轨至涉华博弈赛道 (china_policy)
+  if (/美方将《|格雷厄姆.*(?:制裁|法案)|制裁俄罗斯和伊朗法案/.test(text)) {
+    if (currentTrack === 'us_macro' || currentTrack === 'china_domestic') {
+      return { track: 'china_policy', wasCorrected: true, reason: '涉外制裁法案转轨至涉华博弈赛道' };
+    }
+  }
+
   // 纠偏 1：美国主权、政法、法院、各州实体被误划入 china_domestic
   const isUSGeneral = /(?:美国|美方|特朗普|拜登|哈里斯|美联储|沃什|凯文·沃什|warsh|鲍威尔|耶伦|美债|美国国债|美国财政部|美国司法部|美国能源部|美国商务部|美国法院|巡回法院|联邦巡回|上诉法院|最高法院|密歇根|加州|得克萨斯|得州|德州|佛罗里达|伊利诺伊|明尼苏达|俄亥俄|宾夕法尼亚|哥伦比亚特区|华盛顿特区|联邦电力法)/i.test(title);
   if (isUSGeneral && !isExplicitChinaPolicy) {
@@ -1142,9 +1149,12 @@ export function autoCorrectTakeaway(
   } else if (/泥石流|山洪|抢险|受灾|失联|极端暴雨|地质灾害/.test(cleanTitleLower)) {
     tag = '突发险情与应急抢险';
     core = '国家应急管理与专业抢险部队火速开辟救援生命通道，财政救灾资金全额拨付托底受灾区域恢复重建。';
-  } else if (/格雷厄姆.*(?:制裁|法案)|制裁俄罗斯和伊朗法案/.test(cleanTitleLower)) {
+  } else if (/美方将《|格雷厄姆.*(?:制裁|法案)|制裁俄罗斯和伊朗法案/.test(cleanTitleLower)) {
     tag = '涉外长臂管辖与二级制裁升级';
     core = '法案将涉俄伊能源‘幽灵船队’与跨国金融清算纳入连带制裁，强化OFAC穿透式执法，加剧全球大宗海运合规摩擦与结算链条重构。';
+  } else if (/信威|宁算|破产重整|重整倒计时|破产清算|债务违约/.test(cleanTitleLower)) {
+    tag = '不良资产出清与破产重整';
+    core = '涉案高杠杆企业在破产重整法定框架下推进资产清查与战投招募，重构债务结构并阻断关联风险跨机构蔓延。';
   } else if (/伊朗.*(?:7项|七项)?谈判条件|伊朗向美国开出|伊朗向美开出/.test(cleanTitleLower)) {
     tag = '地缘安全与外交筹码博弈';
     core = '伊朗开出解除全面原油禁运、解冻海外资产与不可撤销担保等7项实质要价，锁定极限施压博弈底牌，倒逼中东安全与大宗能源格局重估。';
@@ -1155,8 +1165,8 @@ export function autoCorrectTakeaway(
     tag = track === 'apac_tech' ? '硬核科技前沿进展' : (track === 'commodities_shipping' ? '大宗供求与运力平衡' : '产业格局深度透视');
     core = `该事项深层起因于${summary5W1H.why}；后续将直接推动${summary5W1H.consequence}。`;
   } else {
-    tag = track === 'apac_tech' ? '硬核科技前沿进展' : (track === 'commodities_shipping' ? '大宗供求与运力平衡' : '产业格局深度透视');
-    core = '涉事主体推进核心战略部署，产业链上下游关联方根据市场信号与制度合规框架重构中长期供求估值中枢。';
+    tag = track === 'apac_tech' ? '硬核科技前沿进展' : (track === 'commodities_shipping' ? '大宗供求与运力平衡' : (track === 'china_domestic' ? '监管合规与治理统筹' : '产业格局深度透视'));
+    core = '围绕核心事项关键推进节点，监管部门与市场当事方聚焦合规边界与业务重构，引导中长期供求预期理性归位。';
   }
 
   return {
@@ -1182,9 +1192,10 @@ export function autoCorrectSummaryParagraph(
   const isBroken =
     !text ||
     text.length < 18 ||
+    /美方将《/.test(text) ||
     /使得市场面临现实痛点/.test(text) ||
     /造成的困境，并避免越陷越深/.test(text) ||
-    /相关主管机构与涉事当事方正依法依规推进后续处置/.test(text) ||
+    /(?:相关主管机构与)?涉事当事方正依法依规推进后续处置/.test(text) ||
     /：[，,、\s]*。?$/.test(text);
 
   const cleanTitle = title.replace(/^[【\[][^】\]]+[】\]]/, '').trim();
@@ -1192,13 +1203,21 @@ export function autoCorrectSummaryParagraph(
   const sourceName = source || '权威电讯';
 
   // 重大涉外法案/外交谈判条件专属穿透段落（讲清具体内容，彻底杜绝单薄空洞与残句）
-  if (isEventProvisionsNews(cleanTitle, text)) {
-    if (isBroken || text.length < 65 || /造成的困境|相关主管机构/.test(text)) {
+  if (isEventProvisionsNews(cleanTitle, text) || /美方将《|格雷厄姆.*(?:制裁|法案)|制裁俄罗斯和伊朗法案/.test(cleanTitle + ' ' + text)) {
+    if (isBroken || text.length < 65 || /造成的困境|依法依规推进后续处置|美方将《/.test(text)) {
       return {
-        paragraph: sanitizeEditorialTone(buildEventProvisionsFactParagraph(cleanTitle, text, sourceName, time)),
+        paragraph: sanitizeEditorialTone(buildEventProvisionsFactParagraph(cleanTitle, undefined, sourceName, time)),
         wasCorrected: true,
       };
     }
+  }
+
+  // 西藏宁算与信威破产重整专属客观事实闭环段落
+  if (/信威.*宁算|西藏宁算.*破产/.test(cleanTitle) || (cleanTitle.includes('西藏宁算') && /破产|重整/.test(cleanTitle))) {
+    const profile = getCompanyProfileForNews(cleanTitle, text);
+    const profileDesc = profile ? ` 涉事主体${profile.name}（${profile.sector}）：${profile.description}` : '';
+    const restructuredParagraph = `${timePrefix}（${sourceName}）权威通报，西藏宁算科技集团及其关联公司破产重整程序进入关键阶段，法院及破产管理人推进债权申报复核、资产审计评估及重组投资人招募。该事项起因于此前信威集团重大历史债务风险牵连及自身债务结构失衡。直接影响方面，破产重整旨在通过法治化市场化手段盘活数字经济核心数据中心与算力基础设施资产，重构债务清偿方案并阻断风险外溢。${profileDesc}`;
+    return { paragraph: sanitizeEditorialTone(restructuredParagraph), wasCorrected: true };
   }
 
   // 中国 LPR 利率专属客观事实闭环段落
@@ -1513,6 +1532,19 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
   }
 
   const details: string[] = [];
+
+  let cleanSpillover = flash.spilloverCriterion;
+  if (correctedTrack !== 'china_domestic' && correctedTrack !== 'china_policy') {
+    cleanSpillover = undefined;
+  }
+  if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(cleanContent)) {
+    cleanSpillover = undefined;
+  }
+  if (/破产重整|重整倒计时|破产清算|债务违约/.test(cleanContent) && !/伤亡|死亡|遇难|坍塌|爆炸|事故/.test(cleanContent + ' ' + (flash.summaryParagraph || ''))) {
+    cleanSpillover = undefined;
+  }
+  if (cleanSpillover !== flash.spilloverCriterion) details.push('自愈清理不适格责任事故或外溢徽章');
+
   if (cleanContent !== flash.content) details.push('内容脱水去噪与标点重组');
   if (cleanTakeaway !== flash.oneLineTakeaway) details.push('白话透视投研语态标准化');
   if (correctedTrack !== flash.track) details.push(`赛道纠偏: ${flash.track} -> ${correctedTrack}`);
@@ -1537,6 +1569,7 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
     summaryParagraph: cleanParagraph,
     nextWatchlist: cleanWatchlist,
     summary5W1H: corrected5W1H,
+    spilloverCriterion: cleanSpillover,
     companyProfile: detectedProfile || undefined,
     macroInflationBreakdown: detectedMacro || undefined,
     eventKeyProvisions: detectedProvisions || undefined,

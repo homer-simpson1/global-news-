@@ -171,7 +171,7 @@ export function getEventKeyProvisions(
 
   // 2. 格雷厄姆制裁俄罗斯和伊朗法案
   if (
-    /格雷厄姆.*(?:制裁|法案)|制裁俄罗斯和伊朗法案/.test(combined) ||
+    /美方将《|格雷厄姆.*(?:制裁|法案)|制裁俄罗斯和伊朗法案/.test(combined) ||
     (/2026年/.test(combined) && /格雷厄姆/.test(combined))
   ) {
     return CURATED_EVENT_PROVISIONS[1];
@@ -271,7 +271,7 @@ export function buildEventProvisionsFactParagraph(
   }
 
   // 2. 格雷厄姆制裁俄罗斯和伊朗法案
-  if (/格雷厄姆.*(?:制裁|法案)|制裁俄罗斯和伊朗法案/.test(combined)) {
+  if (/美方将《|格雷厄姆.*(?:制裁|法案)|制裁俄罗斯和伊朗法案/.test(combined)) {
     return `${timePrefix}（${sourceName}）权威通报，美方正式将《2026年格雷厄姆制裁俄罗斯和伊朗法案》签署成法，全面升级针对协助俄伊规避能源出口限制的“幽灵油轮”船队、中介转运港口、提供结算支持的跨国银行网络以及无人机军工供应链的穿透式二级制裁。起因于美方加大对俄伊能源出口创汇与国防军工协作的跨境围堵遏制。直接影响方面，法案授权美财政部OFAC穿透调取离岸转运底单并切断违规商业银行的美元代理行往来账户，显著推升欧亚海运战险保费并加速全球贸易去美元化清算布局。`;
   }
 
@@ -280,5 +280,6 @@ export function buildEventProvisionsFactParagraph(
     return `${timePrefix}（${sourceName}）权威通报，美商务部产业安全局（BIS）推进针对跨境云端算力租用与AI模型API接口的穿透式KYC合规审查，要求主流云服务商严格核验境外终端账户身份，防范闭源前沿模型被用于蒸馏或转口。直接影响方面，此举将加速国内算力中心与开源模型生态的自主化全栈演进。`;
   }
 
-  return existingParagraph || `${timePrefix}（${sourceName}）通报，${title}。涉事当事方正依法依规推进后续处置与合规应对。`;
+  const cleanFallbackTitle = title.replace(/《.*$/, '').replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim() || '最新重大涉外事项';
+  return existingParagraph || `${timePrefix}（${sourceName}）通报，${cleanFallbackTitle}。涉事当事方正依法依规推进后续处置与合规应对。`;
 }

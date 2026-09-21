@@ -182,11 +182,18 @@ function TerminalApp() {
           parsedN = null;
           parsedB = null;
         } else {
-          // 关键自愈门禁：若本地缓存中包含严重破损或污染的旧标题（如“创去年”、“相关工作稳步推进”、“美方将《”），强制清空旧缓存！
+          // 关键自愈门禁：若本地缓存中包含严重破损或污染的旧标题（如“创去年”、“相关工作稳步推进”、“美方将《”、“涉事主体推进核心战略部署”），强制清空旧缓存！
           const hasCorruptNews = parsedN.some((n: any) =>
-            /创去年|相关工作稳步推进|美方将《|特稿\s*[｜|]/.test(n.title || '')
+            /创去年|相关工作稳步推进|美方将《|特稿\s*[｜|]/.test(n.title || '') ||
+            /涉事主体推进核心战略部署/.test(n.oneLineTakeaway || '') ||
+            /美方将《/.test(n.summaryParagraph || '')
           );
-          if (hasCorruptNews) {
+          const hasCorruptBriefs = Array.isArray(parsedB) && parsedB.some((b: any) =>
+            /创去年|相关工作稳步推进|美方将《|特稿\s*[｜|]/.test(b.content || '') ||
+            /涉事主体推进核心战略部署/.test(b.oneLineTakeaway || '') ||
+            /美方将《/.test(b.summaryParagraph || '')
+          );
+          if (hasCorruptNews || hasCorruptBriefs) {
             console.log('[Cache] 本地缓存检测到破损污染旧闻，强制清除旧缓存并拉取最新数据');
             localStorage.removeItem('git_cached_news');
             localStorage.removeItem('git_cached_briefs');

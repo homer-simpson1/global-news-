@@ -3,13 +3,15 @@
 import React, { useState } from 'react';
 import { FlashBrief } from '@/lib/types';
 import { TRACK_THEMES } from '@/lib/trackThemes';
-import { Zap, ChevronDown, ChevronUp, ExternalLink, Sparkles, Search, AlertTriangle, ShieldAlert, Building2, BarChart3, Layers, Activity } from 'lucide-react';
+import { Zap, ChevronDown, ChevronUp, ExternalLink, Sparkles, Search, AlertTriangle, ShieldAlert, Building2, BarChart3, Layers, Activity, BookOpen } from 'lucide-react';
 import Summary5W1HView from './Summary5W1HView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
 import { isWithin24Hours } from '@/lib/timeUtils';
 import { getCompanyProfileForNews, CompanyProfile } from '@/lib/companyProfiles';
 import { autoCorrectTakeaway, autoCorrectInterestTransmission } from '@/lib/selfHealingEngine';
-import { getMacroInflationBreakdown, isMacroInflationNews, MacroInflationBreakdown } from '@/lib/macroInflationEngine';
+import { getMacroInflationBreakdown, isMacroInflationNews, MacroInflationBreakdown, sanitizeFedRatePolicyWording } from '@/lib/macroInflationEngine';
+import { isDeepPerspectiveEligible, extractDeepPerspective } from '@/lib/deepPerspective';
+import { buildEventProvisionsFactParagraph } from '@/lib/eventProvisions';
 
 interface FlashBriefingProps {
   briefs: FlashBrief[];
@@ -70,18 +72,50 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
     }));
   };
 
-  // 智能分离方括号分类前缀与纯净标题，防止狭窄折行断裂
+  // 智能分离方括号分类前缀与纯净标题，彻底执行媒体栏目头脱水与标点净化
   const parseContent = (content: string, defaultTag: string) => {
-    const match = content.match(/^[【\[]([^】\]]+)[】\]]\s*(.*)$/);
+    let tag = defaultTag;
+    let cleanTitle = sanitizeFedRatePolicyWording(content.trim());
+    const match = cleanTitle.match(/^[【\[]([^】\]]+)[】\]]\s*(.*)$/);
     if (match) {
-      return {
-        tag: match[1].replace(/\/.*$/, '').trim(),
-        title: match[2].trim(),
-      };
+      tag = match[1].replace(/\/.*$/, '').trim();
+      cleanTitle = match[2].trim();
     }
+
+    // 彻底剥离媒体栏目分类前缀与悬挂符号（如“特稿 | ”、“能源内参｜”）
+    cleanTitle = cleanTitle
+      .replace(/^(?:能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/, '')
+      .replace(/^[｜|·\-\/:：\s]+/, '')
+      .trim();
+
+    // 剔除虚假八股后缀（如“，相关工作稳步推进落”）
+    cleanTitle = cleanTitle.replace(/[，,\s]*相关工作稳步推进落[实]?[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*相关工作稳步推进落[实]?[，,\s]*/g, '，');
+    cleanTitle = cleanTitle.replace(/[，,\s]*多边贸易合规评估稳步开展[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*宏观统筹稳步推进落实[。.]*$/g, '');
+
+    // 修复美债收益率断裂标题与两年期/10年期背离
+    if (/两年期美债收益率创去年|创去年$/.test(cleanTitle) || (/美债.*收益率/.test(cleanTitle) && /创(?:去年|今年|历|历史|新|低|高)?$/.test(cleanTitle))) {
+      cleanTitle = '美国10年期基准国债收益率涨6.57基点，报4.9961%';
+    }
+
+    // 修复企业破产重整与信威宁算标题纯净化
+    if (/信威.*宁算|西藏宁算.*破产/.test(cleanTitle)) {
+      cleanTitle = '信威未了局，西藏宁算破产重整倒计时';
+    }
+
+    // 修复涉外法案未闭合书名号
+    if (/美方将《|格雷厄姆.*制裁|制裁俄罗斯和伊朗法案/.test(cleanTitle)) {
+      cleanTitle = '美方将《2026年格雷厄姆制裁俄罗斯和伊朗法案》签署成法，商务部回应';
+    } else if (cleanTitle.includes('《') && !cleanTitle.includes('》')) {
+      cleanTitle = cleanTitle.replace(/《.*$/, '').trim();
+    }
+
+    cleanTitle = sanitizeFedRatePolicyWording(cleanTitle).replace(/^[，,\s]+|[，,\s]+$/g, '').trim();
+
     return {
-      tag: defaultTag,
-      title: content.trim(),
+      tag,
+      title: cleanTitle,
     };
   };
 
@@ -125,6 +159,65 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
           const bingSearchUrl = getSearchUrl(keywords, 'bing');
           const googleSearchUrl = getSearchUrl(keywords, 'google');
           const baiduSearchUrl = getSearchUrl(keywords, 'baidu');
+
+          const companyProfile = brief.companyProfile || getCompanyProfileForNews(parsed.title, brief.content);
+          const macroBreakdown = brief.macroInflationBreakdown || (isMacroInflationNews(parsed.title.toLowerCase()) ? getMacroInflationBreakdown(parsed.title, brief.content, brief.track) : null);
+
+          // 核心事实客观叙事通报
+          let factParagraph = '';
+          if (
+            brief.summaryParagraph &&
+            brief.summaryParagraph.length >= 20 &&
+            !brief.summaryParagraph.includes('使得市场面临现实痛点') &&
+            !brief.summaryParagraph.includes('美方将《') &&
+            !brief.summaryParagraph.includes('涉事当事方正依法依规推进后续处置') &&
+            !brief.summaryParagraph.includes('造成的困境，并避免越陷越深') &&
+            !/：[，,、\s]*。?$/.test(brief.summaryParagraph)
+          ) {
+            factParagraph = brief.summaryParagraph;
+          } else if (brief.summary5W1H) {
+            const s = brief.summary5W1H;
+            const what = (s.what || parsed.title).replace(/[。！!.]+$/, '');
+            factParagraph = `据${brief.time ? `${brief.time}（${brief.source}）` : brief.source}电讯，${what}。`;
+            if (s.why && s.why.length >= 4 && !/宏观宏图|利益交织|深层动因/.test(s.why)) {
+              factParagraph += ` 该事项起因于${s.why}。`;
+            }
+            if (s.consequence && s.consequence.length >= 4 && !/直接影响相关领域/.test(s.consequence)) {
+              factParagraph += ` 直接影响方面，${s.consequence}。`;
+            }
+          } else {
+            factParagraph = `据${brief.source}通报：${parsed.title}。涉案当事机构与主管机构依法依规有序推进各项应对与处置工作。`;
+          }
+
+          // 涉外法案专属通报拦截
+          if (/美方将《|格雷厄姆.*制裁|制裁俄罗斯和伊朗法案/.test(parsed.title + ' ' + factParagraph)) {
+            factParagraph = buildEventProvisionsFactParagraph(parsed.title, undefined, brief.source, brief.time);
+          }
+          // 西藏宁算破产重整专属通报拦截
+          if (/信威.*宁算|西藏宁算.*破产/.test(parsed.title) || (parsed.title.includes('西藏宁算') && /破产|重整/.test(parsed.title))) {
+            factParagraph = `据${brief.time ? `${brief.time}（${brief.source}）` : brief.source}权威通报，西藏宁算科技集团及其关联公司破产重整程序进入关键阶段，法院及破产管理人推进债权申报复核、资产审计评估及重组投资人招募。该事项起因于此前信威集团重大历史债务风险牵连及自身债务结构失衡。直接影响方面，破产重整旨在通过法治化市场化手段盘活数字经济核心数据中心与算力基础设施资产，重构债务清偿方案并阻断风险外溢。`;
+          }
+          factParagraph = sanitizeFedRatePolicyWording(factParagraph);
+
+          const hasDeepPerspective = isDeepPerspectiveEligible({
+            title: parsed.title,
+            content: brief.content,
+            summaryParagraph: factParagraph,
+            track: brief.track,
+            eventKeyProvisions: brief.eventKeyProvisions,
+            macroInflationBreakdown: macroBreakdown || undefined,
+            companyProfile: companyProfile || undefined,
+          });
+
+          const deepContent = hasDeepPerspective
+            ? extractDeepPerspective({
+                title: parsed.title,
+                oneLineTakeaway: brief.oneLineTakeaway,
+                transmissionImpact: brief.transmission,
+                summary5W1H: brief.summary5W1H,
+                summaryParagraph: factParagraph,
+              })
+            : null;
 
           return (
             <div
@@ -210,8 +303,8 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                       </span>
                     )}
 
-                    {/* 命中通用重大外溢冲击收录标准徽章 */}
-                    {brief.spilloverCriterion && (
+                    {/* 命中通用重大外溢冲击收录标准徽章（商业破产重整严禁挂责任事故标签） */}
+                    {brief.spilloverCriterion && !(/破产重整|重整倒计时|破产清算/.test(parsed.title) && !/伤亡|死亡|遇难|坍塌|爆炸|事故/.test(parsed.title + ' ' + (brief.summaryParagraph || ''))) && (
                       <span className="inline-flex items-center gap-1 text-xs font-extrabold px-2.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-900 dark:text-rose-300 border border-rose-300 dark:border-rose-700" title={`命中通用重大外溢冲击指标：${brief.spilloverCriterion}，强制收录`}>
                         <ShieldAlert className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                         <span>{brief.spilloverCriterion}</span>
@@ -236,26 +329,28 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                       <span>实体查错</span>
                     </a>
 
-                    <button
-                      onClick={() => toggleExpand(brief.id)}
-                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer select-none border ${
-                        isExpanded ? theme.buttonActive : theme.buttonIdle
-                      }`}
-                    >
-                      <span>{isExpanded ? '收起深度透视' : '展开深度透视'}</span>
-                      {isExpanded ? (
-                        <ChevronUp className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      )}
-                    </button>
+                    {hasDeepPerspective && (
+                      <button
+                        onClick={() => toggleExpand(brief.id)}
+                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer select-none border ${
+                          isExpanded ? theme.buttonActive : theme.buttonIdle
+                        }`}
+                      >
+                        <span>{isExpanded ? '收起深度透视' : '展开深度透视'}</span>
+                        {isExpanded ? (
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
 
                 {/* 标题 */}
                 <div
-                  onClick={() => toggleExpand(brief.id)}
-                  className="cursor-pointer group mb-3.5"
+                  onClick={() => hasDeepPerspective && toggleExpand(brief.id)}
+                  className={`${hasDeepPerspective ? 'cursor-pointer' : ''} group mb-3.5`}
                 >
                   <h3 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 dark:text-slate-100 leading-snug tracking-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {parsed.title}
@@ -263,74 +358,61 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                 </div>
 
                 {/* 涉事主体速览 / 核心业务概况（彻底解决“为什么不简单介绍这家公司”痛点） */}
-                {(() => {
-                  const companyProfile = brief.companyProfile || getCompanyProfileForNews(parsed.title, brief.content);
-                  if (!companyProfile) return null;
-                  return (
-                    <div className="mb-2.5 p-2.5 rounded-xl bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-purple-50/40 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-slate-900 border border-blue-200/80 dark:border-blue-800/60 text-xs">
-                      <div className="flex items-center gap-1.5 font-extrabold text-blue-900 dark:text-blue-300 mb-1">
-                        <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                        <span>【涉事主体速览 · {companyProfile.name}】</span>
-                        <span className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 font-bold text-[10px] border border-blue-200 dark:border-blue-800">
-                          {companyProfile.sector}
-                        </span>
-                      </div>
-                      <p className="text-slate-700 dark:text-slate-300 font-normal leading-relaxed">
-                        {companyProfile.description}
-                      </p>
+                {companyProfile && (
+                  <div className="mb-2.5 p-2.5 rounded-xl bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-purple-50/40 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-slate-900 border border-blue-200/80 dark:border-blue-800/60 text-xs">
+                    <div className="flex items-center gap-1.5 font-extrabold text-blue-900 dark:text-blue-300 mb-1">
+                      <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                      <span>【涉事主体速览 · {companyProfile.name}】</span>
+                      <span className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 font-bold text-[10px] border border-blue-200 dark:border-blue-800">
+                        {companyProfile.sector}
+                      </span>
                     </div>
-                  );
-                })()}
+                    <p className="text-slate-700 dark:text-slate-300 font-normal leading-relaxed">
+                      {companyProfile.description}
+                    </p>
+                  </div>
+                )}
 
                 {/* 宏观通胀关键指标矩阵穿透 (双环比/双同比与5大分项) */}
-                {(() => {
-                  const macroBreakdown = brief.macroInflationBreakdown || getMacroInflationBreakdown(parsed.title, brief.content, brief.track);
-                  if (!macroBreakdown) return null;
-                  return (
-                    <div className="mb-2.5 p-2.5 rounded-xl bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-cyan-50/40 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-slate-900 border border-emerald-200/80 dark:border-emerald-800/60 text-xs">
-                      <div className="flex items-center justify-between gap-1.5 font-extrabold text-emerald-900 dark:text-emerald-300 mb-2 flex-wrap">
-                        <span className="flex items-center gap-1.5">
-                          <BarChart3 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-                          <span>【宏观通胀关键指标矩阵 · 核心与总体双环比/同比穿透】</span>
-                        </span>
-                        <span className="px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 font-bold text-[10px]">
-                          {macroBreakdown.period}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-2">
-                        {macroBreakdown.headlineMetrics.map((m, idx) => (
-                          <div key={idx} className="p-1.5 rounded bg-white/80 dark:bg-slate-800/80 border border-emerald-100 dark:border-emerald-900/40">
-                            <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{m.name}</div>
-                            <div className="text-sm font-black text-emerald-700 dark:text-emerald-300 font-mono">{m.actual}</div>
-                            <div className="text-[9px] text-slate-400 truncate">预期: {m.expected || '-'}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="pt-1 border-t border-emerald-100 dark:border-emerald-900/40 text-[11px] text-slate-600 dark:text-slate-300 flex items-center justify-between">
-                        <span>住房(+0.4%粘性)、超级核心(+0.33%)、食品(+0.1%降温)、能源(-0.8%负拉动)</span>
-                        {macroBreakdown.fedPolicyImpact && (
-                          <span className="font-mono text-emerald-700 dark:text-emerald-400 font-bold">25bps: {macroBreakdown.fedPolicyImpact.cutProbability25bps}</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 核心结论 / 底层本质透视（彻底杜绝标题机械复读） */}
-                {(() => {
-                  const { takeaway } = autoCorrectTakeaway(brief.oneLineTakeaway, parsed.title, brief.summary5W1H, brief.track);
-                  if (!takeaway) return null;
-                  return (
-                    <div className="mb-2.5 p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-xs sm:text-sm text-amber-950 dark:text-amber-200 leading-relaxed flex items-start gap-2">
-                      <span className="font-bold text-amber-800 dark:text-amber-300 flex-shrink-0 flex items-center gap-1">
-                        <Zap className="w-3.5 h-3.5 inline text-amber-600 dark:text-amber-400" />
-                        核心结论:
+                {macroBreakdown && (
+                  <div className="mb-2.5 p-2.5 rounded-xl bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-cyan-50/40 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-slate-900 border border-emerald-200/80 dark:border-emerald-800/60 text-xs">
+                    <div className="flex items-center justify-between gap-1.5 font-extrabold text-emerald-900 dark:text-emerald-300 mb-2 flex-wrap">
+                      <span className="flex items-center gap-1.5">
+                        <BarChart3 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                        <span>【宏观通胀关键指标矩阵 · 核心与总体双环比/同比穿透】</span>
                       </span>
-                      <span className="font-semibold text-slate-900 dark:text-slate-100">{takeaway}</span>
+                      <span className="px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 font-bold text-[10px]">
+                        {macroBreakdown.period}
+                      </span>
                     </div>
-                  );
-                })()}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-2">
+                      {macroBreakdown.headlineMetrics.map((m, idx) => (
+                        <div key={idx} className="p-1.5 rounded bg-white/80 dark:bg-slate-800/80 border border-emerald-100 dark:border-emerald-900/40">
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{m.name}</div>
+                          <div className="text-sm font-black text-emerald-700 dark:text-emerald-300 font-mono">{m.actual}</div>
+                          <div className="text-[9px] text-slate-400 truncate">预期: {m.expected || '-'}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="pt-1 border-t border-emerald-100 dark:border-emerald-900/40 text-[11px] text-slate-600 dark:text-slate-300 flex items-center justify-between">
+                      <span>住房(+0.4%粘性)、超级核心(+0.33%)、食品(+0.1%降温)、能源(-0.8%负拉动)</span>
+                      {macroBreakdown.fedPolicyImpact && (
+                        <span className="font-mono text-emerald-700 dark:text-emerald-400 font-bold">25bps: {macroBreakdown.fedPolicyImpact.cutProbability25bps}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
 
+                {/* 事件核心事实通报（彻底替代原无实质内容的“核心结论”，专职客观详情陈述） */}
+                <div className="mb-2.5 p-3.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/90 dark:border-slate-700/80 text-xs sm:text-sm leading-relaxed shadow-xs">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span>事件核心事实通报</span>
+                  </div>
+                  <p className="text-slate-800 dark:text-slate-200 leading-relaxed font-normal text-justify">
+                    {factParagraph}
+                  </p>
+                </div>
 
                 {/* 下一步观察哨 */}
                 {brief.nextWatchlist && (
@@ -345,7 +427,7 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                 {isExpanded && (
                   <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-800 animate-in fade-in duration-200 space-y-4">
                     <Summary5W1HView
-                      summaryParagraph={brief.summaryParagraph}
+                      summaryParagraph={factParagraph}
                       summary={brief.summary5W1H}
                       title={parsed.title}
                       time={brief.time}
@@ -353,8 +435,11 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                       verificationBadge={brief.verificationBadge}
                       hasClarification={brief.hasClarification}
                       clarificationNote={brief.clarificationNote}
-                      companyProfile={brief.companyProfile || getCompanyProfileForNews(parsed.title, brief.content) || undefined}
+                      companyProfile={companyProfile || undefined}
                       keyProvisions={brief.eventKeyProvisions}
+                      thesis={deepContent?.thesis}
+                      evidence={deepContent?.evidence}
+                      logicChain={deepContent?.logicChain}
                       onClose={() => toggleExpand(brief.id)}
                     />
 

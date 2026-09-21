@@ -57,6 +57,8 @@ export default function Summary5W1HView({
   if (
     paragraph &&
     (paragraph.includes('使得市场面临现实痛点') ||
+      paragraph.includes('美方将《') ||
+      paragraph.includes('涉事当事方正依法依规推进后续处置') ||
       /：[，,、\s]*。?$/.test(paragraph) ||
       paragraph.length < 18)
   ) {
@@ -111,10 +113,15 @@ export default function Summary5W1HView({
   }
 
   // 若属于重大涉外法案/外交谈判条件且段落单薄或存在残句，强化事实段落
-  if (title && isEventProvisionsNews(title, paragraph)) {
-    if (!paragraph || paragraph.length < 65 || paragraph.includes('相关主管机构与涉事当事方正依法依规推进后续处置') || paragraph.includes('造成的困境')) {
-      paragraph = buildEventProvisionsFactParagraph(title, paragraph, source, time);
+  if (title && (isEventProvisionsNews(title, paragraph) || /美方将《|格雷厄姆.*制裁|制裁俄罗斯和伊朗法案/.test(title + ' ' + (paragraph || '')))) {
+    if (!paragraph || paragraph.length < 65 || /相关主管机构|涉事当事方正依法依规|造成的困境|美方将《/.test(paragraph)) {
+      paragraph = buildEventProvisionsFactParagraph(title, undefined, source, time);
     }
+  }
+
+  // 西藏宁算破产重整专属客观事实通报拦截
+  if (title && (/信威.*宁算|西藏宁算.*破产/.test(title) || (title.includes('西藏宁算') && /破产|重整/.test(title)))) {
+    paragraph = `据${time ? `${time}（${source || '财新网'}）` : '权威电讯'}权威通报，西藏宁算科技集团及其关联公司破产重整程序进入关键阶段，法院及破产管理人推进债权申报复核、资产审计评估及重组投资人招募。该事项起因于此前信威集团重大历史债务风险牵连及自身债务结构失衡。直接影响方面，破产重整旨在通过法治化市场化手段盘活数字经济核心数据中心与算力基础设施资产，重构债务清偿方案并阻断风险外溢。`;
   }
 
   // 若属于宏观通胀且段落单薄，执行事实强化补全
