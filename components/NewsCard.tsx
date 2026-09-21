@@ -146,7 +146,10 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       if (/美联储.*降息|降息25基点|利率互换.*降息|交易员预计.*降息/.test(cleanT)) {
         return '【美联储利率路径与降息定价】：核心通胀读数巩固9月FOMC降息25个基点基准路径，掉期市场出清激进降息溢价，货币政策稳步迈入渐进式降息宽松周期。';
       }
-      if (isMacroInflationNews(cleanT) || /cpi|通胀|ppi|pce/.test(cleanT)) {
+      if (/港股策略|a股策略|仓位灵活性|仓位配置|策略研报|券商.*研报|券商.*策略/.test(cleanT) || /华泰证券|中信证券|中金公司|招商证券|国泰君安/.test(cleanT)) {
+        return `【机构权益策略与仓位校准】：${cleanTitle}。研报立足估值性价比与流动性窗口，引导机构资金审慎优化权益资产配置。`;
+      }
+      if ((isMacroInflationNews(cleanT) || /cpi|通胀|ppi|pce/.test(cleanT)) && !/港股|a股|研报|策略|仓位|券商|华泰/.test(cleanT)) {
         return getMacroInflationTakeaway(cleanTitle, factParagraph);
       }
       if (/上市|ipo|挂牌|首日|开盘涨|市值约|科创板|港交所/.test(cleanT)) {
@@ -173,9 +176,6 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       }
       if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
         return `【监管合规与强制退市出清】：监管部门对重大财务造假零容忍常态化执行，劣质标的依法加速出清，全面夯实法治监管基石。`;
-      }
-      if (isMacroInflationNews(cleanT) || /cpi|通胀|ppi|pce/.test(cleanT)) {
-        return getMacroInflationTakeaway(cleanTitle, factParagraph);
       }
       return `【产业格局深度透视】：标的主体推进核心业务调整，产业链上下游关联方根据市场供求信号重构资产估值中枢。`;
     }
@@ -217,6 +217,9 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       }
       if (/芯片|算力|半导体|晶圆|代工|hbm/.test(cleanT)) {
         return '① 核心芯片技术突破与先进制程供给扩容直接缓解下游采购瓶颈 ➔ ② 云厂商与智能终端加速软硬件协同适配以降低综合运营成本 ➔ ③ 自主可控硬件供应链生态整体成熟度与交付韧性提升。';
+      }
+      if (/港股策略|a股策略|仓位|券商|研报/.test(cleanT) || /华泰证券|中信证券|中金公司|招商证券/.test(cleanT)) {
+        return '① 机构策略研判强化跨市场资产性价比定性 ➔ ② 引导南向资金与机构投资组合调整持仓结构与流动性敞口 ➔ ③ 推动低估值核心资产与弹性板块完成阶段性估值修复。';
       }
       return '① 事件冲击直接影响核心当事方的资产与负债结构 ➔ ② 产业链与合作方依据合同与市场规则传导成本收益 ➔ ③ 边际供求关系与资产风险溢价完成动态重定价。';
     }

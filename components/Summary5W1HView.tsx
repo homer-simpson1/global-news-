@@ -233,33 +233,6 @@ export default function Summary5W1HView({
         </div>
       )}
 
-      {/* 涉事主体业务概况速览 */}
-      {(() => {
-        const activeProfile = companyProfile || (title ? getCompanyProfileForNews(title, paragraph) : null);
-        if (!activeProfile) return null;
-        return (
-          <div className="p-3.5 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 text-xs md:text-sm shadow-xs">
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <span className="font-extrabold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
-                <Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                <span>【涉事主体速览 · {activeProfile.name}】</span>
-              </span>
-              <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 font-bold text-[11px] border border-blue-200 dark:border-blue-800">
-                {activeProfile.sector}
-              </span>
-            </div>
-            <p className="text-slate-800 dark:text-slate-200 leading-relaxed font-normal">
-              {activeProfile.description}
-            </p>
-            {activeProfile.marketRole && (
-              <div className="mt-1.5 pt-1.5 border-t border-blue-100 dark:border-blue-900/40 text-xs text-slate-600 dark:text-slate-400">
-                <span className="font-semibold text-blue-700 dark:text-blue-400">产业链生态：</span>{activeProfile.marketRole}
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
       {/* 独家深度透视 · 核心论点、论据与强逻辑链路 */}
       <div className="p-4 md:p-5 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 shadow-sm space-y-3.5">
         {/* 1. 独家核心论点 */}

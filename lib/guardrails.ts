@@ -67,7 +67,10 @@ export function enforceCountryEntityGuardrails(
       isInterceptionTriggered = true;
       interceptionReason = '物理剥离虚假中国官方信源，拨正为日经亚洲/海外电讯';
     }
-  } else if ((FOREIGN_ENTITIES.US_ALL.test(text) || FOREIGN_ENTITIES.US_MACRO.test(text)) && !/涉华|对华|中美博弈/.test(text)) {
+  } else if (
+    (FOREIGN_ENTITIES.US_ALL.test(text) || FOREIGN_ENTITIES.US_MACRO.test(text)) &&
+    !/涉华|对华|中美博弈|港股|a股|券商|研报|策略|华泰证券|中信证券/.test(text)
+  ) {
     if (CHINESE_OFFICIAL_SOURCE_REGEX.test(correctedSource.source) || correctedSource.source.includes('中国专线') || correctedSource.source.includes('中国电讯')) {
       correctedSource = {
         source: '路透全球财经 Reuters Markets',

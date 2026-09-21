@@ -492,6 +492,41 @@ check('Gate 12: 事实通报与独家深度透视严格分工红线', () => {
 });
 
 // -------------------------------------------------------------
+// 门禁 13: 港股与A股券商研报跨市场归类防窜道与信源保真硬红线
+// -------------------------------------------------------------
+check('Gate 13: 港股与A股券商研报跨市场归类防窜道与信源保真硬红线', () => {
+  const fetcherPath = path.join(ROOT, 'lib', 'rssFetcher.ts');
+  const fetcherContent = fs.readFileSync(fetcherPath, 'utf8');
+
+  // 13.1 classifyTrack 必须具备针对港股与中资券商策略研报的硬核隔离逻辑
+  if (!fetcherContent.includes('isChineseOrHkEquities') || !fetcherContent.includes("return 'china_macro'")) {
+    throw new Error('lib/rssFetcher.ts 缺少 isChineseOrHkEquities 港股与中资券商研报专属归类隔离逻辑！');
+  }
+
+  // 13.2 严禁将券商研报无条件泛化贴上“美联储 FOMC 声明”信源标签
+  if (!fetcherContent.includes('华泰证券策略研报') || !fetcherContent.includes('!/研报|策略|港股|A股|券商|分析师|观点|点评|仓位/.test(title)')) {
+    throw new Error('lib/rssFetcher.ts 缺少券商研报与美联储FOMC信源防串味互斥保护！');
+  }
+
+  // 13.3 companyProfiles 必须收录华泰证券且严防“中金”2字短别名误伤“盘中金融”
+  const profilePath = path.join(ROOT, 'lib', 'companyProfiles.ts');
+  const profileContent = fs.readFileSync(profilePath, 'utf8');
+  if (!profileContent.includes("name: '华泰证券'") || !profileContent.includes("name: '中信证券'")) {
+    throw new Error('lib/companyProfiles.ts 缺少华泰证券或中信证券等核心头部券商图谱定义！');
+  }
+  if (profileContent.includes("aliases: ['中金公司', '中金', 'CICC']")) {
+    throw new Error('lib/companyProfiles.ts 中金公司仍保留裸词别名“中金”，存在误伤“盘中金融/其中金融”严重风险！');
+  }
+
+  // 13.4 Summary5W1HView 展开层严禁重复渲染【涉事主体速览】展示框
+  const summary5w1hPath = path.join(ROOT, 'components', 'Summary5W1HView.tsx');
+  const summary5w1hContent = fs.readFileSync(summary5w1hPath, 'utf8');
+  if (summary5w1hContent.includes('【涉事主体速览 · {activeProfile.name}】')) {
+    throw new Error('components/Summary5W1HView.tsx 存在与卡片正面重复渲染【涉事主体速览】的冗余视觉块！');
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {

@@ -1021,7 +1021,34 @@ export function detectPrimarySource(
   if (/(?:中国人民银行|我国央行)/.test(combined) && !/日本|美国|欧洲|韩国|英国/.test(combined) && (track === 'china_domestic' || /人民币|降准|逆回购/.test(combined))) {
     return { source: '中国人民银行 PBOC', sourceUrl: 'http://www.pbc.gov.cn' };
   }
-  if (/美联储|fomc|沃什|凯文·沃什|warsh|鲍威尔|沃勒/.test(combined)) {
+  // 中资头部券商研报信源映射（物理拦截被误打上美联储FOMC声明）
+  if (/华泰证券/.test(title)) {
+    return { source: '华泰证券策略研报', sourceUrl: 'https://www.htsc.com.cn' };
+  }
+  if (/中信证券/.test(title)) {
+    return { source: '中信证券研究部', sourceUrl: 'https://www.citics.com' };
+  }
+  if (/中金公司|中金研报/.test(title)) {
+    return { source: '中金公司研究部', sourceUrl: 'https://www.cicc.com' };
+  }
+  if (/招商证券/.test(title)) {
+    return { source: '招商证券研究发展中心', sourceUrl: 'https://www.cmschina.com' };
+  }
+  if (/国泰君安/.test(title)) {
+    return { source: '国泰君安研报', sourceUrl: 'https://www.gtja.com' };
+  }
+  if (/海通证券/.test(title)) {
+    return { source: '海通证券研究所', sourceUrl: 'https://www.htsec.com' };
+  }
+  if (/广发证券/.test(title)) {
+    return { source: '广发证券发展研究中心', sourceUrl: 'https://www.gf.com.cn' };
+  }
+
+  // 美联储官方声明必须满足：明确为美联储官方声明/议息决议/主席讲话，严禁转述评论或中资券商研报冒名
+  if (
+    /(?:美联储.*(?:声明|决议|公报|加息|降息|利率决议)|fomc.*(?:声明|决议)|鲍威尔.*(?:讲话|新闻发布会))/i.test(title) &&
+    !/研报|策略|港股|A股|券商|分析师|观点|点评|仓位/.test(title)
+  ) {
     return { source: '美联储 FOMC 声明', sourceUrl: 'https://www.federalreserve.gov' };
   }
   if (/五角大楼|美国国防部|美军指挥部/.test(combined)) {
@@ -1097,6 +1124,20 @@ export function detectPrimarySource(
 
 function classifyTrack(item: RawLiveItem): TrackId {
   const t = (item.title + ' ' + item.content).toLowerCase();
+
+  // 【硬性港股/A股/国内券商研报归类门禁】：
+  // 凡标题或核心内容针对 港股、A股、中资券商策略研报（华泰证券、中信证券、中金公司等），
+  // 哪怕文中提及美联储降息或海外利率背景，其交易标的与分析中枢均为中国/香港资产，
+  // 物理绝对禁止误归入 us_macro（美股）！强制归入 china_macro！
+  const isChineseOrHkEquities =
+    /港股|恒生|恒指|港交所|南向资金|港股通|a股|沪深|上证|深成指|创业板|科创板|北向资金|中概股|券商研报|券商策略|港股策略|a股策略|仓位灵活性|仓位配置|华泰证券|中信证券|中金公司|招商证券|广发证券|国泰君安|海通证券|申万宏源/.test(
+      item.title
+    ) ||
+    (/港股|恒生|港交所|南向资金|a股|沪深|上证/.test(t) && /华泰证券|中信证券|中金公司|招商证券|广发证券|研报|策略/.test(t));
+
+  if (isChineseOrHkEquities && !/美股三大|标普500|纳斯达克.*大涨|道琼斯.*大跌/.test(item.title)) {
+    return 'china_macro';
+  }
 
   // 【硬性实体词拦截门禁 Rule A】：外国主权与海外宏观实体一票否决国内赛道！
   if (FOREIGN_ENTITIES.JAPAN.test(t)) {
@@ -1841,8 +1882,13 @@ export function generateCoreTakeaway(
     return '【资本市场定价与流动性溢价】：标的企业完成上市并获二级市场流动性重估，募集资金直接扩充资本实力并加速核心业务扩张交付。';
   }
 
+  // ── 机构权益策略与券商研报（港股/A股策略）──
+  if (/港股策略|a股策略|仓位灵活性|仓位配置|研报.*称|策略研报/.test(t) || /华泰证券|中信证券|中金公司.*研报|招商证券.*策略/.test(cleanTitle)) {
+    return sanitizeEditorialTone(`【机构权益配置策略与仓位校准】：${cleanTitle}；机构研报立足估值性价比与流动性窗口，引导机构资金审慎把握结构性修复契机。`);
+  }
+
   // ── 宏观通胀数据专属核心结论（高盛/大摩级投研定性，严禁企业套话与复读标题）──
-  if (isMacroInflationNews(t) || /cpi|通胀|ppi|pce/.test(t)) {
+  if ((isMacroInflationNews(t) || /cpi|通胀|ppi|pce/.test(t)) && !/港股|a股|研报|策略|仓位|券商|华泰/.test(cleanTitle)) {
     return sanitizeEditorialTone(getMacroInflationTakeaway(cleanTitle, content));
   }
 
@@ -1918,7 +1964,7 @@ export function generateCoreTakeaway(
   if (/物流.*景气|物流.*50.9%|货流/.test(t)) {
     return '【物流景气指数企稳扩张】：中国8月物流业景气指数回升至 50.9% 扩张区间；工业原料周转提速与电商备货需求回暖，实体制造业供应链货流进入良性循环。';
   }
-  if (/中金|合并|重组|东兴|信达|券商/.test(t)) {
+  if (/(?:东兴|信达|中金).*(?:重组|合并|停牌)|(?:重组|合并).*(?:东兴|信达|中金)/.test(t)) {
     return '【券商头部集约整合推进】：中金公司、东兴证券与信达证券就并购重组进入停牌阶段；监管引导集约化经营与资本中介能力做强，行业竞争格局向具备全牌照资产池的龙头集中。';
   }
   if (/商务部.*贸易救济|反歧视|反制|出口管制/.test(t)) {
@@ -2123,7 +2169,10 @@ function generateNextWatchlist(title: string, content: string, track: TrackId): 
   if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
     return '【后续观察哨】：锁定在 英国央行货币政策委员会（MPC）议息纪要与英国核心通胀及薪资增长数据。';
   }
-  if (isMacroInflationNews(t) || /cpi|通胀/.test(t)) {
+  if (/港股|a股|港股策略|a股策略|仓位|华泰证券|中信证券|中金公司.*研报|券商研报|券商策略/.test(title + ' ' + content)) {
+    return '【后续观察哨】：锁定在 港股恒生科技指数关键点位动能、南向资金净流入强度与下阶段核心中资资产盈利修复预期。';
+  }
+  if ((isMacroInflationNews(t) || /cpi|通胀/.test(t)) && !/港股|a股|研报|策略|仓位|券商|华泰/.test(title)) {
     return getMacroInflationNextWatchlist(title, content);
   }
   if (/美联储|降息|加息|非农|美债|收益率/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
@@ -2147,7 +2196,7 @@ function generateNextWatchlist(title: string, content: string, track: TrackId): 
   if (/俄乌|巴以|中东|黎巴嫩|伊朗|以军|空袭|五角大楼|美军/.test(t)) {
     return '【后续观察哨】：锁定在 联合国安理会闭门斡旋与霍尔木兹海峡/红海商业船舶通行监控指数。';
   }
-  if (/中金|证券|合并|停牌|重组/.test(t)) {
+  if (/(?:东兴|信达|中金).*(?:重组|合并|停牌)|(?:重组|合并).*(?:东兴|信达|中金)/.test(t)) {
     return '【后续观察哨】：锁定在 异议股东现金选择权实施结果及合并后新实体挂牌首日交易表现。';
   }
   if (/物流|经济|pmi|统计局|发改委|财政部|国债/.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t) && !FOREIGN_ENTITIES.US_MACRO.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t)) {

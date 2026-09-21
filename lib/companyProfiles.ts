@@ -394,11 +394,51 @@ export const CURATED_COMPANY_PROFILES: CompanyProfile[] = [
   },
   {
     name: '中金公司',
-    aliases: ['中金公司', '中金', 'CICC'],
+    aliases: ['中金公司', '中金公司研报', '中金研报', '中金国际', 'CICC'],
     sector: '头部投资银行 / 综合金融中介',
     description: '国内头部投资银行与综合金融服务商，主导科创板先锋硬科技与半导体企业IPO保荐承销，参与头部券商战略集约整合。',
     marketRole: '硬科技与半导体企业资本化国家队保荐机构，连接产业实体与多层次资本市场。',
     coreProducts: ['科创板IPO保荐承销', '跨境并购重组', '机构资产管理'],
+  },
+  {
+    name: '华泰证券',
+    aliases: ['华泰证券', '华泰证券研报', '华泰证券策略', '华泰联合证券', 'HTSC'],
+    sector: '头部综合类券商 / 财富管理与跨境投行',
+    description: '国内领先的科技驱动型综合证券金融集团，在金融科技（涨乐财富通）、机构股票研究及港股/A股跨市场投资策略领域具备广泛市场影响力。',
+    marketRole: '国内排名前列的科技券商龙头，连接境内外资本市场与多层次权益资产配置。',
+    coreProducts: ['涨乐财富通', '跨境机构证券研究与宏观策略', '投资银行科创保荐承销'],
+  },
+  {
+    name: '中信证券',
+    aliases: ['中信证券', '中信证券研报', '中信证券策略', 'CITIC Securities'],
+    sector: '国内头部全牌照投资银行 / 券商龙头',
+    description: '国内资产规模与营业收入领先的大型综合证券公司，主营财富管理、投资银行、机构股票经纪及资产管理全牌照业务。',
+    marketRole: '中国证券行业领军旗舰，综合业务实力稳居行业前列。',
+    coreProducts: ['全业务链投行服务', '机构股票买方研究', '大资管财富配置'],
+  },
+  {
+    name: '国泰君安',
+    aliases: ['国泰君安', '国泰君安证券', '国泰君安研报'],
+    sector: '头部大型综合类券商 / 投行与财富管理',
+    description: '国内头部老牌全牌照券商，在零售财富管理、投行承销与集约化兼并重组领域占据行业领先地位。',
+    marketRole: '行业头部航母级券商，推进跨区域综合金融中介集约化整合。',
+    coreProducts: ['君弘APP', '全牌照投资银行', '机构客户资产配置'],
+  },
+  {
+    name: '海通证券',
+    aliases: ['海通证券', '海通证券研究所', '海通国际'],
+    sector: '头部大型综合类券商 / 跨境投资中介',
+    description: '国内大型综合类证券公司，具备深厚境内外金融中介网络，重点服务实体经济与科创产业融资。',
+    marketRole: '老牌综合性券商，协同推进证券业高质量集约化发展。',
+    coreProducts: ['证券经纪与交易', '投资银行承销', '资产管理与私募股权'],
+  },
+  {
+    name: '招商证券',
+    aliases: ['招商证券', '招商证券研报', '招商证券策略'],
+    sector: '大型综合类央企券商 / 财富管理与投行',
+    description: '招商局集团旗下核心金融上市企业，在固收自营、大财富管理与资本中介服务领域具备深厚积淀。',
+    marketRole: '央企骨干综合证券公司，服务实体经济高质量发展与多层次资本运作。',
+    coreProducts: ['招商智远财富', '机构投资研报', '资产证券化与投行业务'],
   },
 ];
 
@@ -424,14 +464,30 @@ export function getCompanyProfileForNews(title: string, content?: string): Compa
   const combined = `${cleanTitle} ${content || ''}`.trim();
   if (!combined) return null;
 
-  // 1. 优先在精选图谱库中匹配别名与规范名（最精准）
+  // 1. 最高优先级：优先在【报道大标题 cleanTitle】中严格匹配核心主体！
+  // 杜绝因正文偶然引述（如“华泰证券研报...谈及中金公司重组”）而把标题真正主角李代桃僵
   for (const profile of CURATED_COMPANY_PROFILES) {
-    if (profile.aliases.some((alias) => combined.includes(alias))) {
+    if (profile.aliases.some((alias) => cleanTitle.includes(alias))) {
       return profile;
     }
   }
 
-  // 2. 若未命中静态库，智能探测未收录的科技/半导体/上市主体并动态合成背景
+  // 2. 其次在全文 combined 中匹配，对 2 个字以内的短别名必须执行语义防伤边界校验
+  for (const profile of CURATED_COMPANY_PROFILES) {
+    if (profile.aliases.some((alias) => {
+      if (alias.length <= 2) {
+        // 短别名必须有否定前后视保护，严禁误伤“其中金融”、“盘中金额”、“手中资金”等非实体词汇
+        const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const rx = new RegExp(`(?<![其盘手期高当月])${escaped}(?![融属价额条矿盘])`);
+        return rx.test(combined);
+      }
+      return combined.includes(alias);
+    })) {
+      return profile;
+    }
+  }
+
+  // 3. 若未命中静态图谱库，智能探测未收录的科技/半导体/上市主体并动态合成背景
   const detected = detectUncuratedCompany(cleanTitle, combined);
   if (detected) {
     return detected;
@@ -449,9 +505,9 @@ function detectUncuratedCompany(title: string, fullText: string): CompanyProfile
     /(?:AI芯片|算力芯片|GPU|CPU|半导体|芯片|存储|大模型|具身智能|机器人|晶圆代工|自动驾驶|新能源|动力电池|造车)?\s*(?:公司|厂商|龙头|企业|独角兽|品牌|设计商|供应商|集成商|造车新势力)\s*([A-Za-z\u4e00-\u9fa5]{2,10})/
   );
 
-  // 模式 B: 标准带企业组织形式法定后缀的企业名（如 "某某科技"、"某某半导体"、"某某微电子"、"某某软件"、"某某股份"）
+  // 模式 B: 标准带企业组织形式法定后缀的企业名（如 "某某科技"、"某某半导体"、"某某软件"、"某某股份"、"某某证券"）
   const corporateSuffixMatch = title.match(
-    /([A-Z\u4e00-\u9fa5]{2,8}(?:半导体|集成电路|微电子|软件|网络|动力|制药|药业|重工|能源|股份|智算|计算|微|电子|精密|电工|光电|新材料|生物科技|科技))/
+    /([A-Z\u4e00-\u9fa5]{2,8}(?:半导体|集成电路|微电子|软件|网络|动力|制药|药业|重工|能源|股份|智算|计算|微|电子|精密|电工|光电|新材料|生物科技|科技|证券|期货|信托|基金))/
   );
 
   let targetName = '';
