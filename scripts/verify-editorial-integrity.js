@@ -423,30 +423,72 @@ check('Gate 12: 事实通报与独家深度透视严格分工红线', () => {
     throw new Error('components/Summary5W1HView.tsx 存在粗暴复读事实通报段落的冗余展示框！');
   }
 
-  // 12.4 lib/deepPerspective.ts 核心规则审校
+  // 12.4 lib/deepPerspective.ts 六大纯事实详情免解读分类标准审校
   const deepPerspectivePath = path.join(ROOT, 'lib', 'deepPerspective.ts');
   const deepPerspectiveContent = fs.readFileSync(deepPerspectivePath, 'utf8');
 
-  if (!deepPerspectiveContent.includes('PURE_FACTUAL_DISASTER_REGEX') || !deepPerspectiveContent.includes('泥石流|地震|山洪')) {
-    throw new Error('lib/deepPerspective.ts 缺少 PURE_FACTUAL_DISASTER_REGEX 或关键自然灾害关键词定义！');
+  // 必须定义六大核心分类正则
+  const requiredRegexes = [
+    'FACTUAL_DISASTER_ACCIDENT_REGEX',
+    'FACTUAL_CRIME_LEGAL_REGEX',
+    'FACTUAL_CIVIC_MUNICIPAL_REGEX',
+    'FACTUAL_CULTURE_SPORTS_REGEX',
+    'FACTUAL_CORPORATE_ROUTINE_REGEX',
+    'FACTUAL_TICKER_NOISE_REGEX',
+  ];
+
+  requiredRegexes.forEach((rName) => {
+    if (!deepPerspectiveContent.includes(rName)) {
+      throw new Error(`lib/deepPerspective.ts 缺少纯事实六大分类之 ${rName} 正则特征定义！`);
+    }
+  });
+
+  if (!deepPerspectiveContent.includes('getFactualOnlyCategory') || !deepPerspectiveContent.includes('isDeepPerspectiveEligible')) {
+    throw new Error('lib/deepPerspective.ts 缺少 getFactualOnlyCategory 或 isDeepPerspectiveEligible 核心研判函数！');
   }
 
-  if (!deepPerspectiveContent.includes('isPureDisasterOrAccident') || !deepPerspectiveContent.includes('return false;')) {
-    throw new Error('lib/deepPerspective.ts 缺少对纯自然灾害免除深度透视的拦截逻辑！');
-  }
+  // 12.5 实测检验六大类别纯事实样本拦截（必须全部命中免解读，不得进行假解读）
+  const testCases = [
+    { name: '类别1·自然灾害险情', text: '四川盐边县泥石流致两人死亡三人失联，搜救工作正全力展开', category: 'FACTUAL_DISASTER_ACCIDENT_REGEX' },
+    { name: '类别1·地震险情', text: '四川泸定发生4.8级地震，震源深度10千米', category: 'FACTUAL_DISASTER_ACCIDENT_REGEX' },
+    { name: '类别2·治安刑事案件', text: '某地公安局通报一起打架斗殴案件，涉案嫌疑人已被依法刑事拘留', category: 'FACTUAL_CRIME_LEGAL_REGEX' },
+    { name: '类别3·市政施工通知', text: '明日起市区某路段实施道路封闭施工，请市民提前规划绕行路线', category: 'FACTUAL_CIVIC_MUNICIPAL_REGEX' },
+    { name: '类别3·气象日常预警', text: '市气象台发布暴雨黄色预警信号，启动防汛应急响应', category: 'FACTUAL_CIVIC_MUNICIPAL_REGEX' },
+    { name: '类别4·体育竞技赛果', text: '中国乒乓球男单决赛胜出，成功夺冠锁定金牌', category: 'FACTUAL_CULTURE_SPORTS_REGEX' },
+    { name: '类别4·名人生卒讣告', text: '著名老艺术家因病逝世享年86岁，追悼会将于本周举行', category: 'FACTUAL_CULTURE_SPORTS_REGEX' },
+    { name: '类别5·企业例行变更', text: '某某科技有限公司发布公告，因业务发展需要变更注册地址至高新技术园区', category: 'FACTUAL_CORPORATE_ROUTINE_REGEX' },
+    { name: '类别5·常规表彰捐款', text: '某集团向受灾地区捐赠物资，荣获当地商会优秀示范企业称号', category: 'FACTUAL_CORPORATE_ROUTINE_REGEX' },
+    { name: '类别6·盘中无序分时', text: '离岸人民币日内微调，现货黄金短线拉升3美元，分时微涨0.08%', category: 'FACTUAL_TICKER_NOISE_REGEX' },
+  ];
 
-  // 12.5 正则逻辑实测：泥石流与地震险情必须命中灾害排除正则
-  const disasterRegexMatch = deepPerspectiveContent.match(/export const PURE_FACTUAL_DISASTER_REGEX\s*=\s*(\/[^\/]+\/);/);
-  if (!disasterRegexMatch) {
-    throw new Error('未能提取 lib/deepPerspective.ts 中的 PURE_FACTUAL_DISASTER_REGEX 正则表达式');
+  testCases.forEach((tc) => {
+    const rMatch = deepPerspectiveContent.match(new RegExp(`export const ${tc.category}\\s*=\\s*(\\/[^\\/]+\\/);`));
+    if (!rMatch) {
+      throw new Error(`未能从 lib/deepPerspective.ts 提取 ${tc.category} 正则`);
+    }
+    const rx = new RegExp(rMatch[1].slice(1, -1));
+    if (!rx.test(tc.text)) {
+      throw new Error(`六大纯事实分类正则校验失败：[${tc.name}] 文本 "${tc.text}" 未能被 ${tc.category} 正确命中识别！`);
+    }
+  });
+
+  // 12.6 战略深度豁免实测（宏观货币/硬核芯片/重大重组退市等哪怕含有关键词也不得错杀）
+  const strategicMatch = deepPerspectiveContent.match(/export const STRATEGIC_DEPTH_OVERRIDE_REGEX\s*=\s*(\/[^\/]+\/);/);
+  if (!strategicMatch) {
+    throw new Error('未能提取 STRATEGIC_DEPTH_OVERRIDE_REGEX 正则');
   }
-  const disasterRegex = new RegExp(disasterRegexMatch[1].slice(1, -1));
-  if (!disasterRegex.test('四川盐边县泥石流致两人死亡三人失联')) {
-    throw new Error('PURE_FACTUAL_DISASTER_REGEX 未能命中泥石流灾情！');
-  }
-  if (!disasterRegex.test('四川泸定发生4.8级地震')) {
-    throw new Error('PURE_FACTUAL_DISASTER_REGEX 未能命中地震灾情！');
-  }
+  const strategicRx = new RegExp(strategicMatch[1].slice(1, -1));
+  const strategicCases = [
+    '美联储宣布降息25个基点，利率互换市场下调年内终点利率预测',
+    '国内AI芯片先进制程流片成功并正式量产',
+    '某涉嫌财务造假公司被证监会立案调查并强制退市出清',
+    '商务部依法对关键稀有金属实施出口管制'
+  ];
+  strategicCases.forEach((text) => {
+    if (!strategicRx.test(text)) {
+      throw new Error(`国家战略深度豁免正则校验失败：文本 "${text}" 应当被豁免并允许提供深度透视，却被错杀！`);
+    }
+  });
 });
 
 // -------------------------------------------------------------
