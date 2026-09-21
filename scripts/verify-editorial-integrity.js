@@ -527,6 +527,58 @@ check('Gate 13: 港股与A股券商研报跨市场归类防窜道与信源保真
 });
 
 // -------------------------------------------------------------
+// 门禁 14: 实体查错关键词智能精准提取与杜绝无关假词硬红线
+// -------------------------------------------------------------
+check('Gate 14: 实体查错关键词智能精准提取与杜绝无关假词硬红线', () => {
+  const extractorPath = path.join(ROOT, 'lib', 'keywordExtractor.ts');
+  if (!fs.existsSync(extractorPath)) {
+    throw new Error('找不到 lib/keywordExtractor.ts 文件');
+  }
+  const extractorContent = fs.readFileSync(extractorPath, 'utf8');
+
+  // 14.1 绝对严禁出现硬编码的“全球宏观 核心指标 市场动向”等虚假假词兜底
+  if (extractorContent.includes('全球宏观 核心指标 市场动向') || extractorContent.includes("'全球宏观'")) {
+    throw new Error('lib/keywordExtractor.ts 存在严重违规：严禁使用“全球宏观 核心指标 市场动向”等虚假无关假词作为搜索兜底！');
+  }
+
+  // 14.2 实测算法提取核心事实真实度
+  const { extractSearchKeywords } = require(extractorPath);
+
+  // 测试用例 1: 四川盐边县泥石流
+  const yanbian = extractSearchKeywords('四川盐边县发生泥石流 致两人死亡三人失联，救援搜救与排险全力展开');
+  if (!yanbian.includes('泥石流') || (!yanbian.includes('盐边') && !yanbian.includes('四川')) || (!yanbian.includes('死亡') && !yanbian.includes('失联'))) {
+    throw new Error(`实体查错关键词提取失败：四川盐边县泥石流提取结果 "${yanbian}" 缺少核心事实要素（地名/泥石流/伤亡）！`);
+  }
+  if (yanbian.includes('全球宏观')) {
+    throw new Error(`实体查错关键词提取出现违规宏观假词：${yanbian}`);
+  }
+
+  // 测试用例 2: 科技与算力上市
+  const suiYuan = extractSearchKeywords('【AI算力】AI芯片公司燧原上市开盘涨188% 市值约1700亿元');
+  if (!suiYuan.includes('燧原') || !suiYuan.includes('开盘涨188%')) {
+    throw new Error(`实体查错关键词提取失败：燧原上市提取结果 "${suiYuan}" 缺少核心主体或涨幅！`);
+  }
+
+  // 测试用例 3: 宏观货币政策
+  const warsh = extractSearchKeywords('美联储凯文·沃什宣布支持年内降息50个基点 美债收益率跳水');
+  if (!warsh.includes('美联储') || !warsh.includes('降息') || (!warsh.includes('沃什') && !warsh.includes('美债'))) {
+    throw new Error(`实体查错关键词提取失败：美联储降息提取结果 "${warsh}" 缺少核心实体！`);
+  }
+
+  // 测试用例 4: 券商重组
+  const cicc = extractSearchKeywords('中金公司拟吸收合并东兴证券 股票今起停牌');
+  if (!cicc.includes('中金公司') || !cicc.includes('东兴证券') || !cicc.includes('吸收合并')) {
+    throw new Error(`实体查错关键词提取失败：券商合并提取结果 "${cicc}" 缺少核心主体或动作！`);
+  }
+
+  // 测试用例 5: 地震险情
+  const luding = extractSearchKeywords('四川泸定发生4.8级地震 震源深度10千米 暂无人员伤亡报告');
+  if ((!luding.includes('泸定') && !luding.includes('四川')) || !luding.includes('地震')) {
+    throw new Error(`实体查错关键词提取失败：泸定地震提取结果 "${luding}" 缺少地名或地震要素！`);
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {
