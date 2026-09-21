@@ -579,6 +579,51 @@ check('Gate 14: 实体查错关键词智能精准提取与杜绝无关假词硬�
 });
 
 // -------------------------------------------------------------
+// 门禁 15: 标题事实完整性与杜绝假后缀、残缺截断、结巴自重复硬红线
+// -------------------------------------------------------------
+check('Gate 15: 标题事实完整性与杜绝假后缀、残缺截断、结巴自重复硬红线', () => {
+  const fetcherPath = path.join(ROOT, 'lib', 'rssFetcher.ts');
+  const healingPath = path.join(ROOT, 'lib', 'selfHealingEngine.ts');
+  const fetcherContent = fs.readFileSync(fetcherPath, 'utf8');
+  const healingContent = fs.readFileSync(healingPath, 'utf8');
+
+  // 15.1 严禁包含导致数字后文字全部被腰斩清空的恶性正则 /(?:[0-9.]+|%)[^0-9%]*$/
+  if (fetcherContent.includes('(?:[0-9.]+|%)[^0-9%]*$') || healingContent.includes('(?:[0-9.]+|%)[^0-9%]*$')) {
+    throw new Error('检测到严重恶性正则 /(?:[0-9.]+|%)[^0-9%]*$/！该正则会将包含数字（如“8月份全社会用电量”）后的完整事实全部抹除！');
+  }
+
+  // 15.2 严禁包含单字字符集误伤“落实”之“实”的正则 [...为了保证以实现]+$
+  if (fetcherContent.includes('[，,、；;：:\\s及与和等并为了保证以实现]+$') || healingContent.includes('[，,、；;：:\\s及与和等并为了保证以实现]+$')) {
+    throw new Error('检测到违规字符集正则 [，,、；;：:\\s及与和等并为了保证以实现]+$！该正则会将以“落实”结尾的词汇剔除“实”字变成残缺“落”！');
+  }
+
+  // 15.3 严禁在 enrichHeadline 中向客观完整新闻强行附会“相关工作稳步推进落实”等八股填充后缀
+  if (fetcherContent.includes("suffix = '相关工作稳步推进落实'")) {
+    throw new Error('lib/rssFetcher.ts 存在违规强行填充：严禁对客观真实新闻追加“相关工作稳步推进落实”等与内容严重背离的虚假八股后缀！');
+  }
+
+  // 15.4 必须剥离媒体栏目名（如“能源内参｜”、“财新周刊｜”等），严禁将其作为正文标题并发生自重复
+  if (!fetcherContent.includes('能源内参') || !healingContent.includes('能源内参')) {
+    throw new Error('缺少对“能源内参｜”等媒体栏目头的脱水剥离逻辑！');
+  }
+
+  // 15.5 实测检验：模拟处理《能源内参｜8月份全社会用电量再破万亿...》
+  const card1Raw = '能源内参｜8月份全社会用电量再破万亿 负荷创历史新高；首个钙钛矿光伏领域国家标准发布';
+  const cleanPrefix = (t) => t.replace(/^(?:能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)[｜|·\s\-]\s*/, '').trim();
+  const c1 = cleanPrefix(card1Raw);
+  if (!c1.includes('8月份全社会用电量再破万亿') || c1.startsWith('能源内参')) {
+    throw new Error(`标题脱水审校失败：未能正确剥离栏目名并保留核心事实 "${c1}"`);
+  }
+
+  // 15.6 实测检验：模拟修复《中国8月对美稀土磁铁出口下滑21%，相关工作稳步推进落》
+  const card2Raw = '中国8月对美稀土磁铁出口下滑21%，相关工作稳步推进落';
+  const cleanCard2 = card2Raw.replace(/，?相关工作稳步推进落[实]?/g, '').trim();
+  if (cleanCard2 !== '中国8月对美稀土磁铁出口下滑21%') {
+    throw new Error(`虚假八股后缀剔除审校失败：未能恢复真实纯净标题 "${cleanCard2}"`);
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {

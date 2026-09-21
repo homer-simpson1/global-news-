@@ -158,8 +158,12 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
 
   let title = rawTitle.trim();
 
-  // A. 剥离前缀标签：如 【美股快讯】、【独家】等
+  // A. 剥离前缀标签与媒体栏目头：如 【美股快讯】、【独家】、能源内参｜ 等
   title = title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim();
+  title = title.replace(/^(?:能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)[｜|·\s\-]\s*/, '').trim();
+
+  // A1. 消除标题结巴自重复错误（如“能源内参｜，能源内参｜”或“某标题，某标题”）
+  title = title.replace(/^(.{2,20})[，,\s|｜]+(?:\1)[｜|]?$/, '$1').trim();
 
   // A2. 核心守卫：修复财经快讯对美联储降息周期 "Rate Cut" 的灾难性机翻颠倒（加息/上调 -> 降息/下调）
   title = sanitizeFedRatePolicyWording(title);
@@ -222,10 +226,16 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
   // F. 标点净化
   title = title.replace(/\s{2,}/g, ' ').trim();
 
-  // G. 长度安全边界控制 (12 ~ 36字)
-  if (title.length < 10 && context?.takeaway) {
-    const supplement = context.takeaway.replace(/^[【\[][^】\]]+[】\]]\s*/, '').slice(0, 18);
-    title = `${title}，${supplement}`;
+  // G. 长度安全边界控制 (极短碎片自愈，绝不自吞自吐重复词)
+  if (title.length < 10) {
+    if (context?.what && context.what.length >= 8 && !context.what.includes(title)) {
+      title = context.what.replace(/^[【\[][^】\]]+[】\]]\s*/, '').slice(0, 26);
+    } else if (context?.takeaway) {
+      const supplement = context.takeaway.replace(/^[【\[][^】\]]+[】\]]\s*[:：]?\s*/, '').slice(0, 18).trim();
+      if (supplement && !supplement.includes(title) && !title.includes(supplement)) {
+        title = `${title}，${supplement}`;
+      }
+    }
   }
 
   // H. 拦截并修复无主语断裂残片（如“分别涨4.77%...”、“其中3.6%...”）
@@ -242,9 +252,23 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
     }
   }
 
-  // 严禁截断切在数字中间（例如将 3.32% 截成 3.3）或尾部遗留顿号/逗号/残缺连接词
-  title = title.replace(/(?:[0-9.]+|%)[^0-9%]*$/, (m) => (m.includes('%') ? m : ''));
-  title = title.replace(/[，,、；;：:\s及与和等并为了保证以实现]+$/, '').trim();
+  // 清除末尾悬垂小数点与残缺连接词（绝不误伤“8月份”、“26.9亿”等正常数字内容；使用分组避免误伤“落实”之“实”）
+  title = title.replace(/(?:\d+\.|\.\d*)$/, '').trim();
+  title = title.replace(/(?:[，,、；;：:\s及与和等并]|为了|保证|以实现|以确保|正在全力)+$/, '').trim();
+
+  // 彻底剔除人工附会的虚假八股后缀，杜绝标题与实际事实内容背离
+  title = title.replace(/，?相关工作稳步推进落[实]?/g, '');
+  title = title.replace(/，?多边贸易合规评估稳步开展/g, '');
+  title = title.replace(/，?宏观统筹稳步推进落实/g, '');
+  title = title.replace(/，?引发市场密切关注/g, '');
+  title = title.replace(/，?市场密切评估后续进展/g, '');
+  title = title.replace(/，?供应链供需格局受市场关注/g, '');
+  title = title.replace(/，?现货与期货基差进入再平衡/g, '');
+  title = title.replace(/，?区域防务安全态势进一步明朗/g, '');
+  title = title.replace(/，?宏观政策调控窗口保持相机抉择/g, '');
+  title = title.replace(/，?跨国机构动态校准资产配置/g, '');
+  title = title.replace(/，?市场密切评估宏观传导节奏/g, '');
+  title = title.replace(/^[，,\s]+|[，,\s]+$/g, '').trim();
 
   // 明确 LPR 主权主体（中国）：防止无国别信息
   if (/(?:^[0-9]+月)?\s*lpr/i.test(title) || /贷款市场报价利率/i.test(title)) {
@@ -253,7 +277,7 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
     }
   }
 
-  // 刚果埃博拉标题结构化与去除国内八股后缀
+  // 刚果埃博拉标题结构化
   if (/刚果.*埃博拉|埃博拉疫情/.test(title)) {
     title = title.replace(/，?相关工作稳步推进落实/g, '，世卫组织紧急协同阻击');
   }

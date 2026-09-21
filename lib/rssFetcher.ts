@@ -249,11 +249,18 @@ export function fallback_to_grounded_summary(rawText: string): {
   core_conclusion: string;
   transmission_chain: string;
 } {
-  const clean = sanitizeEditorialTone(rawText || '').replace(/[！!？?]/g, '，').trim();
+  let clean = sanitizeEditorialTone(rawText || '').replace(/[！!？?]/g, '，').trim();
+  clean = clean.replace(/^(?:能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)[｜|·\s\-]\s*/, '').trim();
   const sentences = clean.split(/[。；;\n]/).map(s => s.trim()).filter(s => s.length >= 8);
-  const firstSentence = sentences[0] || clean.slice(0, 30);
+  const firstSentence = sentences[0] || clean.slice(0, 32);
 
-  const title = firstSentence.length > 28 ? firstSentence.slice(0, 28) : firstSentence;
+  let title = firstSentence;
+  if (title.length > 32) {
+    const sub = title.slice(0, 32);
+    const punc = Math.max(sub.lastIndexOf('，'), sub.lastIndexOf('、'), sub.lastIndexOf(' '));
+    title = punc >= 18 ? sub.slice(0, punc) : sub;
+  }
+  title = title.replace(/(?:\d+\.|\.\d*)$/, '').replace(/(?:[，,、；;：:\s及与和等并]|为了|保证|以实现|以确保|正在全力)+$/, '').trim();
   const t = title.toLowerCase();
 
   let core_conclusion = `【事实基准核验】：信源原文明确通报：${firstSentence}。客观事实已锁定，杜绝无事实依据的过度脑补。`;
@@ -1667,8 +1674,9 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
   };
   const prefix = prefixMap[track] || '【决策要闻】';
 
-  // 1. 彻底去除机械时间前缀、尾盘流水账前缀与多余括号
+  // 1. 彻底去除媒体栏目分类前缀、机械时间前缀、尾盘流水账前缀与多余括号
   title = title
+    .replace(/^(?:能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)[｜|·\s\-]\s*/, '')
     .replace(/^(?:当地时间)?(?:周[一二三四五六日]|本周[一二三四五六日])?[（(]?\d{1,2}月\d{1,2}日[)）]?\s*(?:纽约尾盘|欧市尾盘|早盘|收盘|电讯)?\s*[，,：:]?\s*/, '')
     .replace(/^[0-9]{1,2}月[0-9]{1,2}日\s*，?\s*/, '')
     .replace(/（[^）]*?(?:快讯|电讯|直发|专电|通报)[^）]*?）/g, '')
@@ -1733,8 +1741,8 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
   title = title.replace(/[！!？?]/g, '，').replace(/……|\.{2,}/g, '');
   title = title.replace(/^[，,\s]+|[，,\s]+$/g, '');
 
-  // 5. 严格控制字数在 22~28 个汉字区间，自然断句，绝不机械硬性腰斩
-  if (title.length > 28) {
+  // 5. 严格控制字数上限在 32 汉字以内，自然分句，绝不机械截断；绝不强行编造附和“相关工作稳步推进”等背离内容的虚假填充词
+  if (title.length > 32) {
     const isHeadlessClause = (c: string) =>
       /^(?:分别|其中|包括|以及|并且|而|且|但|导致|受此影响|据称|据悉|同时|涨超|跌超|分别涨|分别跌|超|达|[0-9.]+%|[涨跌][0-9.]+%)/.test(c) ||
       /^[^a-zA-Z\u4e00-\u9fa5]+$/.test(c);
@@ -1743,9 +1751,9 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
     const clauses = title.split(/[，,；;]/).map((s) => s.trim()).filter(Boolean);
     if (clauses.length >= 2) {
       // 必须优先选用带主语的核心分句 clauses[0]，严禁选出“分别涨...”等无头从句
-      if (clauses[0].length >= 20 && clauses[0].length <= 32 && !isHeadlessClause(clauses[0])) {
+      if (clauses[0].length >= 16 && clauses[0].length <= 32 && !isHeadlessClause(clauses[0])) {
         title = clauses[0];
-      } else if (clauses[1].length >= 20 && clauses[1].length <= 32 && !isHeadlessClause(clauses[1])) {
+      } else if (clauses[1].length >= 16 && clauses[1].length <= 32 && !isHeadlessClause(clauses[1])) {
         title = clauses[1];
       } else {
         const joined = `${clauses[0]}，${clauses[1]}`;
@@ -1758,53 +1766,19 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
         }
       }
     } else {
-      if (title.length > 32) {
-        const sub = title.slice(0, 32);
-        const punc = Math.max(sub.lastIndexOf('，'), sub.lastIndexOf('、'), sub.lastIndexOf(' '));
-        if (punc >= 20) {
-          title = sub.slice(0, punc);
-        } else {
-          title = sub;
-        }
-      }
-    }
-  } else if (title.length < 22) {
-    let suffix = '引发市场密切关注';
-    if (track === 'china_domestic') {
-      if (/泥石流|山洪|滑坡|地质灾害|抗洪|防汛|受灾|失联|致.*死|死伤|遇难/.test(title)) {
-        suffix = '救援搜救与排险全力展开';
-      } else if (/事故|相撞|火灾|坍塌|爆炸|矿难/.test(title)) {
-        suffix = '应急处置与排查深入推进';
-      } else if (/被查|落马|反腐|立案|受贿|判刑|违纪违法/.test(title)) {
-        suffix = '司法机关从严查处涉案人员';
-      } else if (/特别国债|财政|化债|注资|医保|民生/.test(title)) {
-        suffix = '宏观统筹稳步推进落实';
-      } else if (/人口|老龄化|生育/.test(title)) {
-        suffix = '关乎长远社会结构底盘';
+      const sub = title.slice(0, 32);
+      const punc = Math.max(sub.lastIndexOf('，'), sub.lastIndexOf('、'), sub.lastIndexOf(' '));
+      if (punc >= 18) {
+        title = sub.slice(0, punc);
       } else {
-        suffix = '相关工作稳步推进落实';
+        title = sub;
       }
-    } else {
-      const enrichSuffix: Record<TrackId, string> = {
-        us_macro: '市场密切评估宏观传导节奏',
-        apac_tech: '供应链供需格局受市场关注',
-        commodities_shipping: '现货与期货基差进入再平衡',
-        war_conflict: '区域防务安全态势进一步明朗',
-        china_domestic: '相关工作稳步推进落实',
-        china_policy: '多边贸易合规评估稳步开展',
-        china_macro: '宏观政策调控窗口保持相机抉择',
-        global_cognition: '跨国机构动态校准资产配置',
-      };
-      suffix = enrichSuffix[track] || '市场密切评估后续进展';
-    }
-    if (title.length + suffix.length + 1 <= 32) {
-      title = `${title}，${suffix}`;
     }
   }
 
-  // 严禁截断切在数字中间（例如将 3.32% 截成 3.3）或尾部遗留顿号/逗号/残缺连接词
-  title = title.replace(/(?:[0-9.]+|%)[^0-9%]*$/, (m) => (m.includes('%') ? m : ''));
-  title = title.replace(/[，,、；;：:\s及与和等并为了保证以实现]+$/, '').trim();
+  // 严禁截断切在数字小数点后或尾部遗留顿号/逗号/残缺连接词（绝不误伤“8月份”、“26.9亿”等正常数字内容）
+  title = title.replace(/(?:\d+\.|\.\d*)$/, '').trim();
+  title = title.replace(/(?:[，,、；;：:\s及与和等并]|为了|保证|以实现|以确保|正在全力)+$/, '').trim();
 
   // 终极安全脱水：再次剔除所有自媒体口水词与非法标点
   title = title.replace(/[！!？?]/g, '，').replace(/……|\.{2,}/g, '').replace(/^[，,\s]+|[，,\s]+$/g, '');
