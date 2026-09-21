@@ -344,6 +344,37 @@ check('Gate 9: 中国贷款市场报价利率 (LPR) 主权国别与央行信源�
 });
 
 // -------------------------------------------------------------
+// 门禁 10: 实时新闻抓取时效性与禁止陈年旧闻伪造当前时间硬门禁 (Real-Time Freshness & Anti-Zombie Gate)
+// -------------------------------------------------------------
+check('Gate 10: 实时新闻抓取时效性与禁止陈年旧闻伪造当前时间硬门禁', () => {
+  const fetcherPath = path.join(ROOT, 'lib', 'rssFetcher.ts');
+  const fetcherContent = fs.readFileSync(fetcherPath, 'utf8');
+
+  // 10.1 严禁在爬虫中对抓取新闻使用无条件 Date.now() 伪造时间戳
+  if (/time:\s*formatIntelDateTime\(Date\.now\(\)\)/.test(fetcherContent)) {
+    throw new Error('lib/rssFetcher.ts 存在严重违规：爬虫直接使用 formatIntelDateTime(Date.now()) 伪造时间戳，导致陈年旧闻被赋予当天时间！');
+  }
+
+  // 10.2 必须对财新网与早报 URL 进行精确日期解析与时效过滤
+  if (!fetcherContent.includes('caixin.com/(\\d{4})-(\\d{2})-(\\d{2})') && !fetcherContent.includes('caixin\\.com\\/(\\d{4})-(\\d{2})-(\\d{2})')) {
+    throw new Error('lib/rssFetcher.ts 缺少针对财新网 URL 的精确年月日提取正则！');
+  }
+  if (!fetcherContent.includes('story(\\d{4})(\\d{2})(\\d{2})') && !fetcherContent.includes('story(\\d{4})(\\d{2})(\\d{2})-')) {
+    throw new Error('lib/rssFetcher.ts 缺少针对联合早报 URL 的精确年月日提取正则！');
+  }
+
+  // 10.3 必须具备针对往年陈旧归档的拦截机制 (72小时或年份过滤)
+  if (!fetcherContent.includes('diffDays > 3') || !fetcherContent.includes('201\\d|202[0-5]')) {
+    throw new Error('lib/rssFetcher.ts 缺少严格的 72 小时时效淘汰或往年历史归档拦截门禁！');
+  }
+
+  // 10.4 排序必须考虑时效，严禁超过 48 小时的旧闻享受重大外溢置顶特权
+  if (!fetcherContent.includes('aHours <= 48') || !fetcherContent.includes('aRecency')) {
+    throw new Error('lib/rssFetcher.ts 排序引擎缺少基于发布时差的时效衰减与外溢特权剥离逻辑！');
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {
@@ -360,6 +391,8 @@ if (errors.length > 0) {
   console.log('   - 0 处深度透视口水话与自媒体二极管套话');
   console.log('   - 0 处标题感叹号/问号/省略号，且全量口水词库 100% 清零');
   console.log('   - 100% 深度传导遵循 1-Hop 一级直接因果，5W1H 结论定性全闭环');
+  console.log('   - 100% 爬虫时效真实归因，严禁 Date.now() 伪造时间戳与陈年僵尸旧闻霸榜');
   console.log('================================================================\n');
   process.exit(0);
 }
+

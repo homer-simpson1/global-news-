@@ -693,11 +693,13 @@ export function autoCorrectTimeAndWindow(
   // 精准计算发布时差
   const diffHours = getTimeDiffHours(finalTime);
 
-  // 严禁旧闻挂一手速递：超过 24 小时强制降级为 HISTORIC
-  if (diffHours > 24 && finalWindow !== 'HISTORIC') {
+  // 严禁旧闻挂一手速递：含有往年年份或发布时差超过 24 小时强制降级为 HISTORIC
+  const currentYear = new Date().getFullYear();
+  const pastYearMatch = finalTime.match(/\b(201\d|202[0-5])\b/);
+  if ((pastYearMatch || diffHours > 24) && finalWindow !== 'HISTORIC') {
     finalWindow = 'HISTORIC';
     wasCorrected = true;
-  } else if (diffHours >= 0 && diffHours <= 24 && finalWindow === 'HISTORIC') {
+  } else if (!pastYearMatch && diffHours >= 0 && diffHours <= 24 && finalWindow === 'HISTORIC') {
     finalWindow = 'TODAY';
     wasCorrected = true;
   }
@@ -1228,6 +1230,11 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(cleanTitle) || (FOREIGN_ENTITIES.AFRICA_GLOBAL && FOREIGN_ENTITIES.AFRICA_GLOBAL.test(cleanTitle))) {
     cleanSpillover = undefined;
   }
+  // 严禁陈年旧闻挂载外溢加分：若时效窗口为 HISTORIC 或时差超过 48 小时，剥离外溢指标
+  const diffH = getTimeDiffHours(correctedTime);
+  if (correctedWindow === 'HISTORIC' || diffH > 48) {
+    cleanSpillover = undefined;
+  }
 
   // 事实段落总结深度自愈（讲清具体来龙去脉并融入企业主体速览）
   const { paragraph: cleanParagraph } = autoCorrectSummaryParagraph(
@@ -1256,6 +1263,11 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
     }
   }
 
+  let cleanBadge = item.verificationBadge;
+  if (correctedWindow === 'HISTORIC' && cleanBadge === '⚡ 一手速递') {
+    cleanBadge = '📌 持续发酵';
+  }
+
   const details: string[] = [];
   if (cleanTitle !== item.title) details.push('标题脱水去噪与结构重组');
   if (cleanTakeaway !== item.oneLineTakeaway) details.push('深度透视投研语态标准化去口水化');
@@ -1263,8 +1275,9 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   if (correctedSource !== item.source || correctedUrl !== item.sourceUrl) details.push('信源与官方安全链接纠偏');
   if (cleanTransmission !== item.transmissionImpact) details.push('利益链跨界污染清洗与真实1-Hop修复');
   if (correctedTime !== item.publishedAt || correctedWindow !== item.timeWindow) details.push('时效动态降级纠偏');
+  if (cleanBadge !== item.verificationBadge) details.push('历史旧闻剥离一手速递标签');
   if (correctedSentiment !== item.sentiment || correctedLevel !== item.impactLevel) details.push('情绪定级与冲击烈度对齐');
-  if (cleanSpillover !== item.spilloverCriterion) details.push('物理剥离外国事件国内事故外溢标签');
+  if (cleanSpillover !== item.spilloverCriterion) details.push('物理剥离外国事件或历史陈案外溢标签');
   if (detectedProfile && !item.companyProfile) details.push(`涉事企业主体档案挂载: ${detectedProfile.name}`);
   if (detectedProvisions && !item.eventKeyProvisions) details.push(`重大事件核心要务穿透挂载: ${detectedProvisions.targetName}`);
   if (detectedMacro && !item.macroInflationBreakdown) details.push('宏观通胀关键指标矩阵(环比/同比)与分项穿透挂载');
@@ -1280,6 +1293,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
     sourceUrl: correctedUrl,
     publishedAt: correctedTime,
     timeWindow: correctedWindow,
+    verificationBadge: cleanBadge,
     oneLineTakeaway: cleanTakeaway,
     transmissionImpact: cleanTransmission,
     summaryParagraph: cleanParagraph,

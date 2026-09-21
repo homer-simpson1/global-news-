@@ -18,6 +18,7 @@ import {
   buildEventProvisionsFactParagraph,
   isEventProvisionsNews,
 } from './eventProvisions';
+import { getTimeDiffHours } from './timeUtils';
 
 let cachedNews: NewsItem[] | null = null;
 let cachedFlash: FlashBrief[] | null = null;
@@ -660,18 +661,44 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
         const regex = /href="(\/(?:realtime|news)\/china\/story[^\"]+)"[^>]*>([\s\S]*?)<\/a>/g;
         let m;
         const seenZb = new Set<string>();
+        const now = new Date();
         while ((m = regex.exec(html)) !== null) {
           const rawTitle = m[2].replace(/<[^>]+>/g, '').trim();
+          const urlPath = m[1];
           if (rawTitle.length >= 6 && !seenZb.has(rawTitle)) {
+            // 从 URL 提取实际日期，例如 /story20260921-9707915
+            const dateMatch = urlPath.match(/story(\d{4})(\d{2})(\d{2})-/);
+            let timeStr = '';
+            if (dateMatch) {
+              const y = parseInt(dateMatch[1], 10);
+              const mo = parseInt(dateMatch[2], 10);
+              const d = parseInt(dateMatch[3], 10);
+              const articleDate = new Date(y, mo - 1, d);
+              const diffDays = (now.getTime() - articleDate.getTime()) / (1000 * 3600 * 24);
+              // 严格时效门禁：超过 72 小时（3天）的旧闻直接丢弃，严禁混入实时流！
+              if (diffDays > 3 || diffDays < -1) {
+                continue;
+              }
+              const sliceAfter = html.slice(m.index, m.index + 400);
+              const timeMatch = sliceAfter.match(/(\d{1,2}:\d{2})/);
+              if (timeMatch) {
+                timeStr = `${mo}月${d}日 ${timeMatch[1]}`;
+              } else {
+                timeStr = `${mo}月${d}日 08:30`;
+              }
+            } else {
+              continue;
+            }
+
             seenZb.add(rawTitle);
             zbList.push({
-              id: generateIntelId(`ZAOBAO_${m[1]}`),
+              id: generateIntelId(`ZAOBAO_${urlPath}`),
               wireChannel: 'CH_ZAOBAO',
               title: rawTitle,
               content: rawTitle,
-              time: formatIntelDateTime(Date.now()),
+              time: timeStr,
               source: '联合早报 Zaobao',
-              url: `https://www.zaobao.com.sg${m[1]}`,
+              url: `https://www.zaobao.com.sg${urlPath}`,
             });
           }
         }
@@ -687,24 +714,45 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
       .then((r) => r.text())
       .then((html) => {
         const cxList: RawLiveItem[] = [];
-        const regex = /<a[^>]+href="([^"]*(?:caixin\.com\/202\d|finance\.caixin)[^"]*)"[^>]*>([\s\S]*?)<\/a>/g;
+        // 严格匹配具有规范标准日期结构的财新正文链接：caixin.com/YYYY-MM-DD/ID.html，严禁侧边栏往年死链接
+        const regex = /<a[^>]+href="([^"]*caixin\.com\/(\d{4})-(\d{2})-(\d{2})\/(\d+)\.html)"[^>]*>([\s\S]*?)<\/a>/g;
         let m;
         const seenCx = new Set<string>();
+        const now = new Date();
         while ((m = regex.exec(html)) !== null) {
-          const rawTitle = m[2].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
-          if (rawTitle.length >= 8 && !seenCx.has(rawTitle)) {
-            seenCx.add(rawTitle);
-            const fullUrl = m[1].startsWith('http') ? m[1] : `https:${m[1]}`;
-            cxList.push({
-              id: generateIntelId(`CAIXIN_${m[1]}`),
-              wireChannel: 'CH_CAIXIN',
-              title: rawTitle,
-              content: rawTitle,
-              time: formatIntelDateTime(Date.now()),
-              source: '财新网 Caixin',
-              url: fullUrl,
-            });
+          const fullUrl = m[1].startsWith('http') ? m[1] : `https:${m[1]}`;
+          const y = parseInt(m[2], 10);
+          const mo = parseInt(m[3], 10);
+          const d = parseInt(m[4], 10);
+          const rawTitle = m[6].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+          if (rawTitle.length < 8 || seenCx.has(rawTitle)) continue;
+
+          // 严格时效门禁：超过 72 小时（3天）的历史归档严禁作为新新闻抓入！
+          const articleDate = new Date(y, mo - 1, d);
+          const diffDays = (now.getTime() - articleDate.getTime()) / (1000 * 3600 * 24);
+          if (diffDays > 3 || diffDays < -1) {
+            continue;
           }
+
+          seenCx.add(rawTitle);
+
+          // 从 HTML 后续片段中尝试提取真实发布时间（如 <span>2026年09月20日 19:07</span>）
+          const sliceAfter = html.slice(m.index, m.index + 500);
+          const timeMatch = sliceAfter.match(/(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日\s*(\d{1,2}:\d{2})/);
+          let timeStr = `${mo}月${d}日 09:00`;
+          if (timeMatch) {
+            timeStr = `${parseInt(timeMatch[2], 10)}月${parseInt(timeMatch[3], 10)}日 ${timeMatch[4]}`;
+          }
+
+          cxList.push({
+            id: generateIntelId(`CAIXIN_${fullUrl}`),
+            wireChannel: 'CH_CAIXIN',
+            title: rawTitle,
+            content: rawTitle,
+            time: timeStr,
+            source: '财新网 Caixin',
+            url: fullUrl,
+          });
         }
         return { source: '财新网', data: cxList };
       })
@@ -718,24 +766,44 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
       .then((r) => r.text())
       .then((html) => {
         const cxList: RawLiveItem[] = [];
-        const regex = /<a[^>]+href="([^"]*(?:caixin\.com\/202\d|companies\.caixin)[^"]*)"[^>]*>([\s\S]*?)<\/a>/g;
+        const regex = /<a[^>]+href="([^"]*caixin\.com\/(\d{4})-(\d{2})-(\d{2})\/(\d+)\.html)"[^>]*>([\s\S]*?)<\/a>/g;
         let m;
         const seenCx = new Set<string>();
+        const now = new Date();
         while ((m = regex.exec(html)) !== null) {
-          const rawTitle = m[2].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
-          if (rawTitle.length >= 8 && !seenCx.has(rawTitle)) {
-            seenCx.add(rawTitle);
-            const fullUrl = m[1].startsWith('http') ? m[1] : `https:${m[1]}`;
-            cxList.push({
-              id: generateIntelId(`CAIXIN_CO_${m[1]}`),
-              wireChannel: 'CH_CAIXIN',
-              title: rawTitle,
-              content: rawTitle,
-              time: formatIntelDateTime(Date.now()),
-              source: '财新网 Caixin',
-              url: fullUrl,
-            });
+          const fullUrl = m[1].startsWith('http') ? m[1] : `https:${m[1]}`;
+          const y = parseInt(m[2], 10);
+          const mo = parseInt(m[3], 10);
+          const d = parseInt(m[4], 10);
+          const rawTitle = m[6].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+          if (rawTitle.length < 8 || seenCx.has(rawTitle)) continue;
+
+          // 严格时效门禁：超过 72 小时（3天）的历史归档严禁作为新新闻抓入！
+          const articleDate = new Date(y, mo - 1, d);
+          const diffDays = (now.getTime() - articleDate.getTime()) / (1000 * 3600 * 24);
+          if (diffDays > 3 || diffDays < -1) {
+            continue;
           }
+
+          seenCx.add(rawTitle);
+
+          // 从 HTML 后续片段中尝试提取真实发布时间
+          const sliceAfter = html.slice(m.index, m.index + 500);
+          const timeMatch = sliceAfter.match(/(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日\s*(\d{1,2}:\d{2})/);
+          let timeStr = `${mo}月${d}日 09:00`;
+          if (timeMatch) {
+            timeStr = `${parseInt(timeMatch[2], 10)}月${parseInt(timeMatch[3], 10)}日 ${timeMatch[4]}`;
+          }
+
+          cxList.push({
+            id: generateIntelId(`CAIXIN_CO_${fullUrl}`),
+            wireChannel: 'CH_CAIXIN',
+            title: rawTitle,
+            content: rawTitle,
+            time: timeStr,
+            source: '财新网 Caixin',
+            url: fullUrl,
+          });
         }
         return { source: '财新网公司频道', data: cxList };
       })
@@ -798,11 +866,24 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
     }
   }
 
-  // 过滤低信噪比杂音（isNonMarketTrivia 是唯一杂音过滤器，isStockTapeSpam 拦截股票分时噪声）
+  // 过滤低信噪比杂音与陈年旧闻僵尸（isNonMarketTrivia 是唯一杂音过滤器，isStockTapeSpam 拦截股票分时噪声）
   const seen = new Set<string>();
   const deduped: RawLiveItem[] = [];
+  const currentYear = new Date().getFullYear();
 
   for (const item of items) {
+    // 严禁旧闻与历史归档死链接侵入实时候选池：
+    // 若标题或 URL 中明确包含往年年份（如 2017~2025 年），或发布时间跨度超过 72 小时，绝对丢弃！
+    const textAndUrl = `${item.title} ${item.url}`;
+    const pastYearMatch = textAndUrl.match(/\b(201\d|202[0-5])\b/);
+    if (pastYearMatch && !item.title.includes(`${currentYear}`)) {
+      continue;
+    }
+    const hours = getTimeDiffHours(item.time);
+    if (hours > 72) {
+      continue;
+    }
+
     const spillover = evaluateSpilloverImpact(item.title, item.content);
     // 只要命中外溢冲击指标之一，严禁过滤，强制收录！
     if (!spillover.isSpilloverMajor) {
@@ -2637,6 +2718,10 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
     ? '该信息属企业或机构单方自宣/非正式辟谣口径，缺乏独立第三方检测或司法交叉复核，待进一步事实求证。'
     : cross.clarificationNote;
 
+  const hoursDiff = getTimeDiffHours(raw.time);
+  const timeWindow: 'TODAY' | 'HISTORIC' = hoursDiff > 24 ? 'HISTORIC' : 'TODAY';
+  const finalBadge = (timeWindow === 'HISTORIC' && verificationBadge === '⚡ 一手速递') ? '📌 持续发酵' : verificationBadge;
+
   const newsItem: NewsItem = {
     id: raw.id,
     track,
@@ -2654,15 +2739,15 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
     macroInflationBreakdown: macroBreakdown || undefined,
     eventKeyProvisions: eventProvisions || undefined,
     verificationLevel,
-    verificationBadge,
+    verificationBadge: finalBadge,
     crossSourceCount: cross.crossSourceCount,
     hasClarification: cross.hasClarification || isUnilateral,
     clarificationNote,
     sentiment,
     nextWatchlist,
     bullBearDivergence,
-    timeWindow: 'TODAY',
-    spilloverCriterion: (track === 'china_domestic' || track === 'china_policy') && spillover.isSpilloverMajor ? spillover.criteriaName : undefined,
+    timeWindow,
+    spilloverCriterion: (track === 'china_domestic' || track === 'china_policy') && spillover.isSpilloverMajor && hoursDiff <= 48 ? spillover.criteriaName : undefined,
     isUnilateralClaim: isUnilateral,
   };
 
@@ -2743,17 +2828,33 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
     for (const trk of Object.keys(categorizedCandidates) as TrackId[]) {
       const list = categorizedCandidates[trk];
       list.sort((a, b) => {
-        const aSpill = a.spilloverCriterion ? 100 : 0;
-        const bSpill = b.spilloverCriterion ? 100 : 0;
-        const aImpact = a.impactLevel === 1 ? 50 : 0;
-        const bImpact = b.impactLevel === 1 ? 50 : 0;
+        const aHours = getTimeDiffHours(a.publishedAt);
+        const bHours = getTimeDiffHours(b.publishedAt);
+
+        // 超过 48 小时的旧闻剥离重大外溢置顶特权，严防陈年旧闻僵尸霸榜
+        const aSpill = (a.spilloverCriterion && aHours <= 48) ? 80 : 0;
+        const bSpill = (b.spilloverCriterion && bHours <= 48) ? 80 : 0;
+        const aImpact = a.impactLevel === 1 ? 40 : 0;
+        const bImpact = b.impactLevel === 1 ? 40 : 0;
+
+        // 时效性梯级赋分：24小时内 +50，48小时内 +25，超过48小时 0
+        const aRecency = aHours <= 24 ? 50 : (aHours <= 48 ? 25 : 0);
+        const bRecency = bHours <= 24 ? 50 : (bHours <= 48 ? 25 : 0);
+
         let aSourceBonus = 0;
         let bSourceBonus = 0;
         if (trk === 'china_domestic' || trk === 'china_policy') {
-          if (a.source.includes('联合早报') || a.source.includes('财新网')) aSourceBonus = 40;
-          if (b.source.includes('联合早报') || b.source.includes('财新网')) bSourceBonus = 40;
+          if (a.source.includes('联合早报') || a.source.includes('财新网')) aSourceBonus = 20;
+          if (b.source.includes('联合早报') || b.source.includes('财新网')) bSourceBonus = 20;
         }
-        return (bSpill + bImpact + bSourceBonus) - (aSpill + aImpact + aSourceBonus);
+
+        const scoreA = aSpill + aImpact + aRecency + aSourceBonus;
+        const scoreB = bSpill + bImpact + bRecency + bSourceBonus;
+
+        if (scoreB !== scoreA) {
+          return scoreB - scoreA;
+        }
+        return aHours - bHours;
       });
       categorized[trk] = list.slice(0, 8);
     }
