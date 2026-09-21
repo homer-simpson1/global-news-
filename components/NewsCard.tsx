@@ -649,30 +649,6 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
             </div>
           )}
 
-          {/* 市场多空分歧焦点 (Consensus vs Divergence) */}
-          {item.bullBearDivergence && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
-              <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/50">
-                <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-emerald-800 dark:text-emerald-300 mb-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span>多方 · 乐观共识逻辑（押注点）</span>
-                </div>
-                <p className="text-xs text-emerald-950 dark:text-emerald-200 leading-relaxed font-medium">
-                  {item.bullBearDivergence.bullConsensus}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-800/50">
-                <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-rose-800 dark:text-rose-300 mb-1">
-                  <span className="w-2 h-2 rounded-full bg-rose-500" />
-                  <span>空方 · 风险分歧逻辑（担忧点）</span>
-                </div>
-                <p className="text-xs text-rose-950 dark:text-rose-200 leading-relaxed font-medium">
-                  {item.bullBearDivergence.bearDivergence}
-                </p>
-              </div>
-            </div>
-          )}
-
           {item.chinaPolicyAngle && (
             <div className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border-l-4 border-amber-500 text-sm md:text-base leading-relaxed">
               <div className="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1">
