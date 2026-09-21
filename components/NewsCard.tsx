@@ -19,6 +19,7 @@ import {
   MacroInflationBreakdown,
   sanitizeFedRatePolicyWording,
 } from '@/lib/macroInflationEngine';
+import { isDeepPerspectiveEligible, extractDeepPerspective } from '@/lib/deepPerspective';
 
 interface NewsCardProps {
   item: NewsItem;
@@ -222,6 +223,32 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
     return trans;
   }, [item.transmissionImpact, cleanTitle, companyProfile, factParagraph]);
 
+  // 深度透视研判：纯自然灾害与常规伤亡事故严禁伪造深度透视，只有具有深层逻辑的新闻才开启透视
+  const hasDeepPerspective = React.useMemo(() => {
+    return isDeepPerspectiveEligible({
+      title: cleanTitle,
+      content: item.summaryParagraph,
+      summaryParagraph: factParagraph,
+      track: item.track,
+      eventKeyProvisions: item.eventKeyProvisions,
+      macroInflationBreakdown: macroBreakdown,
+      companyProfile,
+    });
+  }, [cleanTitle, item.summaryParagraph, factParagraph, item.track, item.eventKeyProvisions, macroBreakdown, companyProfile]);
+
+  // 深度透视结构化三要素（核心论点 + 事实论据 + 强逻辑链路）
+  const deepContent = React.useMemo(() => {
+    if (!hasDeepPerspective) return null;
+    return extractDeepPerspective({
+      title: cleanTitle,
+      oneLineTakeaway: displayTakeaway,
+      transmissionImpact: displayTransmission,
+      bulletPoints: item.bulletPoints,
+      summary5W1H: item.summary5W1H,
+      summaryParagraph: factParagraph,
+    });
+  }, [hasDeepPerspective, cleanTitle, displayTakeaway, displayTransmission, item.bulletPoints, item.summary5W1H, factParagraph]);
+
   const cardRef = React.useRef<HTMLDivElement>(null);
   const [isNavHighlighted, setIsNavHighlighted] = React.useState(false);
   const highlightTimerRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -232,7 +259,9 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       const ce = e as CustomEvent<{ id?: string; cardId?: string }>;
       const targetId = ce.detail?.id || ce.detail?.cardId;
       if (targetId && targetId === item.id) {
-        setExpanded(true);
+        if (hasDeepPerspective) {
+          setExpanded(true);
+        }
         setIsNavHighlighted(true);
         if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
         highlightTimerRef.current = setTimeout(() => {
@@ -439,26 +468,28 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
               <span>实体查错</span>
             </a>
 
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className={`h-9 min-h-[36px] inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer select-none border active:scale-95 ${
-                expanded ? theme.buttonActive : theme.buttonIdle
-              }`}
-            >
-              <span>{expanded ? '收起透视' : '展开深度透视'}</span>
-              {expanded ? (
-                <ChevronUp className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronDown className="w-3.5 h-3.5" />
-              )}
-            </button>
+            {hasDeepPerspective && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className={`h-9 min-h-[36px] inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer select-none border active:scale-95 ${
+                  expanded ? theme.buttonActive : theme.buttonIdle
+                }`}
+              >
+                <span>{expanded ? '收起透视' : '展开深度透视'}</span>
+                {expanded ? (
+                  <ChevronUp className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                )}
+              </button>
+            )}
           </div>
         </div>
 
         {/* 报道大标题：主旨提炼式，头条突出，自然排版 */}
         <div
-          onClick={() => setExpanded(!expanded)}
-          className="cursor-pointer group mb-3.5"
+          onClick={() => hasDeepPerspective && setExpanded(!expanded)}
+          className={`${hasDeepPerspective ? 'cursor-pointer' : ''} group mb-3.5`}
         >
           <h3
             className={`font-bold text-slate-900 dark:text-slate-100 leading-snug tracking-tight transition-colors ${
@@ -625,19 +656,7 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
           </p>
         </div>
 
-        {/* 核心结论与深度归因：写出底层投研定性与本质逻辑 */}
         <div className="space-y-2.5">
-          <div
-            className={`p-3.5 md:p-4 rounded-xl border-l-4 ${theme.conclusionBorder} ${theme.conclusionBg} dark:bg-slate-800/80 dark:border-l-blue-500 text-sm md:text-base leading-relaxed shadow-xs`}
-          >
-            <div className={`flex items-center gap-1.5 text-xs font-extrabold ${theme.conclusionText} dark:text-blue-400 mb-1.5`}>
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>核心结论 · 底层动因与本质归纳</span>
-            </div>
-            <p className="font-semibold text-slate-900 dark:text-slate-100">{displayTakeaway}</p>
-          </div>
-
-
           {/* 下一步观察哨（关键时间窗口 / 待验证指标） */}
           {item.nextWatchlist && (
             <div className="p-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/90 dark:border-indigo-800/60 text-xs md:text-sm text-indigo-950 dark:text-indigo-200 flex items-start gap-2 shadow-xs">
@@ -678,7 +697,11 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
               hasClarification={item.hasClarification}
               clarificationNote={item.clarificationNote}
               companyProfile={companyProfile || undefined}
+              macroInflationBreakdown={macroBreakdown || undefined}
               keyProvisions={item.eventKeyProvisions}
+              thesis={deepContent?.thesis}
+              evidence={deepContent?.evidence}
+              logicChain={deepContent?.logicChain}
               onClose={() => setExpanded(false)}
             />
 

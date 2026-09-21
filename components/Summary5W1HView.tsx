@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Summary5W1H, EventKeyProvisions } from '@/lib/types';
-import { FileText, AlertTriangle, X, Building2, BarChart3, Layers, Activity, ShieldAlert, FileCheck } from 'lucide-react';
+import { FileText, AlertTriangle, X, Building2, BarChart3, Layers, Activity, ShieldAlert, FileCheck, Sparkles, CheckCircle2, GitBranch } from 'lucide-react';
 import { CompanyProfile, getCompanyProfileForNews } from '@/lib/companyProfiles';
 import {
   getMacroInflationBreakdown,
@@ -29,6 +29,9 @@ interface Summary5W1HViewProps {
   companyProfile?: CompanyProfile;
   macroInflationBreakdown?: MacroInflationBreakdown;
   keyProvisions?: EventKeyProvisions;
+  thesis?: string;
+  evidence?: string[];
+  logicChain?: string;
   onClose?: () => void;
 }
 
@@ -44,6 +47,9 @@ export default function Summary5W1HView({
   companyProfile,
   macroInflationBreakdown,
   keyProvisions,
+  thesis,
+  evidence,
+  logicChain,
   onClose,
 }: Summary5W1HViewProps) {
   // 1. 如果已有预生成的 5W1H 一段总结，且格式合规，直接使用
@@ -254,11 +260,51 @@ export default function Summary5W1HView({
         );
       })()}
 
-      {/* 核心段落总结 */}
-      <div className="p-5 md:p-6 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 shadow-sm">
-        <p className="text-base md:text-lg text-slate-800 dark:text-slate-200 leading-relaxed md:leading-loose tracking-wide text-justify font-normal indent-8">
-          {paragraph}
-        </p>
+      {/* 独家深度透视 · 核心论点、论据与强逻辑链路 */}
+      <div className="p-4 md:p-5 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 shadow-sm space-y-3.5">
+        {/* 1. 独家核心论点 */}
+        {thesis && (
+          <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border-l-4 border-blue-600 text-sm md:text-base">
+            <div className="text-xs font-black text-blue-900 dark:text-blue-300 mb-1 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>【独家解读 · 核心论点】</span>
+            </div>
+            <p className="font-bold text-slate-900 dark:text-slate-100 leading-relaxed">
+              {thesis}
+            </p>
+          </div>
+        )}
+
+        {/* 2. 支撑论据 */}
+        {evidence && evidence.length > 0 && (
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-700/80 text-xs md:text-sm">
+            <div className="font-extrabold text-slate-800 dark:text-slate-200 mb-1.5 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>【底层硬核事实 · 关键论据】</span>
+            </div>
+            <ul className="space-y-1.5 text-slate-700 dark:text-slate-300">
+              {evidence.map((ev, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">•</span>
+                  <span>{ev}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* 3. 强逻辑传导路径 */}
+        {logicChain && (
+          <div className="p-3.5 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-xs md:text-sm">
+            <div className="font-extrabold text-indigo-950 dark:text-indigo-300 mb-1.5 flex items-center gap-1.5">
+              <GitBranch className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span>【强逻辑演绎 · 一级传导链路】</span>
+            </div>
+            <div className="text-indigo-950 dark:text-indigo-200 font-medium leading-relaxed">
+              {logicChain}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 重大事件具体内容与核心条款穿透清单 (解答“具体内容是什么”) */}

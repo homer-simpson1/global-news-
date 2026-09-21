@@ -400,6 +400,56 @@ check('Gate 11: 坚决拦截行情分时流水账与无主语残缺截断标题�
 });
 
 // -------------------------------------------------------------
+// 门禁 12: 事实通报与独家深度透视严格分工红线（铲除复读机与灾害假解读）
+// -------------------------------------------------------------
+check('Gate 12: 事实通报与独家深度透视严格分工红线', () => {
+  const newsCardPath = path.join(ROOT, 'components', 'NewsCard.tsx');
+  const newsCardContent = fs.readFileSync(newsCardPath, 'utf8');
+
+  // 12.1 卡片正面严禁保留实质重复的“核心结论 · 底层动因与本质归纳”
+  if (newsCardContent.includes('核心结论 · 底层动因与本质归纳')) {
+    throw new Error('components/NewsCard.tsx 仍保留无实质内容的“核心结论 · 底层动因与本质归纳”展示框，违背用户彻底删除指令！');
+  }
+
+  // 12.2 卡片必须引入 isDeepPerspectiveEligible 进行深度透视展开资格研判
+  if (!newsCardContent.includes('isDeepPerspectiveEligible') || !newsCardContent.includes('hasDeepPerspective')) {
+    throw new Error('components/NewsCard.tsx 缺少 isDeepPerspectiveEligible 或 hasDeepPerspective 深度透视准入门禁！');
+  }
+
+  // 12.3 Summary5W1HView 展开层绝对禁止粗暴复读事实通报一段式段落
+  const summary5w1hPath = path.join(ROOT, 'components', 'Summary5W1HView.tsx');
+  const summary5w1hContent = fs.readFileSync(summary5w1hPath, 'utf8');
+  if (summary5w1hContent.includes('【事件深度透视 · 核心要务归纳】') && summary5w1hContent.includes('{paragraph}')) {
+    throw new Error('components/Summary5W1HView.tsx 存在粗暴复读事实通报段落的冗余展示框！');
+  }
+
+  // 12.4 lib/deepPerspective.ts 核心规则审校
+  const deepPerspectivePath = path.join(ROOT, 'lib', 'deepPerspective.ts');
+  const deepPerspectiveContent = fs.readFileSync(deepPerspectivePath, 'utf8');
+
+  if (!deepPerspectiveContent.includes('PURE_FACTUAL_DISASTER_REGEX') || !deepPerspectiveContent.includes('泥石流|地震|山洪')) {
+    throw new Error('lib/deepPerspective.ts 缺少 PURE_FACTUAL_DISASTER_REGEX 或关键自然灾害关键词定义！');
+  }
+
+  if (!deepPerspectiveContent.includes('isPureDisasterOrAccident') || !deepPerspectiveContent.includes('return false;')) {
+    throw new Error('lib/deepPerspective.ts 缺少对纯自然灾害免除深度透视的拦截逻辑！');
+  }
+
+  // 12.5 正则逻辑实测：泥石流与地震险情必须命中灾害排除正则
+  const disasterRegexMatch = deepPerspectiveContent.match(/export const PURE_FACTUAL_DISASTER_REGEX\s*=\s*(\/[^\/]+\/);/);
+  if (!disasterRegexMatch) {
+    throw new Error('未能提取 lib/deepPerspective.ts 中的 PURE_FACTUAL_DISASTER_REGEX 正则表达式');
+  }
+  const disasterRegex = new RegExp(disasterRegexMatch[1].slice(1, -1));
+  if (!disasterRegex.test('四川盐边县泥石流致两人死亡三人失联')) {
+    throw new Error('PURE_FACTUAL_DISASTER_REGEX 未能命中泥石流灾情！');
+  }
+  if (!disasterRegex.test('四川泸定发生4.8级地震')) {
+    throw new Error('PURE_FACTUAL_DISASTER_REGEX 未能命中地震灾情！');
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {
