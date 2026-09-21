@@ -228,6 +228,24 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
     title = `${title}，${supplement}`;
   }
 
+  // H. 拦截并修复无主语断裂残片（如“分别涨4.77%...”、“其中3.6%...”）
+  const isHeadless =
+    /^(?:分别|其中|包括|以及|并且|而|且|但|导致|受此影响|据称|据悉|同时|涨超|跌超|分别涨|分别跌|超|达|[0-9.]+%|[涨跌][0-9.]+%)/.test(title) ||
+    /^[0-9.%,、，\s]+$/.test(title);
+
+  if (isHeadless) {
+    if (context?.what && context.what.length >= 6 && !/^(?:分别|其中|包括)/.test(context.what)) {
+      title = context.what.slice(0, 26);
+    } else if (context?.takeaway && context.takeaway.length >= 6) {
+      const takeClean = context.takeaway.replace(/^[【\[][^】\]]+[】\]]\s*[:：]?\s*/, '').slice(0, 26);
+      title = takeClean;
+    }
+  }
+
+  // 严禁截断切在数字中间（例如将 3.32% 截成 3.3）或尾部遗留顿号/逗号/残缺连接词
+  title = title.replace(/(?:[0-9.]+|%)[^0-9%]*$/, (m) => (m.includes('%') ? m : ''));
+  title = title.replace(/[，,、；;：:\s及与和等并为了保证以实现]+$/, '').trim();
+
   // 明确 LPR 主权主体（中国）：防止无国别信息
   if (/(?:^[0-9]+月)?\s*lpr/i.test(title) || /贷款市场报价利率/i.test(title)) {
     if (!/中国|我国|人民银行|央行|pboc/i.test(title)) {

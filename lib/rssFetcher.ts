@@ -418,10 +418,10 @@ export function evaluateSpilloverImpact(title: string, content: string): Spillov
 
 // ==========================================
 // 【股票分时跳动与券商炒作噪音严防引擎】
-// 坚决扑灭：纯行情流水账、个股涨跌停、板块跟风、券商IPO造势等投机噪音
+// 坚决扑灭：纯行情流水账、个股涨跌停、板块跟风、转债分时、券商IPO造势等投机噪音
 // ==========================================
 export const STOCK_TAPE_SPAM_REGEX =
-  /涨停|跌停|持续拉升|盘中拉升|高开|低开|跳水|翻红|转涨|转跌|触及涨停|触及跌停|盘中异动|主力净流入|概念股|个股|板块走强|板块拉升|板块走低|板块下挫|板块领涨|板块领跌|指数涨超|指数跌超|震荡走高|震荡走低|创业板指|深证成指|上证指数|北证50|科创50|沪深300|中证500|中证1000|北向资金|净买入|净卖出|换手率|超大单|资金净流出|资金净流入|净流出超|净流入超|连板|首板|二连板|回落|探底回升|日内跌幅|日内涨幅|上市在即|拟上市|报[0-9.]+点|涨幅扩大至|跌幅扩大至|早盘高开|开盘调整|开盘走高|成交额超|ETF份额|ETF净流入|券商提前布局|研报维持|目标价|买入评级|增持评级|盘前必读|早盘必读|见闻早餐|午盘总结|收盘评述|尾盘拉升/;
+  /涨停|跌停|持续拉升|盘中拉升|高开|低开|跳水|翻红|转涨|转跌|触及涨停|触及跌停|盘中异动|主力净流入|概念股|个股|板块走强|板块拉升|板块走低|板块下挫|板块领涨|板块领跌|指数涨超|指数跌超|震荡走高|震荡走低|创业板指|深证成指|上证指数|北证50|科创50|沪深300|中证500|中证1000|中证转债|转债|可转债|北向资金|净买入|净卖出|换手率|超大单|资金净流出|资金净流入|净流出超|净流入超|连板|首板|二连板|回落|探底回升|日内跌幅|日内涨幅|上市在即|拟上市|报[0-9.]+点|涨幅扩大至|跌幅扩大至|早盘高开|开盘调整|开盘走高|开盘走低|开盘上涨|开盘下跌|早盘拉升|早盘下挫|涨幅居前|跌幅居前|分别涨|分别跌|成交额超|ETF份额|ETF净流入|券商提前布局|研报维持|目标价|买入评级|增持评级|盘前必读|早盘必读|见闻早餐|午盘总结|收盘评述|尾盘拉升/;
 
 export function isStockTapeSpam(title: string, content: string): boolean {
   const text = (title + ' ' + content).toLowerCase();
@@ -431,6 +431,15 @@ export function isStockTapeSpam(title: string, content: string): boolean {
       text
     );
   if (isCriticalEvent) return false;
+
+  // 严厉拦截：纯开盘/收盘行情分时、转债涨跌幅排名、涨幅/跌幅居前分别涨等流水账
+  if (
+    /分别[涨跌][0-9.]+%|(?:涨幅|跌幅)居前|转债.*指数开盘|指数开盘(?:上涨|下跌)|开盘(?:上涨|下跌)[0-9.]+%/.test(
+      text
+    )
+  ) {
+    return true;
+  }
   return STOCK_TAPE_SPAM_REGEX.test(text);
 }
 
@@ -843,7 +852,13 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
         // 核心守卫：修复财经快讯对美联储降息周期 "Rate Cut" 的灾难性机翻颠倒（加息/上调 -> 降息/下调）
         text = sanitizeFedRatePolicyWording(text);
 
-        let title = (raw.title || text.split('\n')[0].replace(/【.*?】/, '')).trim();
+        // 优先提取第一句完整断句（句号或换行），严防通篇流水账被整段灌入标题
+        const firstSentence = text.split(/[。\n]/)[0].replace(/【.*?】/g, '').trim();
+        let title = (raw.title || firstSentence).trim().replace(/【.*?】/g, '').trim();
+        // 严禁提取出无主语流水账（如“分别涨4.77%...”）
+        if (/^(?:分别|其中|包括|以及|并且|而|且|但|[0-9.]+%|[涨跌][0-9.]+%)/.test(title)) {
+          continue;
+        }
         title = sanitizeFedRatePolicyWording(title).slice(0, 70);
         const time = formatIntelDateTime(raw.display_time);
 
@@ -1679,25 +1694,26 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
 
   // 5. 严格控制字数在 22~28 个汉字区间，自然断句，绝不机械硬性腰斩
   if (title.length > 28) {
+    const isHeadlessClause = (c: string) =>
+      /^(?:分别|其中|包括|以及|并且|而|且|但|导致|受此影响|据称|据悉|同时|涨超|跌超|分别涨|分别跌|超|达|[0-9.]+%|[涨跌][0-9.]+%)/.test(c) ||
+      /^[^a-zA-Z\u4e00-\u9fa5]+$/.test(c);
+
     // 优先基于自然分句提取完整语义
     const clauses = title.split(/[，,；;]/).map((s) => s.trim()).filter(Boolean);
     if (clauses.length >= 2) {
-      if (clauses[1].length >= 20 && clauses[1].length <= 32) {
-        title = clauses[1];
-      } else if (clauses[0].length >= 20 && clauses[0].length <= 32) {
+      // 必须优先选用带主语的核心分句 clauses[0]，严禁选出“分别涨...”等无头从句
+      if (clauses[0].length >= 20 && clauses[0].length <= 32 && !isHeadlessClause(clauses[0])) {
         title = clauses[0];
+      } else if (clauses[1].length >= 20 && clauses[1].length <= 32 && !isHeadlessClause(clauses[1])) {
+        title = clauses[1];
       } else {
         const joined = `${clauses[0]}，${clauses[1]}`;
-        if (joined.length <= 32) {
+        if (joined.length <= 32 && !isHeadlessClause(joined)) {
           title = joined;
+        } else if (!isHeadlessClause(clauses[0])) {
+          title = clauses[0].slice(0, 32);
         } else {
-          const sub = title.slice(0, 32);
-          const punc = Math.max(sub.lastIndexOf('，'), sub.lastIndexOf(' '));
-          if (punc >= 20) {
-            title = sub.slice(0, punc);
-          } else {
-            title = sub;
-          }
+          title = title.slice(0, 32);
         }
       }
     } else {
@@ -1744,6 +1760,10 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
       title = `${title}，${suffix}`;
     }
   }
+
+  // 严禁截断切在数字中间（例如将 3.32% 截成 3.3）或尾部遗留顿号/逗号/残缺连接词
+  title = title.replace(/(?:[0-9.]+|%)[^0-9%]*$/, (m) => (m.includes('%') ? m : ''));
+  title = title.replace(/[，,、；;：:\s及与和等并为了保证以实现]+$/, '').trim();
 
   // 终极安全脱水：再次剔除所有自媒体口水词与非法标点
   title = title.replace(/[！!？?]/g, '，').replace(/……|\.{2,}/g, '').replace(/^[，,\s]+|[，,\s]+$/g, '');
@@ -2648,6 +2668,19 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
 
   // 5. 单篇独立标题润色与 5W1H/深度小结推导
   enrichedTitle = enrichHeadline(cleanRawTitle, cleanRawContent, track);
+
+  // 5.0 绝对拦截无主语断裂残片（如“分别涨4.77%...”）与纯数字代码流水账
+  const isHeadlessTitle =
+    /^(?:分别|其中|包括|以及|并且|而|且|但|导致|受此影响|据称|据悉|同时|涨超|跌超|分别涨|分别跌|超|达|[0-9.]+%|[涨跌][0-9.]+%)/.test(
+      enrichedTitle.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim()
+    ) ||
+    /^[^a-zA-Z\u4e00-\u9fa5]+$/.test(enrichedTitle) ||
+    /^[0-9.%,、，\s]+$/.test(enrichedTitle.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim());
+
+  if (isHeadlessTitle) {
+    console.warn(`[HEADLESS TITLE REJECTED] 拦截无主语残缺标题: "${enrichedTitle}"`);
+    return null;
+  }
   summary5W1H = build5W1HSummary(enrichedTitle, cleanRawContent, raw.time, primary.source, track);
   summaryParagraph = build5W1HParagraph(summary5W1H, enrichedTitle, cleanRawContent, primary.source);
   coreTakeaway = generateCoreTakeaway(enrichedTitle, cleanRawContent, track, summary5W1H);

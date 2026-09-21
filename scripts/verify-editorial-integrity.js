@@ -375,6 +375,31 @@ check('Gate 10: 实时新闻抓取时效性与禁止陈年旧闻伪造当前时�
 });
 
 // -------------------------------------------------------------
+// 门禁 11: 坚决拦截行情分时流水账与无主语残缺截断标题硬门禁 (Ticker Tape Spam & Headless Title Gate)
+// -------------------------------------------------------------
+check('Gate 11: 坚决拦截行情分时流水账与无主语残缺截断标题硬门禁', () => {
+  const fetcherPath = path.join(ROOT, 'lib', 'rssFetcher.ts');
+  const fetcherContent = fs.readFileSync(fetcherPath, 'utf8');
+
+  // 11.1 STOCK_TAPE_SPAM_REGEX 必须覆盖开盘上涨/下跌、转债、分别涨跌等流水账
+  if (!fetcherContent.includes('中证转债') || !fetcherContent.includes('开盘上涨') || !fetcherContent.includes('分别涨')) {
+    throw new Error('lib/rssFetcher.ts 缺少针对转债分时、开盘涨跌及分别涨跌流水账的拦截规则！');
+  }
+
+  // 11.2 enrichHeadline 与 processSingleItemIsolated 必须严密拦截无主语从句 (isHeadlessClause / isHeadlessTitle)
+  if (!fetcherContent.includes('isHeadlessClause') || !fetcherContent.includes('isHeadlessTitle')) {
+    throw new Error('lib/rssFetcher.ts 缺少 isHeadlessClause 或 isHeadlessTitle 无主语标题熔断防御！');
+  }
+
+  // 11.3 autoCorrectTitle 必须具备无主语断裂残片自愈逻辑
+  const healingPath = path.join(ROOT, 'lib', 'selfHealingEngine.ts');
+  const healingContent = fs.readFileSync(healingPath, 'utf8');
+  if (!healingContent.includes('isHeadless') || !healingContent.includes('分别涨|分别跌')) {
+    throw new Error('lib/selfHealingEngine.ts autoCorrectTitle 缺少无主语断裂残片自动纠偏修复逻辑！');
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {
@@ -392,6 +417,7 @@ if (errors.length > 0) {
   console.log('   - 0 处标题感叹号/问号/省略号，且全量口水词库 100% 清零');
   console.log('   - 100% 深度传导遵循 1-Hop 一级直接因果，5W1H 结论定性全闭环');
   console.log('   - 100% 爬虫时效真实归因，严禁 Date.now() 伪造时间戳与陈年僵尸旧闻霸榜');
+  console.log('   - 100% 物理拦截 A股盘中分时流水账，严禁“分别涨...”无主语残缺半截数字标题');
   console.log('================================================================\n');
   process.exit(0);
 }
