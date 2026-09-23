@@ -833,6 +833,120 @@ check('Gate 19: 标题断裂自愈与核心结论跨实体防张冠李戴审校'
 });
 
 // -------------------------------------------------------------
+// 门禁 20: 动态端到端采编流质量与全链路防踩踏实测门禁 (Gate 20)
+// 彻底消灭静态门禁“掩耳盗铃”，对真实网络采编全链路实施端到端运行时断言
+// -------------------------------------------------------------
+check('Gate 20: 动态端到端采编流质量与全链路防踩踏实测门禁', () => {
+  const ts = require('typescript');
+  const Module = require('module');
+  const origResolve = Module._resolveFilename;
+  Module._resolveFilename = function (req, p, m, o) {
+    if (req.startsWith('@/')) req = path.join(ROOT, req.slice(2));
+    return origResolve.call(this, req, p, m, o);
+  };
+  require.extensions['.ts'] = function (module, filename) {
+    const content = fs.readFileSync(filename, 'utf8');
+    const compiled = ts.transpileModule(content, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+        esModuleInterop: true,
+      },
+    });
+    module._compile(compiled.outputText, filename);
+  };
+
+  const { detectPrimarySource, cleanWireHeadline, isCalendarOrDigestSpam } = require('../lib/rssFetcher.ts');
+  const { getCompanyProfileForNews } = require('../lib/companyProfiles.ts');
+  const { autoCorrectTrack, autoCorrectTakeaway, autoCorrectInterestTransmission } = require('../lib/selfHealingEngine.ts');
+
+  // 20.1 真实信源归因断言：严禁向国内权威部委/交易所通报强加路透/彭博标签
+  const scioSource = detectPrimarySource('国新办开局起步发布会：国家粮食局介绍大国粮仓', '', '财联社');
+  if (scioSource.source.includes('路透') || scioSource.source.includes('彭博')) {
+    throw new Error(`信源伪造违规：国新办发布会信源被篡改为外媒 "${scioSource.source}"`);
+  }
+  const mysteelSource = detectPrimarySource('据上海钢联发布数据显示，今日电池级碳酸锂持平', '', '华尔街见闻');
+  if (mysteelSource.source.includes('彭博') || mysteelSource.source.includes('路透')) {
+    throw new Error(`信源伪造违规：上海钢联价格被篡改为外媒 "${mysteelSource.source}"`);
+  }
+  const shiborSource = detectPrimarySource('全国银行间同业拆借中心公布隔夜SHIBOR利率', '', '东方财富');
+  if (shiborSource.source.includes('彭博') || shiborSource.source.includes('路透')) {
+    throw new Error(`信源伪造违规：同业拆借中心利率被篡改为外媒 "${shiborSource.source}"`);
+  }
+
+  // 20.2 幽灵企业实体识别断言：严禁将股市行情、分时短语识别为公司
+  const phantom1 = getCompanyProfileForNews('美股期货小幅走高，标普500指数期货上涨0.3%');
+  if (phantom1 !== null) {
+    throw new Error(`幽灵企业违规：将股市行情“美股期货”虚构为公司主体 "${phantom1.name}"`);
+  }
+  const phantom2 = getCompanyProfileForNews('道指大跌但科技股反弹，纳斯达克指数震荡');
+  if (phantom2 !== null) {
+    throw new Error(`幽灵企业违规：将行情短语“道指大跌但科技”虚构为公司主体 "${phantom2.name}"`);
+  }
+
+  // 20.3 跨国跨界张冠李戴断言：外交会谈严禁套用澳洲央行降息，且必须转轨至 china_policy
+  const diplomacyTrack = autoCorrectTrack('us_macro', '赵乐际同澳大利亚联邦议会众议长迪克会谈');
+  if (diplomacyTrack.track !== 'china_policy') {
+    throw new Error(`赛道误判违规：中澳高层会见未正确归入 china_policy，当前为 "${diplomacyTrack.track}"`);
+  }
+  const diplomacyTakeaway = autoCorrectTakeaway('', '赵乐际同澳大利亚联邦议会众议长迪克会谈', undefined, 'china_policy');
+  if (diplomacyTakeaway.takeaway.includes('澳洲联储') || diplomacyTakeaway.takeaway.includes('RBA') || diplomacyTakeaway.takeaway.includes('降息')) {
+    throw new Error(`张冠李戴违规：中澳高层外事会见被强行套用澳洲联储货币政策 "${diplomacyTakeaway.takeaway}"`);
+  }
+
+  // 20.4 传导链乱匹配断言：普通股指期货严禁套用 IPO 募资与芯片流片
+  const futuresTransmission = autoCorrectInterestTransmission('美股期货小幅走高，标普500指数期货上涨0.3%', '');
+  if (futuresTransmission.transmission.includes('IPO') || futuresTransmission.transmission.includes('流片') || futuresTransmission.transmission.includes('资本公积')) {
+    throw new Error(`逻辑混乱违规：普通指数期货被错误套用企业 IPO 募资流片传导 "${futuresTransmission.transmission}"`);
+  }
+
+  // 20.5 日历垃圾过滤断言：日程提醒与发刊排班必须彻底过滤
+  const isSpam = isCalendarOrDigestSpam('提醒，日内请重点关注（以下均为北京时间）：芝加哥联储主席古尔斯比发表讲话', '');
+  if (!isSpam) {
+    throw new Error('日历噪音过滤违规：日程排班提醒未被识别为垃圾噪音！');
+  }
+
+  // 20.6 标题前置噪音清洗断言：引语提示与行业前缀必须剥离
+  const cleanedHeadline = cleanWireHeadline('产业链人士：特斯拉机器人团队在长三角审厂');
+  if (cleanedHeadline.includes('产业链人士：') || cleanedHeadline.includes('产业链人士，')) {
+    throw new Error(`标题前置定语清洗失败："${cleanedHeadline}"`);
+  }
+});
+
+// -------------------------------------------------------------
+// 门禁 21: 杜绝陈旧过期种子混入实时流门禁 (Zero Stale Date Gate)
+// -------------------------------------------------------------
+check('Gate 21: 严禁 9月9日 历史僵尸旧闻与实时流种子污染门禁', () => {
+  const seedNewsPath = path.join(ROOT, 'data', 'seedNews.ts');
+  const seedDataPath = path.join(ROOT, 'data', 'seedData.ts');
+  const rssFetcherPath = path.join(ROOT, 'lib', 'rssFetcher.ts');
+  const pagePath = path.join(ROOT, 'app', 'page.tsx');
+
+  const seedNewsContent = fs.readFileSync(seedNewsPath, 'utf8');
+  const seedDataContent = fs.readFileSync(seedDataPath, 'utf8');
+  const rssFetcherContent = fs.readFileSync(rssFetcherPath, 'utf8');
+  const pageContent = fs.readFileSync(pagePath, 'utf8');
+
+  // 21.1 种子库严禁包含 9月9日 陈旧日期
+  if (seedNewsContent.includes('9月9日')) {
+    throw new Error('data/seedNews.ts 依然包含 "9月9日" 陈年旧日期！必须全部更新至当前时效！');
+  }
+  if (seedDataContent.includes('9月9日')) {
+    throw new Error('data/seedData.ts 依然包含 "9月9日" 陈年旧日期！必须全部更新至当前时效！');
+  }
+
+  // 21.2 严禁在实时抓取后向专区赛道硬塞 SEED_NEWS_ITEMS
+  if (rssFetcherContent.includes('const seeds = SEED_NEWS_ITEMS.filter')) {
+    throw new Error('lib/rssFetcher.ts 存在向实时新闻赛道硬塞 SEED_NEWS_ITEMS 的违规代码！必须使用实时候选池！');
+  }
+
+  // 21.3 前端 localStorage 必须包含主动清空 9月9日 脏缓存的守卫
+  if (!pageContent.includes('hasStaleDateNews') || !pageContent.includes('9月9日')) {
+    throw new Error('app/page.tsx 缺少针对 9月9日 历史脏缓存的主动清理守卫！');
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {

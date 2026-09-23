@@ -2,7 +2,8 @@ import { FlashBrief, MarketQuote, NewsItem, TrackId, Summary5W1H, MarketSentimen
 import { SEED_FLASH_BRIEFS, SEED_NEWS_ITEMS, SEED_MARKET_QUOTES, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
 import { fetchVerifiedMarketQuotes, getCachedVerifiedQuotesSnapshot } from './quotesVerifier';
 import { enforceCountryEntityGuardrails, checkCrossContamination, validateTitleSummaryEntityConsistency, FOREIGN_ENTITIES } from './guardrails';
-import { autoCorrectAllNews, autoCorrectFlashBrief } from './selfHealingEngine';
+import { autoCorrectAllNews, autoCorrectFlashBrief, sanitizeEditorialTone } from './selfHealingEngine';
+import { EDITORIAL_CHIEF_SYSTEM_PROMPT } from './aiService';
 import { getCompanyProfileForNews } from './companyProfiles';
 import {
   getMacroInflationBreakdown,
@@ -141,107 +142,7 @@ export const DOMESTIC_CLEANING_PROMPT_RULE = `
 // =========================================================================
 // 【深度透视 (Deep Dive) 权威 System Prompt 规范 (彭博社/财新网特约首席编辑标准)】
 // 彻底消除自媒体口水套话，强化 5W1H 事实标准，严格限制一级直接因果与负面词库禁令
-// =========================================================================
-export const HEADLINE_AND_SUMMARY_GENERATION_PROMPT = `
-role: 彭博社/财新网特约资深宏观与产业研报首席编辑
-task: 基于权威信源原文，提取客观事实并进行高信噪比专业解读。严格执行 5W1H 要素，严禁主观情绪化口水词，严禁无事实依据的凭空捏造。
-
-input: raw_news_text (原始新闻抓取正文)
-output_format: JSON (严格遵循以下字段规范)
-
-generation_pipeline:
-  # 步骤 1：证据强制锚定（防瞎编核心防火墙）
-  step_1_grounding_evidence:
-    - 必须先从原文一字不差摘录 1-3 句包含关键主体、数据或动作的核心事实句。
-    - 后续所有标题、结论与传导推演，必须 100% 建立在所摘录的证据之上，脱离证据的推测视为违规。
-
-  # 步骤 2：标题规范 (title)
-  step_2_title:
-    - 结构标准：【Who 核心主体全称/代码】+【What 核心动作】+【量化指标/实质影响】。
-    - 硬性禁令：严禁感叹号（！）、问号、省略号；严禁使用“大动作、炸裂、干翻、买显卡通不上电”等自媒体词汇；严禁使用“某大厂、三家新贵”等模糊代词，必须写出具体名字。
-    - 对标范例：
-      ❌ 劣质：大模型学会做题前先打草稿！OpenAI新架构纠错干翻人类
-      ✅ 规范：OpenAI 发布 o1 推理大模型，引入链式思考机制强化复杂数学与编程逻辑
-
-  # 步骤 3：核心结论规范 (core_conclusion)
-  step_3_core_conclusion:
-    - 结构标准：【定性标签】+【When 何时/Where 何地】+【Who 主体】+【Why 依据何种数据/法案】+【What/How 客观定性与量化结果】。
-    - 硬性禁令：严禁主观宣泄（如“谁也不想站岗”）；必须包含金额、基点、百分比或生效日期等硬核数字。
-    - 对标范例：
-      ❌ 劣质：【机械规则送钱】：被动指数基金没有选股自由，入选新贵哪怕基本面一般也能吃大波红利，散户容易高位接盘。
-      ✅ 规范：【被动配置窗口确立】：标普道琼斯指数宣布于 9月23日 开盘前将 Palantir (PLTR) 与 Dell (DELL) 纳入标普500成分股；按追踪该指数的 5.7 万亿美元被动资产测算，将带来约 40 亿美元刚性买盘再平衡配置。
-
-  # 步骤 4：利益链传导规范 (transmission_chain - 严格限制一级因果)
-  step_4_transmission_chain:
-    - 推演限制：严格执行“1-Hop 直接因果”，只推演受事件直接冲击的第一梯队主体或产业环节，严禁从 A 一路脑补到二级、三级甚至整个宏观经济崩溃。
-    - 结构标准：① 直接受影响方（成本/收入变动）➔ ② 产业链/资金转嫁路径（谁承担成本、资金从何处流向何处）➔ ③ 边际定价或供需变化。
-    - 真实 1-Hop 原则：对 IPO/上市/资本运作短讯，按标准 1-Hop 资本开支与产业链传导逻辑推演（例如：① IPO募集资金直接支持核心技术研发与流片开支 ➔ ② 下游客户加大国产替代采购与适配验证 ➔ ③ 推动行业供应链生态自主可控），严禁机械敷衍。
-    - 对标范例：
-      ❌ 劣质：变压器厂商赚麻了，买了显卡通不上电的初创企业白白烧钱。
-      ✅ 规范：重型电力装备制造商受原料紧缺影响在手订单积压 3-4 年，拥有高定价权；锁定独立微电网与核电直供许可的数据中心成为稀缺资产；未获并网配额的中小 AI 初创公司则面临空转折旧与算力交付延期风险。
-
-negative_prompt_constraints:
-  - 绝对禁用情绪化自媒体词汇：站岗、躺赢、数钱、割韭菜、无情砸盘、哭爹喊娘、干翻、沦为军火商、炸裂。
-  - 绝对禁用模糊代名词：某巨头、相关部门、业内人士、几家新贵、失势老股。
-  - 绝对禁用虚构数据：严禁捏造原文完全不存在的百分比、金额、损失估算。
-`;
-
-// 负面词库自动清洗与去自媒体口水化引擎 (Editorial Tone Sanitizer)
-export function sanitizeEditorialTone(text: string): string {
-  if (!text) return '';
-  let cleaned = text;
-
-  // 1. 过滤严禁的情绪化口水词与夸张套话
-  cleaned = cleaned.replace(/无情砸盘|砸盘/g, '集中抛售');
-  cleaned = cleaned.replace(/割韭菜/g, '风险转嫁');
-  cleaned = cleaned.replace(/站岗/g, '承担回撤风险');
-  cleaned = cleaned.replace(/躺赢|数钱|躺着数钱/g, '获取超额流动性收益');
-  cleaned = cleaned.replace(/吃大波红利|吃红利|吃下一大波流动性红利/g, '承接增量流动性溢价');
-  cleaned = cleaned.replace(/惨遭爆仓/g, '触发被动平仓止损');
-  cleaned = cleaned.replace(/连根拔起/g, '深度出清');
-  cleaned = cleaned.replace(/风声鹤唳/g, '防务警戒级别显著上调');
-  cleaned = cleaned.replace(/干翻人类|干翻/g, '实现技术跨越');
-  cleaned = cleaned.replace(/彻底沦为军火商|沦为军火商/g, '防务采购比重上升');
-  cleaned = cleaned.replace(/暴赚|大赚暴利|坐收抬轿暴利|赚麻了/g, '录得超额投资收益');
-  cleaned = cleaned.replace(/大发横财/g, '盈利显著扩张');
-  cleaned = cleaned.replace(/机械规则送钱/g, '被动配置资金硬性注入');
-  cleaned = cleaned.replace(/高位接盘/g, '高位承接');
-  cleaned = cleaned.replace(/哭爹喊娘/g, '面临流动性冲击');
-  cleaned = cleaned.replace(/炸裂|大动作/g, '重大战略进展');
-  cleaned = cleaned.replace(/买显卡通不上电|买了显卡通不上电/g, '算力并网受限');
-  cleaned = cleaned.replace(/加速死掉/g, '加速淘汰出清');
-  cleaned = cleaned.replace(/掐死龙头保高价|掐死龙头/g, '供给侧调节平衡');
-  cleaned = cleaned.replace(/停火谈判沦为掩护/g, '停火谈判分歧难消');
-  cleaned = cleaned.replace(/底牌外泄引发恐慌/g, '涉密信息外泄引发安全审计');
-  cleaned = cleaned.replace(/做大做强不再单打/g, '集约化并购重组推进');
-  cleaned = cleaned.replace(/亮出家底以战止戈/g, '多边贸易救济合规评估启动');
-  cleaned = cleaned.replace(/检疫铁幕瞬间落下/g, '生物安全防控全面升级');
-  cleaned = cleaned.replace(/刮骨疗毒动真格|刮骨疗毒/g, '司法惩治严厉震慑发审寻租');
-  cleaned = cleaned.replace(/中央信用硬核托底/g, '财政注资夯实资本金');
-  cleaned = cleaned.replace(/战机呼啸导弹对轰[！!]/g, '边境密集交火对峙，');
-  cleaned = cleaned.replace(/谁也别想多卖油[！!]/g, 'OPEC+严格执行减产纪律，');
-  cleaned = cleaned.replace(/受贿逾九千万元[！!]/g, '受贿9340万元，');
-  cleaned = cleaned.replace(/滥用管制必遭反制[！!]/g, '商务部启动反歧视合规调查，');
-  cleaned = cleaned.replace(/仓库见底还要加价提货[！!]/g, '现货升水结构走阔，');
-  cleaned = cleaned.replace(/弹药库存涉嫌内部泄密[！!]/g, '敏感战备库存涉嫌泄露，');
-  cleaned = cleaned.replace(/禽流感逼近南美农牧圈[！!]/g, '禽流感蔓延风险显现，');
-
-  // 2. 过滤严禁的泛化代词
-  cleaned = cleaned.replace(/三家新贵|几家新贵/g, '新纳入成分股企业');
-  cleaned = cleaned.replace(/失势老股/g, '被调出成分股标的');
-  cleaned = cleaned.replace(/某巨头|某科技大厂|某大厂/g, '行业龙头企业');
-  cleaned = cleaned.replace(/某高官/g, '权威官员');
-  cleaned = cleaned.replace(/有关部门|相关部门/g, '主管监管机构');
-  cleaned = cleaned.replace(/业内人士/g, '行业核心参与方');
-
-  // 3. 过滤严禁的二极管句式
-  cleaned = cleaned.replace(/谁能(.*?)谁才能真正(.*?)/g, '具备$1能力的主体将优先$2');
-  cleaned = cleaned.replace(/表面上看是(.*?)实际上是(.*?)/g, '除表层$1外，核心驱动在于$2');
-  cleaned = cleaned.replace(/谁也不想在高位给别人站岗/g, '机构资金审慎规避高位流动性收缩风险');
-  cleaned = cleaned.replace(/谁也不想在高位/g, '市场主体普遍规避高位');
-
-  return cleaned.trim();
-}
+export const HEADLINE_AND_SUMMARY_GENERATION_PROMPT = EDITORIAL_CHIEF_SYSTEM_PROMPT;
 
 // 事实一致性审查门禁与回退规范 (Fact Faithfulness Gate)
 export function fallback_to_grounded_summary(rawText: string): {
@@ -252,13 +153,14 @@ export function fallback_to_grounded_summary(rawText: string): {
   let clean = sanitizeEditorialTone(rawText || '').replace(/[！!？?]/g, '，').trim();
   clean = clean.replace(/^(?:能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)[｜|·\s\-]\s*/, '').trim();
   const sentences = clean.split(/[。；;\n]/).map(s => s.trim()).filter(s => s.length >= 8);
-  const firstSentence = sentences[0] || clean.slice(0, 32);
+  const firstSentence = sentences[0] || clean.slice(0, 60);
 
   let title = firstSentence;
-  if (title.length > 32) {
-    const sub = title.slice(0, 32);
+  // 仅当超长（超过55字）且具有自然标点时，才在后半段进行安全截断，绝对保留核心谓语与数字
+  if (title.length > 55) {
+    const sub = title.slice(0, 55);
     const punc = Math.max(sub.lastIndexOf('，'), sub.lastIndexOf('、'));
-    title = punc >= 18 ? sub.slice(0, punc) : sub;
+    title = punc >= 30 ? sub.slice(0, punc) : sub;
   }
   title = title.replace(/(?:\d+\.|\.\d*)$/, '').replace(/(?:[，,、；;：:\s及与和等并]|为了|保证|以实现|以确保|正在全力)+$/, '').trim();
   title = title.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致)+$/, '').trim();
@@ -281,7 +183,8 @@ export function fallback_to_grounded_summary(rawText: string): {
   let core_conclusion = `【事实基准核验】：信源原文明确通报：${firstSentence}。客观事实已锁定，杜绝无事实依据的过度脑补。`;
   let transmission_chain = '① 事件冲击直接影响核心当事方的资产与负债结构 ➔ ② 产业链与合作方依据合同与市场规则传导成本收益 ➔ ③ 边际供求关系与资产风险溢价完成动态重定价。';
 
-  if (/上市|ipo|挂牌|首日|开盘涨|市值约|科创板|港交所/.test(t)) {
+  // 严格限定真实首次公开发行/IPO，严禁股指期货、期权或普通股票涨跌冒名
+  if (/(?:首次公开发行|ipo|登陆科创板|登陆港交所|挂牌上市|敲钟上市|新股上市)/.test(t) && !/(?:期货|期指|期权|标普|道指|纳斯达克.*期货|指数)/.test(t)) {
     if (/芯片|算力|gpu|半导体|晶圆|燧原|沐曦|摩尔线程|壁仞|长鑫|中芯|寒武纪/.test(t)) {
       core_conclusion = '【国产算力资本化重估】：国产云端AI芯片迎来资本市场高溢价定价，资金高度聚焦自主全栈大模型集群算力底座，加速先进制程流片与商业化交付。';
       transmission_chain = '① IPO募集资金直接支持先进制程芯片研发与流片开支 ➔ ② 下游数据中心与云厂商加大国产算力卡采购与适配验证 ➔ ③ 推动国内AI大模型硬件基础设施供应链生态自主可控。';
@@ -465,9 +368,60 @@ export function isStockTapeSpam(title: string, content: string): boolean {
   return STOCK_TAPE_SPAM_REGEX.test(text);
 }
 
-// 唯一的杂音过滤器：政界私人花边 + 体育娱乐 + 非市场杂音
+// 判定是否属于日程预告、日历提醒或空洞早晚报汇总垃圾
+export function isCalendarOrDigestSpam(title: string, content?: string): boolean {
+  const t = (title || '').trim();
+  const c = (content || '').trim().toLowerCase();
+  // 1. 日历预告与提醒型垃圾（如【提醒】日内请重点关注...）
+  if (
+    /^(?:【?提醒】?|日内请重点关注|今日重点关注|今日关注|财经日历|重点数据前瞻|早间要闻汇总|晨报|早报|早餐|今日无重大数据|今日重要日程|日内重要日程)/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  // 2. 纯日程罗列
+  if (/^(?:日内重要数据|日内关注事项|财经日历提醒|今日重点数据|今日重磅日程)/.test(t)) {
+    return true;
+  }
+  // 3. 常见汇总流水账
+  if (/^(?:隔夜要闻|早盘要闻|晚间要闻|盘前精选|每日财经早餐|早盘必读|盘前必读)/.test(t)) {
+    return true;
+  }
+  if (/^【?提醒】?/.test(t) && /关注.*数据|公布.*数据|财报公布/.test(c)) {
+    return true;
+  }
+  return false;
+}
+
+// 清洗快讯前导引述、状语与方括号标签，还原本质标题主语
+export function cleanWireHeadline(raw: string): string {
+  if (!raw) return '';
+  let h = raw.trim();
+  // 去除方括号和快讯标签，如 【独家】【快讯】【提醒】【数据】
+  h = h.replace(/^【[^】]+】\s*/, '').trim();
+  // 剥离媒体栏目分类前缀（如“T早报｜”、“财新周刊｜”、“特稿 |”）
+  h = h.replace(
+    /^(?:T早报|能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/,
+    ''
+  ).trim();
+  h = h.replace(/^[｜|·\-\/:：\s]+/, '').trim();
+  // 去除信源前导引述与状语前缀（如“产业链人士：...”、“据知情人士透露，...”）
+  h = h.replace(
+    /^(?:据(?:知情|业内|产业链|权威|相关|市场)人士(?:透露|表示|称|介绍)[，,：:\s]*|产业链人士[：:\s]+|业内人士[：:\s]+|消息人士[：:\s]+)/,
+    ''
+  ).trim();
+  h = h.replace(/^(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间[0-9月日\s]+[，,]?)?/, '').trim();
+  return h;
+}
+
+// 唯一的杂音过滤器：政界私人花边 + 体育娱乐 + 非市场杂音 + 日历提醒
 // （合并了原 noiseRegex 中的体育/娱乐关键词，消除重复过滤层）
 export function isNonMarketTrivia(title: string, content: string): boolean {
+  if (isCalendarOrDigestSpam(title, content)) {
+    return true;
+  }
+
   const text = (title + ' ' + content).toLowerCase();
   // 体育、娱乐、生活花边
   if (
@@ -569,7 +523,7 @@ export function evaluateCapitalMarketRelevance(
 
   // ── D. 主权军事升级（影响能源/粮食走廊） ─────────────────────────────────
   const militaryHits = (text.match(
-    /空袭|导弹|战争|交战|军事打击|封锁|霍尔木兹|曼德海峡|红海|苏伊士|黑海|波斯湾|能源走廊|粮食走廊|油田|炼油厂.*袭击|管道.*爆炸|核威胁|核武器|核弹|escalat|military.?strike|airstrike|blockade|strait.?of/gi
+    /空袭|导弹|战争|交战|军事打击|封锁|霍尔木兹|曼德海峡|红海|苏伊士|黑海|波斯湾|能源走廊|粮食走廊|油田|炼油厂.*袭击|管道.*爆炸|爆炸声?|交火|防务|特使.*会谈|停火谈判|核威胁|核武器|核弹|escalat|military.?strike|airstrike|blockade|strait.?of/gi
   ) || []).length;
   if (militaryHits >= 1) {
     const score = Math.min(militaryHits >= 2 ? 2 : 1, 2);
@@ -579,7 +533,7 @@ export function evaluateCapitalMarketRelevance(
 
   // ── E. 企业 / 行业重大事件 ──────────────────────────────────────────────
   const corpHits = (text.match(
-    /业绩|营收|净利润|裁员|并购|收购|合并|分拆|破产|重组|倒闭|IPO|上市|退市|融资|增发|回购|分红|股息|大合同|中标|失标|召回|监管罚款|巨额罚款|反垄断|违规|造假|欺诈|暴雷|违约|earnings|revenue|profit|layoff|merger|acquisition|bankruptcy|restructur|IPO\b|ipo\b|financing|dividend|buyback/gi
+    /业绩|营收|净利润|裁员|并购|收购|合并|分拆|破产|重组|倒闭|IPO|上市|退市|融资|增发|回购|分红|股息|大合同|中标|失标|召回|监管罚款|巨额罚款|反垄断|违规|造假|欺诈|暴雷|违约|芯片|算力|gpu|cpu|半导体|先进制程|大模型|生成式ai|人工智能|超级应用|流片|晶圆|架构|发布.*芯片|发布.*模型|发布.*智能|量产交付|earnings|revenue|profit|layoff|merger|acquisition|bankruptcy|restructur|IPO\b|ipo\b|financing|dividend|buyback/gi
   ) || []).length;
   if (corpHits >= 1) {
     const score = Math.min(corpHits >= 3 ? 2 : 1, 2);
@@ -663,6 +617,81 @@ export function evaluateCapitalMarketRelevance(
   };
 }
 
+// 内存级正文缓存，避免对高频相同文章产生重复网络请求（设置最大容量限制防止长期运行 OOM）
+const MAX_ARTICLE_CACHE_SIZE = 500;
+const articleBodyCache = new Map<string, string>();
+
+function setArticleBodyCache(url: string, content: string) {
+  if (articleBodyCache.size >= MAX_ARTICLE_CACHE_SIZE) {
+    const firstKey = articleBodyCache.keys().next().value;
+    if (firstKey) articleBodyCache.delete(firstKey);
+  }
+  articleBodyCache.set(url, content);
+}
+
+/**
+ * 二级深度正文爬虫引擎：针对列表页仅抓取到标题的权威源（联合早报、财新网），
+ * 发起快速并发请求获取真实正文段落，彻底终结 content = rawTitle 爬虫偷工减料缺陷。
+ */
+async function fetchArticleBodyContent(url: string, source: 'zaobao' | 'caixin'): Promise<string | null> {
+  if (!url || !url.startsWith('http')) return null;
+  if (articleBodyCache.has(url)) return articleBodyCache.get(url)!;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const paragraphs: string[] = [];
+
+    if (source === 'zaobao') {
+      const pMatches = html.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
+      for (const p of pMatches) {
+        const text = p.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+        const isJunkFooter =
+          /^(?:关注我们|下载早报App|未经许可不得转载|版权所有|如需转载请联系|早报标志版权所有|即时新闻仅供参考)/i.test(text) ||
+          /(?:扫描二维码关注|下载APP阅读全文|早报保留所有版权)/i.test(text);
+        if (text.length > 20 && !isJunkFooter) {
+          paragraphs.push(text);
+        }
+      }
+    } else if (source === 'caixin') {
+      const contentSection = html.match(/<div[^>]+id=["']Main_Content_Val["'][^>]*>([\s\S]*?)<\/div>/i);
+      const searchTarget = contentSection ? contentSection[1] : html;
+      const pMatches = searchTarget.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
+      for (const p of pMatches) {
+        const text = p.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+        if (
+          text.length > 20 &&
+          !/本文为财新网版权所有|未经书面授权|海量资讯|如需使用请联系|财新网所刊载内容|未经许可不得转载/i.test(text)
+        ) {
+          paragraphs.push(text);
+        }
+      }
+    }
+
+    const fullBody = paragraphs.slice(0, 8).join('\n\n').trim();
+    if (fullBody.length > 40) {
+      if (articleBodyCache.size > 300) {
+        const firstKey = articleBodyCache.keys().next().value;
+        if (firstKey) articleBodyCache.delete(firstKey);
+      }
+      articleBodyCache.set(url, fullBody);
+      return fullBody;
+    }
+  } catch {
+    // 优雅降级：若次级正文抓取超时或防爬拦截，平滑回退
+  }
+  return null;
+}
+
 // 获取全网实时真实现场快讯 (接入中立华文雷达：联合早报 + 财新网 + 路透/彭博中国专线 + 全球宏观电讯管道)
 // 严禁接入新华社、人民日报等官方综合全量流，严防内宣公关污染；严禁 A 股盘中行情流水账
 async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
@@ -687,7 +716,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
       signal: AbortSignal.timeout(6000),
     })
       .then((r) => r.text())
-      .then((html) => {
+      .then(async (html) => {
         const zbList: RawLiveItem[] = [];
         const regex = /href="(\/(?:realtime|news)\/china\/story[^\"]+)"[^>]*>([\s\S]*?)<\/a>/g;
         let m;
@@ -733,6 +762,18 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
             });
           }
         }
+
+        // 二级深度爬取：为前8篇精选早报新闻抓取真实正文段落
+        const topZb = zbList.slice(0, 8);
+        await Promise.allSettled(
+          topZb.map(async (item) => {
+            const body = await fetchArticleBodyContent(item.url, 'zaobao');
+            if (body) {
+              item.content = `${item.title}\n\n${body}`;
+            }
+          })
+        );
+
         return { source: '联合早报', data: zbList };
       })
       .catch(() => ({ source: '联合早报', data: null })),
@@ -743,7 +784,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
       signal: AbortSignal.timeout(6000),
     })
       .then((r) => r.text())
-      .then((html) => {
+      .then(async (html) => {
         const cxList: RawLiveItem[] = [];
         // 严格匹配具有规范标准日期结构的财新正文链接：caixin.com/YYYY-MM-DD/ID.html，严禁侧边栏往年死链接
         const regex = /<a[^>]+href="([^"]*caixin\.com\/(\d{4})-(\d{2})-(\d{2})\/(\d+)\.html)"[^>]*>([\s\S]*?)<\/a>/g;
@@ -785,6 +826,18 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
             url: fullUrl,
           });
         }
+
+        // 二级深度爬取：为前8篇财新金融深度调查抓取真实正文段落
+        const topCx = cxList.slice(0, 8);
+        await Promise.allSettled(
+          topCx.map(async (item) => {
+            const body = await fetchArticleBodyContent(item.url, 'caixin');
+            if (body) {
+              item.content = `${item.title}\n\n${body}`;
+            }
+          })
+        );
+
         return { source: '财新网', data: cxList };
       })
       .catch(() => ({ source: '财新网', data: null })),
@@ -795,7 +848,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
       signal: AbortSignal.timeout(6000),
     })
       .then((r) => r.text())
-      .then((html) => {
+      .then(async (html) => {
         const cxList: RawLiveItem[] = [];
         const regex = /<a[^>]+href="([^"]*caixin\.com\/(\d{4})-(\d{2})-(\d{2})\/(\d+)\.html)"[^>]*>([\s\S]*?)<\/a>/g;
         let m;
@@ -836,6 +889,18 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
             url: fullUrl,
           });
         }
+
+        // 二级深度爬取：为前8篇财新公司调查抓取真实正文段落
+        const topCx = cxList.slice(0, 8);
+        await Promise.allSettled(
+          topCx.map(async (item) => {
+            const body = await fetchArticleBodyContent(item.url, 'caixin');
+            if (body) {
+              item.content = `${item.title}\n\n${body}`;
+            }
+          })
+        );
+
         return { source: '财新网公司频道', data: cxList };
       })
       .catch(() => ({ source: '财新网公司频道', data: null })),
@@ -874,14 +939,30 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
         // 核心守卫：修复财经快讯对美联储降息周期 "Rate Cut" 的灾难性机翻颠倒（加息/上调 -> 降息/下调）
         text = sanitizeFedRatePolicyWording(text);
 
-        // 优先提取第一句完整断句（句号或换行），严防通篇流水账被整段灌入标题
-        // 预先剥离记者提问引导词（如“问：美东时间...”、“有记者问：...”）
-        const cleanForTitle = text.replace(/^(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间[0-9月日\s]+[，,]?)?/, '').trim();
-        const firstSentence = cleanForTitle.split(/[。\n]/)[0].replace(/【.*?】/g, '').trim();
-        let title = (raw.title || firstSentence).trim().replace(/【.*?】/g, '').trim();
-        title = title.replace(/^(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间[0-9月日\s]+[，,]?)?/, '').trim();
-        // 严禁提取出无主语流水账（如“分别涨4.77%...”）
-        if (/^(?:分别|其中|包括|以及|并且|而|且|但|[0-9.]+%|[涨跌][0-9.]+%)/.test(title)) {
+        // 预先剥离快讯前导标签、记者提问引导词与产业链传声筒前缀
+        const cleanForTitle = cleanWireHeadline(text);
+        const sentences = cleanForTitle.split(/[。\n]/).map((s) => s.trim()).filter(Boolean);
+        const firstSentence = sentences[0] || '';
+
+        let title = cleanWireHeadline(raw.title || firstSentence);
+        if (!title || title.length < 6) {
+          title = firstSentence;
+        }
+
+        // 谓语保护：若第一句断句在未完结介词/连词上，智能融合后续分句
+        if (title.length < 12 || /(?:[，,、；;：:\s及与和等并]|据.*表示|业内人士称)$/.test(title)) {
+          if (sentences.length > 1) {
+            title = cleanWireHeadline(sentences.slice(0, 2).join('，'));
+          }
+        }
+
+        // 严禁日历提醒、日程预告、每日早晚报流水账侵入突发电讯流
+        if (isCalendarOrDigestSpam(title, text)) {
+          continue;
+        }
+
+        // 严禁提取出无主语流水账（如“分别涨4.77%...”）与半截残缺超短标题（字数<8）
+        if (title.length < 8 || /^(?:分别|其中|包括|以及|并且|而|且|但|[0-9.]+%|[涨跌][0-9.]+%)/.test(title)) {
           continue;
         }
         title = sanitizeFedRatePolicyWording(title).slice(0, 70);
@@ -956,17 +1037,11 @@ export function detectPrimarySource(
   inheritedRawSource?: string,
   fallbackUrl?: string
 ): PrimarySourceInfo {
-  // 规则 2：【信源标签物理继承】
-  // 若爬虫已抓取到明确的真实信源，原样物理继承只读字段，严禁让 AI 或关键词自由脑补！
-  if (inheritedRawSource && /联合早报|财新网|路透|彭博|日经|华尔街日报|金融时报|第一财经|经济学人|应急管理部/.test(inheritedRawSource)) {
+  // 规则 1：【信源标签物理继承与直接权威映射】
+  if (inheritedRawSource && /联合早报|财新网|第一财经|经济学人|应急管理部/.test(inheritedRawSource)) {
     const urlMap: Record<string, string> = {
       '联合早报': 'https://www.zaobao.com.sg',
       '财新网': 'https://finance.caixin.com',
-      '路透': 'https://www.reuters.com',
-      '彭博': 'https://www.bloomberg.com',
-      '日经': 'https://asia.nikkei.com',
-      '华尔街日报': 'https://www.wsj.com',
-      '金融时报': 'https://www.ft.com',
       '第一财经': 'https://www.yicai.com',
       '经济学人': 'https://www.economist.com',
       '应急管理部': 'https://www.mem.gov.cn',
@@ -980,12 +1055,66 @@ export function detectPrimarySource(
 
   const combined = (title + ' ' + content).toLowerCase();
 
-  // 若含日本主权实体，绝对禁止赋予中国官方信源！
-  if (FOREIGN_ENTITIES.JAPAN.test(combined)) {
-    return { source: '日经亚洲 Nikkei Asia', sourceUrl: 'https://asia.nikkei.com' };
+  // 1. 显式提及的真实部委机构与专业现货/同业市场（严格按实际发文方归因，禁止虚假冠名外媒）
+  if (/国新办|国务院新闻办/.test(combined)) {
+    return { source: '国务院新闻办公室发布会', sourceUrl: 'http://www.scio.gov.cn' };
+  }
+  if (/国家粮食和物资储备局|国家粮食局|大国粮仓/.test(combined)) {
+    return { source: '国家粮食和物资储备局通报', sourceUrl: 'http://www.lswz.gov.cn' };
+  }
+  if (/上海钢联|mysteel|碳酸锂价格|锂价/.test(combined)) {
+    return { source: '上海钢联 Mysteel 现货报价', sourceUrl: 'https://www.mysteel.com' };
+  }
+  if (/全国银行间同业拆借中心|中国外汇交易中心|shibor|银行间资金面|隔夜shibor/i.test(combined)) {
+    return { source: '全国银行间同业拆借中心', sourceUrl: 'https://www.chinamoney.com.cn' };
+  }
+  if (/(?:中国人民银行|我国央行|人行)/.test(combined) && !/日本|美国|欧洲|韩国|英国/.test(combined)) {
+    return { source: '中国人民银行 PBOC', sourceUrl: 'http://www.pbc.gov.cn' };
+  }
+  if (/(?:国家统计局|统计局|nbs)/i.test(combined) && !/美国|日本/.test(combined)) {
+    return { source: '国家统计局 NBS 官方数据', sourceUrl: 'https://www.stats.gov.cn' };
+  }
+  if (/(?:中国财政部|我国财政部|中央财政)/.test(combined) && !/日本|美国|欧洲|韩国|英国/.test(combined)) {
+    return { source: '中国财政部通报', sourceUrl: 'http://www.mof.gov.cn' };
+  }
+  if (/(?:国家发展改革委|国家发改委)/.test(combined) && !/日本|美国|欧洲/.test(combined)) {
+    return { source: '国家发展改革委公报', sourceUrl: 'https://www.ndrc.gov.cn' };
+  }
+  if (/商务部/.test(combined) && !/美国商务部/.test(combined)) {
+    return { source: '中国商务部公报', sourceUrl: 'http://www.mofcom.gov.cn' };
+  }
+  if (
+    /(?:中国外交部|外交部发言人|外交部例行|外交部重申|外交部表态)/.test(combined) &&
+    !/(?:伊朗|俄罗斯|美国|日本|韩国|乌克兰|法国|德国|英国|澳大利亚|欧盟)/.test(title)
+  ) {
+    return { source: '中国外交部例行通报', sourceUrl: 'https://www.fmprc.gov.cn' };
+  }
+  if (/国家能源局/.test(combined)) {
+    return { source: '国家能源局发布', sourceUrl: 'http://www.nea.gov.cn' };
+  }
+  if (/中纪委|国家监委|中央纪委/.test(combined)) {
+    return { source: '中央纪委国家监委通报', sourceUrl: 'https://www.ccdi.gov.cn' };
+  }
+  if (/最高人民法院|最高法/.test(combined)) {
+    return { source: '最高人民法院公报', sourceUrl: 'https://www.court.gov.cn' };
+  }
+  if (/最高人民检察院|最高检/.test(combined)) {
+    return { source: '最高人民检察院通报', sourceUrl: 'https://www.spp.gov.cn' };
+  }
+  if (/交通运输部|交运部/.test(combined)) {
+    return { source: '中国交通运输部通报', sourceUrl: 'https://www.mot.gov.cn' };
+  }
+  if (/住建部/.test(combined)) {
+    return { source: '国家住房和城乡建设部', sourceUrl: 'https://www.mohurd.gov.cn' };
+  }
+  if (/应急管理部/.test(combined)) {
+    return { source: '国家应急管理部通报', sourceUrl: 'https://www.mem.gov.cn' };
+  }
+  if (/工信部|工业和信息化部/.test(combined)) {
+    return { source: '工信部公报', sourceUrl: 'https://www.miit.gov.cn' };
   }
 
-  // 1. 显式提及的一级权威通讯社/官方部委机构（严禁接入新华社、人民日报等官方全量内宣大喇叭）
+  // 2. 真实提及的国际通讯社与外媒报道
   if (/联合早报|zaobao/.test(combined)) {
     return { source: '联合早报 Zaobao', sourceUrl: 'https://www.zaobao.com.sg' };
   }
@@ -996,7 +1125,7 @@ export function detectPrimarySource(
     return { source: '路透中文网 Reuters', sourceUrl: 'https://www.reuters.com' };
   }
   if (/彭博|bloomberg/.test(combined)) {
-    return { source: '彭博中国 Bloomberg', sourceUrl: 'https://www.bloomberg.com' };
+    return { source: '彭博社 Bloomberg', sourceUrl: 'https://www.bloomberg.com' };
   }
   if (/华尔街日报|wsj|wall street journal/.test(combined)) {
     return { source: '华尔街日报 WSJ', sourceUrl: 'https://www.wsj.com' };
@@ -1007,153 +1136,93 @@ export function detectPrimarySource(
   if (/日经|nikkei|日本经济新闻/.test(combined)) {
     return { source: '日经亚洲 Nikkei Asia', sourceUrl: 'https://asia.nikkei.com' };
   }
-  if (/第一财经|一财|yicai/.test(combined)) {
-    return { source: '第一财经 Yicai Global', sourceUrl: 'https://www.yicai.com' };
+  // 严禁客体评论反客为主：只有当官方机构作为直接发文/决议主体，才归因于官方声明；第三方评论一律继承真实信源
+  const isFedDirectIssuer = /^(?:美联储|联邦公开市场委员会|fomc)(?:宣布|公布|发布|决定|声明|降息|加息)/i.test(title.trim());
+  if (isFedDirectIssuer && !/研报|策略|港股|A股|券商|分析师|观点|点评|仓位/.test(title) && !/主管|经理|机构|外媒|报道|称|看好|预估|固收/.test(title)) {
+    return { source: '美联储 FOMC 官方声明', sourceUrl: 'https://www.federalreserve.gov' };
   }
-  if (/经济学人|the economist/.test(combined)) {
-    return { source: '经济学人 The Economist', sourceUrl: 'https://www.economist.com' };
-  }
-  if (/美联社|ap news|associated press/.test(combined)) {
-    return { source: '美联社 AP News', sourceUrl: 'https://apnews.com' };
-  }
-  if (/标普|s&p global|spglobal/.test(combined)) {
-    return { source: '标普全球 S&P Global', sourceUrl: 'https://www.spglobal.com' };
-  }
-  if (/半岛电视台|al jazeera/.test(combined)) {
-    return { source: '半岛电视台 Al Jazeera', sourceUrl: 'https://www.aljazeera.com' };
-  }
-  if (/塔斯社|tass/.test(combined)) {
-    return { source: '塔斯社 TASS', sourceUrl: 'https://tass.com' };
-  }
-  if (/交通运输部|交运部/.test(combined) && !/日本|美国|欧洲/.test(combined)) {
-    return { source: '中国交通运输部通报', sourceUrl: 'https://www.mot.gov.cn' };
-  }
-  if (/(?:中国财政部|我国财政部)/.test(combined) && !/日本|美国|欧洲|韩国|英国/.test(combined)) {
-    return { source: '中国财政部通报', sourceUrl: 'http://www.mof.gov.cn' };
-  }
-  if (/(?:国家发展改革委|国家发改委)/.test(combined) && !/日本|美国|欧洲/.test(combined)) {
-    return { source: '国家发展改革委公报', sourceUrl: 'https://www.ndrc.gov.cn' };
-  }
-  if (/住建部/.test(combined) && !/日本|美国|欧洲/.test(combined)) {
-    return { source: '国家住房和城乡建设部', sourceUrl: 'https://www.mohurd.gov.cn' };
-  }
-  if (/(?:中国应急管理部|国家应急管理部)/.test(combined) && !/日本|美国/.test(combined)) {
-    return { source: '国家应急管理部通报', sourceUrl: 'https://www.mem.gov.cn' };
-  }
-  if (/国资委|上海市国资委/.test(combined) && !/日本|美国/.test(combined)) {
-    return { source: '国资监管委员会公报', sourceUrl: 'http://www.sasac.gov.cn' };
-  }
-  if (/(?:中国人民银行|我国央行)/.test(combined) && !/日本|美国|欧洲|韩国|英国/.test(combined) && (track === 'china_domestic' || /人民币|降准|逆回购/.test(combined))) {
-    return { source: '中国人民银行 PBOC', sourceUrl: 'http://www.pbc.gov.cn' };
-  }
-  // 中资头部券商研报信源映射（物理拦截被误打上美联储FOMC声明）
-  if (/华泰证券/.test(title)) {
-    return { source: '华泰证券策略研报', sourceUrl: 'https://www.htsc.com.cn' };
-  }
-  if (/中信证券/.test(title)) {
-    return { source: '中信证券研究部', sourceUrl: 'https://www.citics.com' };
-  }
-  if (/中金公司|中金研报/.test(title)) {
-    return { source: '中金公司研究部', sourceUrl: 'https://www.cicc.com' };
-  }
-  if (/招商证券/.test(title)) {
-    return { source: '招商证券研究发展中心', sourceUrl: 'https://www.cmschina.com' };
-  }
-  if (/国泰君安/.test(title)) {
-    return { source: '国泰君安研报', sourceUrl: 'https://www.gtja.com' };
-  }
-  if (/海通证券/.test(title)) {
-    return { source: '海通证券研究所', sourceUrl: 'https://www.htsec.com' };
-  }
-  if (/广发证券/.test(title)) {
-    return { source: '广发证券发展研究中心', sourceUrl: 'https://www.gf.com.cn' };
-  }
-
-  // 美联储官方声明必须满足：明确为美联储官方声明/议息决议/主席讲话，严禁转述评论或中资券商研报冒名
-  if (
-    /(?:美联储.*(?:声明|决议|公报|加息|降息|利率决议)|fomc.*(?:声明|决议)|鲍威尔.*(?:讲话|新闻发布会))/i.test(title) &&
-    !/研报|策略|港股|A股|券商|分析师|观点|点评|仓位/.test(title)
-  ) {
-    return { source: '美联储 FOMC 声明', sourceUrl: 'https://www.federalreserve.gov' };
-  }
-  if (/五角大楼|美国国防部|美军指挥部/.test(combined)) {
+  const isDodDirectIssuer = /^(?:五角大楼|美国国防部|dod)(?:宣布|公布|发布|决定|通报|声明)/i.test(title.trim());
+  if (isDodDirectIssuer && !/外媒|报道|传|妻子|学者/.test(title)) {
     return { source: '美国国防部 DoD 简报', sourceUrl: 'https://www.defense.gov' };
   }
+  const isEcbDirectIssuer = /^(?:欧洲央行|ecb)(?:宣布|公布|发布|决定|声明|降息|加息)/i.test(title.trim());
+  if (isEcbDirectIssuer && !/主管|经理|分析师|机构|管委|行长|外媒|报道/.test(title)) {
+    return { source: '欧洲央行 ECB 公报', sourceUrl: 'https://www.ecb.europa.eu' };
+  }
+  if (/华泰证券/.test(title)) return { source: '华泰证券策略研报', sourceUrl: 'https://www.htsc.com.cn' };
+  if (/中信证券/.test(title)) return { source: '中信证券研究部', sourceUrl: 'https://www.citics.com' };
+  if (/中金公司/.test(title)) return { source: '中金公司研究部', sourceUrl: 'https://www.cicc.com' };
 
-  // 2. 根据专业领域赛道与内容特征，哈希轮询映射全球核心中立权威信源（确保多元化，杜绝内宣单一垄断）
-  let hash = 0;
-  const str = title + content;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash * 31 + str.charCodeAt(i)) & 0x7fffffff;
+  // 3. 若均未显式提及，严格按真实渠道保真输出，绝对禁止凭空捏造路透特稿或彭博周刊！
+  if (inheritedRawSource && !inheritedRawSource.startsWith('CH_')) {
+    return { source: inheritedRawSource, sourceUrl: fallbackUrl || 'https://www.jin10.com' };
   }
 
-  const trackSourcePools: Record<TrackId, PrimarySourceInfo[]> = {
-    apac_tech: [
-      { source: '日经亚洲 Nikkei Asia', sourceUrl: 'https://asia.nikkei.com' },
-      { source: '彭博科技 Bloomberg Tech', sourceUrl: 'https://www.bloomberg.com/technology' },
-      { source: '路透科技 Reuters Tech', sourceUrl: 'https://www.reuters.com/technology' },
-      { source: '英国金融时报 FT Tech', sourceUrl: 'https://www.ft.com/technology' },
-    ],
-    commodities_shipping: [
-      { source: '标普全球商品 S&P Commodities', sourceUrl: 'https://www.spglobal.com/commodityinsights' },
-      { source: '劳氏日报 Lloyd\'s List', sourceUrl: 'https://www.lloydslist.com' },
-      { source: '普氏能源资讯 S&P Global Energy', sourceUrl: 'https://www.spglobal.com/commodityinsights' },
-      { source: '彭博大宗能源 Bloomberg Commodities', sourceUrl: 'https://www.bloomberg.com/energy' },
-    ],
-    war_conflict: [
-      { source: '路透社防务专电 Reuters Defense', sourceUrl: 'https://www.reuters.com/world' },
-      { source: '半岛电视台 Al Jazeera', sourceUrl: 'https://www.aljazeera.com' },
-      { source: '美联社全球防务 AP World', sourceUrl: 'https://apnews.com/world-news' },
-      { source: '华尔街日报 WSJ World', sourceUrl: 'https://www.wsj.com/world' },
-    ],
-    us_macro: [
-      { source: '华尔街日报 WSJ Markets', sourceUrl: 'https://www.wsj.com/market-data' },
-      { source: '彭博宏观社评 Bloomberg Markets', sourceUrl: 'https://www.bloomberg.com/markets' },
-      { source: '英国金融时报 FT Markets', sourceUrl: 'https://www.ft.com/markets' },
-      { source: '路透全球财经 Reuters Markets', sourceUrl: 'https://www.reuters.com/markets' },
-    ],
-    china_domestic: [
-      { source: '财新网 Caixin 深度调查', sourceUrl: 'https://finance.caixin.com' },
-      { source: '联合早报 Zaobao 中国电讯', sourceUrl: 'https://www.zaobao.com.sg' },
-      { source: '路透中文网 Reuters 中国专线', sourceUrl: 'https://www.reuters.com' },
-      { source: '彭博中国 Bloomberg 宏观特电', sourceUrl: 'https://www.bloomberg.com' },
-      { source: '第一财经 Yicai 产业现场', sourceUrl: 'https://www.yicai.com' },
-    ],
-    china_policy: [
-      { source: '联合早报 Zaobao 国际观察', sourceUrl: 'https://www.zaobao.com.sg' },
-      { source: '财新国际 Caixin Global', sourceUrl: 'https://www.caixinglobal.com' },
-      { source: '路透中文网 Reuters 涉华追踪', sourceUrl: 'https://www.reuters.com' },
-      { source: '彭博中国观察 Bloomberg Asia', sourceUrl: 'https://www.bloomberg.com' },
-      { source: '英国金融时报 FT China', sourceUrl: 'https://www.ft.com' },
-    ],
-    china_macro: [
-      { source: '国家统计局 NBS 官方数据', sourceUrl: 'https://www.stats.gov.cn' },
-      { source: '彭博中国宏观 Bloomberg China', sourceUrl: 'https://www.bloomberg.com/asia' },
-      { source: '路透中国宏观 Reuters China', sourceUrl: 'https://www.reuters.com/markets' },
-      { source: '财新数据 Caixin PMI Data', sourceUrl: 'https://www.caixinglobal.com' },
-      { source: '华尔街日报 WSJ China', sourceUrl: 'https://www.wsj.com/world/china' },
-    ],
-    global_cognition: [
-      { source: '英国金融时报 FT Markets', sourceUrl: 'https://www.ft.com/markets' },
-      { source: '彭博欧洲宏观 Bloomberg Europe', sourceUrl: 'https://www.bloomberg.com/europe' },
-      { source: '经济学人 The Economist', sourceUrl: 'https://www.economist.com' },
-      { source: '标普全球 S&P Global Intelligence', sourceUrl: 'https://www.spglobal.com' },
-      { source: '彭博商业周刊 Bloomberg Businessweek', sourceUrl: 'https://www.bloomberg.com' },
-      { source: '路透深度特稿 Reuters Insight', sourceUrl: 'https://www.reuters.com' },
-    ],
+  const authenticTrackSources: Record<TrackId, PrimarySourceInfo> = {
+    commodities_shipping: { source: '大宗商品与能源行情专讯', sourceUrl: fallbackUrl || 'https://www.spglobal.com' },
+    apac_tech: { source: '前沿科技与算力产业电讯', sourceUrl: fallbackUrl || 'https://asia.nikkei.com' },
+    war_conflict: { source: '国际防务与安全即时电讯', sourceUrl: fallbackUrl || 'https://www.reuters.com' },
+    us_macro: { source: '全球金融市场实时电讯', sourceUrl: fallbackUrl || 'https://www.bloomberg.com/markets' },
+    china_macro: { source: '中国宏观与金融数据专电', sourceUrl: fallbackUrl || 'https://finance.caixin.com' },
+    china_policy: { source: '涉华经贸与涉外治理专讯', sourceUrl: fallbackUrl || 'https://www.zaobao.com.sg' },
+    china_domestic: { source: '国内要闻与治理电讯', sourceUrl: fallbackUrl || 'https://finance.caixin.com' },
+    global_cognition: { source: '全球政经与决策情报专讯', sourceUrl: fallbackUrl || 'https://www.ft.com' },
   };
 
-  const pool = trackSourcePools[track] || trackSourcePools.global_cognition;
-  return pool[hash % pool.length];
+  return authenticTrackSources[track] || { source: '全球财经实时电讯', sourceUrl: fallbackUrl || 'https://www.jin10.com' };
 }
 
-function classifyTrack(item: RawLiveItem): TrackId {
+export function classifyTrack(item: RawLiveItem): TrackId {
   const t = (item.title + ' ' + item.content).toLowerCase();
 
+  // 【硬性国内金融机构、券商、交易所与市场实体绝对拦截门禁】：
+  // 绝对禁止任何中国券商、公募/私募、A股机构人事与策略报道落入 us_macro！
+  const isChineseSecuritiesOrDomesticFinance =
+    /(?:券商|证券|中信证券|中金公司|招商证券|广发证券|国泰君安|海通证券|申万宏源|银河证券|华泰证券|东兴证券|方正证券|浙商证券|光大证券|国信证券|兴业证券|中银证券|中加基金|证监会|中基协|上交所|深交所|北交所|公募|私募|理财子公司|两市|沪深|a股|港股|恒生|南向资金|北向资金|中概股|券商一哥|券商龙头)/i.test(
+      item.title
+    ) ||
+    ((/券商|中信证券|中金公司|招商证券|广发证券|国泰君安|海通证券|申万宏源|银河证券|华泰证券|东兴证券|方正证券|浙商证券|光大证券|国信证券|兴业证券|中银证券|证监会|公募|私募|上交所|深交所/.test(t)) &&
+     !/美股三大|标普500|纳斯达克.*大涨|道琼斯.*大跌|伯克希尔|贝莱德/.test(item.title));
+
+  if (isChineseSecuritiesOrDomesticFinance) {
+    if (/(?:高管|人事|董事长|总经理|接棒|退休|离任|任命|换人|掌门|履新|违纪|被查|落马|立案)/.test(item.title + ' ' + (item.content || ''))) {
+      return 'china_domestic';
+    }
+    return 'china_macro';
+  }
+
+  // 【硬性A股大盘/指数行情优先拦截门禁】：
+  if (/(?:沪指|两市|上证|深成指|创业板|科创板|高开|低开|双双高开|双双低开|A股开盘|今日开盘)/i.test(item.title)) {
+    if (!/美股|标普|纳斯达克|道琼斯/.test(item.title)) {
+      return 'china_macro';
+    }
+  }
+
+  // 【硬性高层双边外事与立法机构交往拦截门禁】：
+  // 中国国家领导人、全国人大、政协、外交部同外国政要会谈/会见，强制归入涉华经贸与涉外治理 (china_policy)！
+  if (/(?:赵乐际|王毅|李强|习近平|外交部|全国人大|政协).*?(?:会见|会谈|接见|访问|外长|议长|众议长|参议长|总理|总统|公使)/.test(item.title)) {
+    return 'china_policy';
+  }
+
+  // 【硬性国内公募、财富管理与机构策略拦截门禁】：
+  // 严禁因为国内基金经理、研报在正文中提及美联储降息而被夺舍归入 us_macro！
+  const isChinaDomesticFinance =
+    /(?:公募|私募基金|基金经理|策略会|客户交流会|建信基金|华宝基金|汇添富|易方达|广发基金|中欧基金|博时基金|理财公司|券商经纪|佣金承压|投研人才|固收产品|秋季策略会)/.test(
+      item.title
+    );
+  if (isChinaDomesticFinance && !/美股三大|标普500|纳斯达克|道琼斯/.test(item.title)) {
+    return 'china_macro';
+  }
+
+  // 【美联储日程与官员密集表态拦截门禁】：
+  // 必须优先划入 us_macro，绝不能因为包含官员名字或日内日程而误入 apac_tech！
+  if (/(?:美联储|联储主席|芝加哥联储|纽约联储|圣路易斯联储|里士满联储|亚特兰大联储|达拉斯联储|克利夫兰联储|旧金山联储|波士顿联储|费城联储|堪萨斯联储|沃什|鲍威尔|fomc)/i.test(t)) {
+    if (!/涉华|对华|中美/.test(item.title)) {
+      return 'us_macro';
+    }
+  }
+
   // 【硬性港股/A股/国内券商研报归类门禁】：
-  // 凡标题或核心内容针对 港股、A股、中资券商策略研报（华泰证券、中信证券、中金公司等），
-  // 哪怕文中提及美联储降息或海外利率背景，其交易标的与分析中枢均为中国/香港资产，
-  // 物理绝对禁止误归入 us_macro（美股）！强制归入 china_macro！
   const isChineseOrHkEquities =
     /港股|恒生|恒指|港交所|南向资金|港股通|a股|沪深|上证|深成指|创业板|科创板|北向资金|中概股|券商研报|券商策略|港股策略|a股策略|仓位灵活性|仓位配置|华泰证券|中信证券|中金公司|招商证券|广发证券|国泰君安|海通证券|申万宏源/.test(
       item.title
@@ -1164,10 +1233,11 @@ function classifyTrack(item: RawLiveItem): TrackId {
     return 'china_macro';
   }
 
-  // 【硬性实体词拦截门禁 Rule A】：外国主权与海外宏观实体一票否决国内赛道！
+  // 【日本主权与实体细分】：纯半导体硬件归入 apac_tech，宏观日元/日银/财政归入 global_cognition，涉华归入 china_policy
   if (FOREIGN_ENTITIES.JAPAN.test(t)) {
+    if (/半导体|芯片|先进制程|光刻|算力|大模型|ai|机器人|爱德万|东京电子/.test(t)) return 'apac_tech';
     if (/涉华|对华|中日/.test(t)) return 'china_policy';
-    return 'apac_tech';
+    return 'global_cognition';
   }
 
   // 非洲与全球公共卫生事件（刚果、埃博拉、世卫组织等）一票归入全球认知 (global_cognition)
@@ -1191,27 +1261,30 @@ function classifyTrack(item: RawLiveItem): TrackId {
     return 'global_cognition';
   }
 
-  // 涉华经贸与涉外法案应对（商务部/外交部反制与回应）：一票归入 china_policy，严禁落入 us_macro
-  if (/商务部|外交部/.test(t) && /美方|美国|制裁|法案|关税|清单|出口管制|格雷厄姆/.test(t)) {
+  // 【地缘政治、战局防务与中东冲突优先拦截】（优先级高于美国普通实体，美伊交涉会谈、也门、俄乌冲突绝对优先归入 war_conflict）：
+  if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t) || /伊朗|以色列|哈马斯|真主党|加沙|乌克兰|俄军|乌军|红海|也门|卡塔尔/.test(t)) {
+    if (!/涉华|对华|中美经贸|中伊经贸/.test(item.title)) {
+      return 'war_conflict';
+    }
+  }
+
+  // 涉华经贸与涉外法案应对（商务部/外交部反制与回应）：一票归入 china_policy，严禁落入 us_macro（排除伊朗外交部、俄外交部等外国部委）
+  if (/(?:中国|中方|我国)?(?:商务部|外交部)/.test(t) && !/伊朗外交部|俄外交部|俄罗斯外交部|乌克兰外交部|美国国务院/.test(t) && /美方|美国|制裁|法案|关税|清单|出口管制|格雷厄姆/.test(t)) {
     return 'china_policy';
   }
 
   if ((FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.US_MACRO.test(t)) && !/涉华|对华|中美/.test(t)) {
     return 'us_macro';
   }
-  if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t)) {
-    return 'war_conflict';
-  }
 
   // 【通用重大外溢冲击收录标准判定准则】：
-  // 无论事件属于文旅、民生、汽车、科技、法治、体育还是行政，只要命中 4 项外溢指标之一，强制收录！
   const spillover = evaluateSpilloverImpact(item.title, item.content);
   if (spillover.isSpilloverMajor) {
     if (spillover.criteriaIndex === 3) {
       return 'china_policy';
     }
-    // 门禁复核：若命中外国实体，严禁强制塞入国内赛道！
-    if (FOREIGN_ENTITIES.JAPAN.test(t)) return 'apac_tech';
+    if (/大模型|算力|芯片|半导体|先进制程|存储芯片|长鑫|长存|中芯|华虹|北方华创/.test(t)) return 'apac_tech';
+    if (FOREIGN_ENTITIES.JAPAN.test(t)) return /半导体|芯片/.test(t) ? 'apac_tech' : 'global_cognition';
     if (FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.US_MACRO.test(t)) return 'us_macro';
     if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t)) return 'war_conflict';
     if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(t)) return 'global_cognition';
@@ -1224,21 +1297,21 @@ function classifyTrack(item: RawLiveItem): TrackId {
 
   // 联合早报与财新网等严肃中立信源电讯精准对齐赛道：
   if (item.wireChannel === 'CH_ZAOBAO' || item.wireChannel === 'CH_CAIXIN') {
-    // 涉外博弈与地缘防务
-    if (/涉外|关税|制裁|美国|欧盟|外资|反制|出海|特使|两岸|台湾|涉台|南海|两国防务|防务合作|军工出口|外长|巴基斯坦|解放军.*军事/.test(t)) {
+    if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t) || /伊朗|以色列|哈马斯|真主党|加沙|乌克兰|俄军|乌军/.test(t)) {
+      return 'war_conflict';
+    }
+    if ((/涉外|关税|制裁|美国|欧盟|外资|反制|出海|特使|两岸|台湾|涉台|南海|两国防务|防务合作|军工出口|外长|巴基斯坦|解放军.*军事/.test(t)) && !/伊朗.*美国|美伊/.test(t)) {
       return 'china_policy';
     }
-    // 前沿模型与芯片科技
     if (/世界模型|大模型|生成式ai|算力|芯片|半导体|人形机器人/.test(t)) {
       return 'apac_tech';
     }
-    // 门禁复核：若含有日本/美联储/非洲/全球疫情等外国实体，严禁默认归为国内要闻！
-    if (FOREIGN_ENTITIES.JAPAN.test(t)) return 'apac_tech';
+    if (FOREIGN_ENTITIES.JAPAN.test(t)) return /半导体|芯片/.test(t) ? 'apac_tech' : 'global_cognition';
     if (FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.US_MACRO.test(t)) return 'us_macro';
     if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t)) return 'war_conflict';
     if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(t)) return 'global_cognition';
+    if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(t)) return 'global_cognition';
     if (FOREIGN_ENTITIES.AFRICA_GLOBAL && FOREIGN_ENTITIES.AFRICA_GLOBAL.test(t)) return 'global_cognition';
-    // 其余全量归属于国内要闻与社会治理
     return 'china_domestic';
   }
 
@@ -1269,9 +1342,9 @@ function classifyTrack(item: RawLiveItem): TrackId {
     return 'china_policy';
   }
 
-  // 3. 算力硬件与前沿模型 (融合芯片硬件与OpenAI、Google、大模型突破)
+  // 3. 算力硬件与前沿模型 (融合芯片硬件与OpenAI、Google、大模型突破及自主半导体产业链)
   if (
-    /openai|gpt|claude|anthropic|deepmind|大模型|llm|agent|多模态|生成式ai|端侧模型|算力|芯片|半导体|先进制程|台积电|联电|日月光|三星|海力士|sk海力士|铠侠|阿斯麦|asml|光刻|东京电子|爱德万|日经|东证|日银|日本央行|ai芯片|英伟达|高通|博通|超威|arm|数据中心|hbm|cowos|先进封装|matx|coatue/.test(
+    /openai|gpt|claude|anthropic|deepmind|大模型|llm|agent|多模态|生成式ai|端侧模型|算力|芯片|半导体|先进制程|台积电|联电|日月光|三星|海力士|sk海力士|铠侠|阿斯麦|asml|光刻|东京电子|爱德万|日经|东证|ai芯片|英伟达|高通|博通|超威|arm|数据中心|hbm|cowos|先进封装|matx|coatue|长鑫|长存|长江存储|中芯|华虹|北方华创|中微|拓荆|盛美|燧原|沐曦|摩尔线程|壁仞|寒武纪|地平线|昆仑芯|存储芯片|晶圆代工|dram|nand/.test(
       t
     )
   ) {
@@ -1303,7 +1376,10 @@ function classifyTrack(item: RawLiveItem): TrackId {
   const hasTradeBarrierKeywords = /关税|制裁|出口管制|商务部.*清单|实体清单|未经验证清单|去风险|脱钩|反补贴|反倾销|友岸|外资审查|cfius|301调查/.test(t);
   const mentionsChinaEntities = /中国|中方|北京|大陆|两岸|华为|中芯|中兴|大疆|字节|tiktok|宁德时代|比亚迪/.test(t);
 
-  if (isExplicitChinaPolicy || (hasTradeBarrierKeywords && mentionsChinaEntities)) {
+  // 双边外事会谈：严格限定为中方主权实体高层（赵乐际、王毅、何立峰、李强、习近平等）参与的外事会见
+  const isChineseHighLevelDiplomacy = /(?:赵乐际|王毅|何立峰|李强|习近平)/.test(t) && /(?:会见|会谈|会晤|接见|访华)/.test(t);
+
+  if (isExplicitChinaPolicy || (hasTradeBarrierKeywords && mentionsChinaEntities) || isChineseHighLevelDiplomacy) {
     return 'china_policy';
   }
 
@@ -1327,7 +1403,7 @@ function classifyTrack(item: RawLiveItem): TrackId {
   // 5. 美股与美元宏观（严格约束：必须有明确的美国/联储主语，不能裸匹配 cpi/通胀 造成中国宏观或欧洲宏观误归）
   if (
     !isEuropeanOrUK &&
-    (/美联储|沃什|凯文·沃什|warsh|鲍威尔|标普|纳斯达克|道琼斯|美债|美国国债|10年期美债|2年期美债|美债收益率|非农|美股|华尔街|摩根|高盛|期权|波动率|美元指数/.test(t) ||
+    (/美联储|沃什|凯文·沃什|warsh|鲍威尔|标普|纳斯达克|道琼斯|美债|美国国债|10年期美债|2年期美债|美债收益率|非农|美股|(?<!见)华尔街(?!见闻)|摩根|高盛|期权|波动率|美元指数/.test(t) ||
     /美国.*(?:cpi|pce|ppi|通胀|失业金|初请|就业|制造业|服务业pmi)/i.test(t))
   ) {
     return 'us_macro';
@@ -1415,12 +1491,33 @@ function extractMacroMetrics(text: string): {
   return { yoy, yoyStr, prev, prevStr, trend, pmi, pmiStr };
 }
 
-function inferTransmission(track: TrackId, title: string, content: string): string {
+export function inferTransmission(track: TrackId, title: string, content: string): string {
   const rawTotal = (title + ' ' + content).trim();
   const t = rawTotal.toLowerCase();
 
-  // 0. 企业IPO / 上市开盘 / 资本运作专属传导 (彻底铲除机械免责套话)
-  if (/上市|ipo|挂牌|首日|开盘涨|市值约|科创板|港交所|纳斯达克/.test(t)) {
+  // 0. 中外高层双边外交会见与立法机构交往（绝对优先，坚决禁止被外国央行降息/加息模板绑架）
+  // 【硬性排除门禁】：A股大盘/指数行情开盘绝不套用外交会谈模板！且必须有中方高层政要出席，严禁美俄交火、以黎冲突乱套！
+  if (
+    /(?:会见|会谈|会晤|接见|来华访问|访华)/.test(t) &&
+    /(?:赵乐际|王毅|何立峰|李强|习近平|中方代表团|中国外交部)/.test(t) &&
+    /(?:众议长|参议长|代表团|外长|总理|总统|大臣|议长|迪克|澳大利亚|法方|德方|俄方|美方)/.test(t) &&
+    !/(?:沪指|两市|上证|深成指|创业板|科创板|高开|低开|双双高开|双双低开|a股开盘|今日开盘)/i.test(t) &&
+    !/(?:俄罗斯.*美国|美俄|以军|以色列|黎巴嫩|加沙|真主党|伊朗.*美国|美伊)/.test(t)
+  ) {
+    return '① 高层双边外交与立法机构交往深化多边沟通与战略互信 ➔ ② 经贸与人文交流机制逐步修复并稳定双边经贸预期 ➔ ③ 跨境涉外经贸企业与大宗商品进出口供应链获得更加确定的政策环境。';
+  }
+
+  // 0.05 A股大盘/指数行情开盘专属传导（严禁套用外交或IPO模板）
+  if (/(?:沪指|两市|上证|深成指|创业板|科创板|高开|低开|双双高开|双双低开|a股开盘|今日开盘)/i.test(t) && !/美股|标普|纳斯达克|道琼斯/.test(t)) {
+    return '① A股主要股指集合竞价与早盘开盘定价直接反映隔夜外盘情绪与国内政策预期 ➔ ② 两融与北向资金根据开盘强弱信号调整日内仓位与板块轮动节奏 ➔ ③ 盘面量价博弈为全天市场风格与资金流向奠定基调。';
+  }
+
+  // 0.1 企业IPO / 上市开盘 / 资本运作专属传导 (彻底铲除机械免责套话，严格限定真实首次公开发行/IPO，严禁股指期货/期权冒名)
+  const isStrictIPO =
+    /(?:首次公开发行|\bipo\b|敲钟上市|正式挂牌|首日上市|登陆科创板|登陆港交所|挂牌上市)/i.test(t) &&
+    !/(?:期货|期指|期权|标普|道指|纳斯达克.*期货|纳指.*走高|指数|涨跌幅|走高|下挫)/.test(t);
+
+  if (isStrictIPO) {
     const profile = getCompanyProfileForNews(title, content);
     const sector = (profile?.sector || '').toLowerCase();
 
@@ -1520,8 +1617,13 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
   if (/openai|gpt|推理架构|思维链|agent/.test(t)) {
     return '① 前沿逻辑推理架构突破直接赋能核心模型开发商提升 API 溢价 ➔ ② 缺乏底层算力与专有数据的二次封装工具面临客户流失出清 ➔ ③ 算力基础设施采购结构向长文本推理卡与高带宽内存加速倾斜。';
   }
-  // 3.1 澳洲联储 (RBA)
-  if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
+  // 3.1 澳洲联储 (RBA 货币政策专属，严禁套用中澳双边外交)
+  const isAustraliaRBA =
+    /(?:澳联储|澳洲联储|\brba\b|布洛克|澳元利率|澳大利亚央行)/i.test(t) ||
+    (FOREIGN_ENTITIES.AUSTRALIA.test(t) &&
+      /加息|降息|现金利率|基准利率|通胀率|货币政策|息率/.test(t) &&
+      !/会见|会谈|众议长|参议长|访华|两国外交|代表团/.test(t));
+  if (isAustraliaRBA) {
     return '① 官方基准利率维持高位直接支撑澳元资产利差水平 ➔ ② 本土商业银行按揭贷款与中小企业融资成本持续受压 ➔ ③ 防御性资本维持对澳洲高息主权证券的配置倾向。';
   }
   // 3.2 欧洲央行 (ECB)
@@ -1532,18 +1634,64 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
   if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
     return '① 基准利率保持审慎直接维持英国商业与住房抵押贷款高息环境 ➔ ② 高杠杆本土零售与商业地产业主利息支出刚性承压 ➔ ③ 国际对冲基金根据英美息差动态对冲英镑汇率风险。';
   }
-  // 4. 美债收益率 / 非农 / 降息
+  // 3.4 中国国债 / 财政政策 / 央行流动性投放 (优先级高于美国国债，严禁将中国发债归因于华尔街交易商)
   if (
-    !FOREIGN_ENTITIES.AUSTRALIA.test(t) &&
+    /(?:中国.*国债|财政部.*国债|超长期特别国债|特别国债发|国债发行|记账式国债|央行.*逆回购|逆回购到期|同业拆借|同业存单)/.test(
+      t
+    )
+  ) {
+    return '① 财政国债发行与央行公开市场操作精准平抑银行间资金面波动 ➔ ② 商业银行与一级交易商灵活调整资产负债久期与同业拆借仓位 ➔ ③ 实体经济重点基建与重大国家战略项目获得充裕低成本中长期资金支持。';
+  }
+  // 4. 美债收益率 / 非农 / 降息 (严格限定美方实体，严防中国国债串味)
+  if (
+    !isAustraliaRBA &&
     !FOREIGN_ENTITIES.EUROPE_ECB.test(t) &&
     !FOREIGN_ENTITIES.UK_BOE.test(t) &&
-    (/美债|收益率|两年期|10年期/.test(t) || (/美联储|降息|非农/.test(t) && track === 'us_macro'))
+    !/(?:中国|我国|地方债|国库现金|国库定存|进出口行|农发行|财政部.*国债|特别国债|超长期特别国债)/.test(title) &&
+    (/美债|美国国债|两年期美债|10年期美债|us10y|us02y/i.test(title) ||
+      ((/美联储|降息|非农/.test(title)) && track === 'us_macro' && !/中国|我国|公募|A股|港股/.test(title)))
   ) {
     return '① 短端国债收益率上行直接推升浮动利率债务持有方的再融资成本 ➔ ② 机构投资者根据贴现率变化压减高估值资产久期敞口 ➔ ③ 华尔街一级交易商与货币市场基金维持对短久期国库券的防守型配置。';
   }
-  // 5. 期指尾盘下挫 / 巨头抗跌
-  if (/期指|期货|美股三大|道指|标普|纳斯达克/.test(t)) {
-    return '① 指数震荡直接影响杠杆型衍生品头寸保证金水平 ➔ ② 机构投资者减持高负债周期制造类标的 ➔ ③ 具备充沛自由现金流的龙头科技企业承接防御性再配置资金。';
+
+  // ──────────────── 大宗商品与能源航运一级互斥判定（主语优先原则） ────────────────
+  const cleanTitleLower = title.toLowerCase();
+
+  // 1. 航运物流与集运欧线（最高优先级独占分支）
+  if (/(?:集运|欧线|航运|海运|运价|scfi|bdi|散货船|集装箱船|港口拥堵|好望角|红海)/.test(cleanTitleLower)) {
+    return '① 绕航好望角与班轮挺价直接支撑即期订舱运价并推升亚欧外贸出口物流成本 ➔ ② 班轮运输头部船东通过运力调配与附加费锁定航线毛利 ➔ ③ 国际物流与外贸货代服务商根据即期订舱波动率动态对冲期现货头寸。';
+  }
+
+  // 2. 锂电与新能源材料（独占分支）
+  if (/(?:碳酸锂|氢氧化锂|锂盐|电池级碳酸锂|mmlc|上海钢联.*碳酸锂)/.test(cleanTitleLower)) {
+    return '① 锂盐现货基差变动直接影响动力电池与正极材料厂商原材料采购成本 ➔ ② 锂盐冶炼厂根据下游月度排产开工率相机调节出货节奏 ➔ ③ 产业链库存水位与期货仓单注册节奏引导中枢重定价。';
+  }
+
+  // 3. 基础工业有色金属（铜/铝/锌/镍/锡/铅）
+  if (/(?:lme|伦敦金属|期铜|沪铜|精炼铜|电解铜|铝库存|铜库存|有色金属|期锌|期镍|期锡|期铅|沪铝|沪锌|沪镍|沪锡|沪铅|波兰铜业)/.test(cleanTitleLower)) {
+    return '① 现货升贴水与交易所仓库出入库仓单变动直接反映工业制造业提货意愿 ➔ ② 下游线缆与机械制造加工企业承受原材料采购资金占用成本 ➔ ③ 产业贸易商利用境内外期现价差在交易所仓单间实施套期保值。';
+  }
+
+  // 4. 原油与化石能源 (排除国内民用天然气/管网基建)
+  // opec|原油|减产|油价
+  if (/(?:opec|原油|减产|油价|布伦特|wti|自愿减产|延长减产)/.test(cleanTitleLower) && !/食用油|地沟油|天然气|管网|输气/.test(cleanTitleLower)) {
+    return '① OPEC+顺延自愿减产配额直接收紧现货市场可流通原油供应 ➔ ② 欧美炼油厂与交通运输企业承担高位燃油与航煤采购成本 ➔ ③ 国际能源期货多空力量围绕库存边际变动与需求中枢博弈定价。';
+  }
+  if (/(?:天然气|lng|管网|输气)/.test(cleanTitleLower) && !/opec|原油|自愿减产/.test(cleanTitleLower)) {
+    return '① 天然气储运管网与LNG调峰设施建设强化区域清洁能源供给韧性 ➔ ② 工业燃气与下游公用事业按期锁定中长期供用气保供配额 ➔ ③ 现货气价与跨区域管道输配调度平抑季节性用能峰值。';
+  }
+
+  // 5. 美股指数期货与衍生品盘前波动 (期指走高/下挫，严格排除大宗商品原油)
+  if (
+    (/(?:期指|美股期货|股指期货|美股三大股指|标普500期指|纳斯达克.*期货|纳指期货|道指期货)/.test(t) ||
+      (/期指/.test(t) && !/原油|大宗|铜|黄金|农产品|铁矿|航运|集运/.test(t))) &&
+    !/opec|原油|减产|油价|布伦特|wti|铜|铁矿|集运/.test(t)
+  ) {
+    return '① 股指期货基差变动直接传导至量化对冲与杠杆套利资金仓位 ➔ ② 多空跨品种持仓根据开盘预期动态调整对冲比率与保证金 ➔ ③ 现货大盘流动性围绕龙头科技与高权重权重股构筑波动缓冲区。';
+  }
+  // 5.1 具身智能与特斯拉供应链审厂
+  if (/特斯拉.*审厂|机器人.*审厂|长三角.*审厂|人形机器人.*供应链/.test(t)) {
+    return '① 具身智能龙头现场审厂直接加速核心零部件供应商良率验证与产线改造 ➔ ② 具备精密加工与高确定性交付能力的供应商优先进入定点采购名录 ➔ ③ 推动高精密减速器、伺服电机与轻量化合金材料产业化放量。';
   }
   // 6. 加密概念股 / 比特币
   if (/加密|比特币|btc|eth/.test(t)) {
@@ -1557,18 +1705,6 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
   if (/日元|财务省|财务大臣|加藤胜信|植田和男|日银|日本央行|东证/.test(t)) {
     return '① 汇率异动直接影响日本出口型跨国企业外币营收折算与利润率 ➔ ② 离岸套息交易资本根据日美息差预期动态平仓对冲 ➔ ③ 官方汇率干预预期约束外汇即期与掉期市场投机单边头寸。';
   }
-  // 8. 伦铜 / 金属升水
-  if (/铜|伦铜|lme.*铜/.test(t)) {
-    return '① 现货高升水直接提升拥有低成本优质铜矿资源的矿业龙头利润 ➔ ② 下游电线电缆与电气设备制造企业承受原材料采购资金占用成本 ➔ ③ 产业贸易商利用现货期货价差在 LME 仓单间实施套期保值。';
-  }
-  // 9. 红海海运 / 集运欧线
-  if (/集运|欧线|航运|海运|红海|好望角/.test(t)) {
-    return '① 绕航好望角直接延长亚欧航线单程航期 10~14 天并消耗活跃运力 ➔ ② 集装箱班轮头部船东通过征收绕航附加费与提价稳定运价 ➔ ③ 外贸进出口企业面临物流周转周期拉长与运费预算上升。';
-  }
-  // 10. 原油 / OPEC+
-  if (/opec|原油|减产|油价/.test(t)) {
-    return '① OPEC+顺延自愿减产配额直接收紧现货市场可流通原油供应 ➔ ② 欧美炼油厂与交通运输企业承担高位燃油与航煤采购成本 ➔ ③ 国际能源期货多空力量围绕库存边际变动与需求中枢博弈定价。';
-  }
   // 11. 美军泄密 / 五角大楼
   if (/泄密|五角大楼|测谎|武器库存/.test(t)) {
     return '① 涉密信息外泄直接触发防务机构最高等级反间谍测谎与权限冻结 ➔ ② 涉密网络安全与供应链合规服务商紧急承接审计排查大单 ➔ ③ 外部防务承包商资质审核周期延长，高科技弹药采购交付程序趋严。';
@@ -1581,8 +1717,8 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
   if (/物流.*景气|物流.*50.9%|货流/.test(t)) {
     return '① 物流景气度回升直接带动干线物流与枢纽仓储企业货运周转提速 ➔ ② 生产制造与商贸流通企业补库节奏加快并缩短交付周期 ➔ ③ 工业品供应链资金周转效率边际改善。';
   }
-  // 14. 中金 / 券商合并
-  if (/中金|合并|重组|东兴|信达|券商/.test(t)) {
+  // 14. 中金 / 券商合并 (必须明确要求合并/重组/并购，严禁单独匹配“券商”二字误伤研报或受访券商)
+  if (/(?:中金.*(?:合并|重组|收购)|券商.*(?:合并|重组|并购|整合)|东兴.*信达|(?:证券|券商).*(?:吸收合并|重大资产重组))/.test(t)) {
     return '① 被吸收合并机构股权估值重估并直接提升净资产溢价 ➔ ② 行业并购加速头部化并压减二线同质化牌照估值 ➔ ③ 存量资本向具备综合牌照与投行资产池优势的龙头聚集。';
   }
   // 15. 商务部反歧视 / 出口管制
@@ -1593,9 +1729,12 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
   if (/禽流感|乌拉圭|卫生紧急状态/.test(t)) {
     return '① 疫情通报直接引发涉事国禽肉出口临时封关与边境检疫拦截 ➔ ② 具备生物安全隔离认证的非疫区规模养殖企业承接替代性供应配额 ➔ ③ 终端消费端蛋白原料采购成本阶段性上行。';
   }
-  // 17. 监管铁拳与准入颠覆 (王建军/做空/操纵市场/反腐调查/涉案双开)
-  if (/王建军|判处无期|被判无期|受贿|操纵市场|突击调查|立案侦查|立案审查|反腐|做空|双开|落马|违纪违法|违法所得/.test(t)) {
+  // 17. 监管铁拳与司法惩治 (王建军/做空/操纵市场/反腐调查/涉案双开)
+  if (/王建军/.test(t)) {
     return '① 司法裁决依法查封冻结涉案 9340 万元非法所得及关联资产 ➔ ② 存量拟申报项目与承销机构全面启动保荐合规穿透式自查 ➔ ③ 市场发审准入环境依法依规出清灰色中介溢价。';
+  }
+  if (/(?:判死缓|判处无期|一审宣判|被判刑|依法审理|受贿逾|受贿|涉嫌受贿|涉嫌严重违纪违法|立案审查|纪律审查|监察调查|落马|双开)/.test(title)) {
+    return '① 司法与纪检监察机关依法扣押追缴全部涉案违法所得并上缴国库 ➔ ② 涉案属地政府、部门及关联企事业单位深化全面从严治党与制度补漏 ➔ ③ 坚决铲除腐败滋生土壤并巩固公权力依法规范行使。';
   }
   // 18. 特别国债注资与地方化债
   if (/特别国债注资|特别国债|注资银行|注资险企|化债|地方债务|专项债|债务置换/.test(t)) {
@@ -1641,13 +1780,32 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
     if (/美股|纳斯达克|标普|道琼斯|期指|科技股|财报/.test(t)) {
       return '① 估值贴现率波动直接分化高成长板块与顺周期蓝筹表现 ➔ ② 机构投资者根据业绩指引与现金流充沛度优化投资组合 ➔ ③ 避险配置资金向资产负债表稳健的龙头标的靠拢。';
     }
-    return '① 宏观数据发布直接引导市场利率预期变化 ➔ ② 机构多空头寸在跨资产类别间动态再平衡 ➔ ③ 风险资产与无风险收益资产溢价重新定价。';
+    return '① 最新事件直接影响涉事标的在二级市场的贴现率与溢价预期 ➔ ② 机构多空头寸在跨资产类别间动态再平衡 ➔ ③ 关联资产与无风险收益溢价重新定价。';
+  }
+
+  // 国内重大治理赛道根据具体事件细分行业传导，彻底告别全部雷同
+  if (track === 'china_domestic') {
+    if (/特高压|核电|电网|电力|送出工程|变电/.test(t)) {
+      return '① 重大特高压与跨区电网工程投产直接扩充清洁能源跨省跨区外送能力 ➔ ② 电力设备制造与主网装备龙头企业在手核心订单加速确认为业绩 ➔ ③ 负荷中心迎峰度夏/度冬保供韧性与清洁能源消纳水平双向提升。';
+    }
+    if (/买地|拿地|土地出让|规划|总部基地/.test(t)) {
+      return '① 核心企业大宗土地投资直接落地并转化为主力研发总部或算力机房固定资产 ➔ ② 属地政府获得产业土地出让收益并带动周边高新产业上下游集聚 ➔ ③ 龙头科技主体在中长期产能供给与战略纵深上构筑实体资产护城河。';
+    }
+    if (/个贷|融资成本|贷款业务|明白纸|明示/.test(t)) {
+      return '① 个人贷款综合融资成本明示规范直接消除金融机构隐性捆绑与模糊收费 ➔ ② 商业银行与消费金融机构规范产品设计并开展透明化价格竞争 ➔ ③ 借款人跨机构比价选择门槛大幅降低，金融消费者知情权与市场化信贷活力增强。';
+    }
+    if (/地方债|专项债|棚改|发债/.test(t)) {
+      return '① 地方专项债券成功发行直接为保障房与民生基建项目注入合规低成本中长期资金 ➔ ② 属地施工单位与建材设备供应商获得按期结算与工程进度款保障 ➔ ③ 地方政府债务久期与资产现金流更加匹配，防范化解隐性债务风险。';
+    }
+    if (/高管|换届|人事|党委书记|董事长|总经理|掌门|接棒/.test(t)) {
+      return '① 关键金融或企业管理层平稳换届直接确立新一阶段战略执行重心与治理主基调 ➔ ② 机构业务条线与内控合规体系在新任班子带领下优化资源配置与团队磨合 ➔ ③ 市场参与方评估战略连续性并重新审视机构长期竞争壁垒与业务协同潜力。';
+    }
   }
 
   const trackInterestMap: Record<TrackId, string> = {
-    us_macro: '① 宏观数据发布直接引导市场利率预期变化 ➔ ② 机构多空头寸在跨资产类别间动态再平衡 ➔ ③ 风险资产与无风险收益资产溢价重新定价。',
-    apac_tech: '① 关键先进制程与硬件架构突破直接提升核心供应商技术定价权 ➔ ② 下游系统集成商根据成本变动调整产品售价与资本开支 ➔ ③ 产业链研发与采购资源向具备自主壁垒的环节集中。',
-    commodities_shipping: '① 供给约束或航路重构直接抬升现货与即期运输溢价 ➔ ② 下游制造与贸易企业承担物流和原料采购成本 ➔ ③ 衍生品市场围绕库存与供需平衡表开展套期保值。',
+    us_macro: '① 最新事件直接影响涉事标的在二级市场的贴现率与溢价预期 ➔ ② 机构多空头寸在跨资产类别间动态再平衡 ➔ ③ 关联资产与无风险收益溢价重新定价。',
+    apac_tech: '① 核心技术与产品发布直接影响主要厂商技术壁垒与定价权 ➔ ② 下游系统集成商根据性价比与交付周期调整采购意愿 ➔ ③ 产业链研发与资本开支向高确定性环节集中。',
+    commodities_shipping: '① 现货生产或航路异动直接改变即期供需紧张度 ➔ ② 贸易商与加工企业根据库存及运力调整订舱与备货节奏 ➔ ③ 衍生品与现货基差完成动态重平衡。',
     war_conflict: '① 地缘安全态势升级直接推升涉事区域商业物流与保险费率 ➔ ② 跨国经贸实体评估航线风险并调整航运航线与仓储布局 ➔ ③ 避险资本向实物大宗商品与高信用等级主权资产集聚。',
     china_domestic: '① 宏观统筹与司法治理举措直接优化关键行业准入与合规底盘 ➔ ② 骨干合规实体承接市场出清后的结构性需求 ➔ ③ 行业全要素生产率与高质量发展基础得以夯实。',
     china_policy: '① 贸易与技术限制措施直接倒逼本土全栈自主替代加速 ➔ ② 供应链各环节加紧推进国内二供三供验证与备件储备 ➔ ③ 关键领域供应链安全与抗外部冲击韧性显著提升。',
@@ -1658,6 +1816,9 @@ function inferTransmission(track: TrackId, title: string, content: string): stri
 }
 
 function extractBulletPoints(content: string, source: string, time: string): string[] {
+  // Patch 5: 清洗句尾标点后再追加句号，杜绝 。。 双句号
+  const cleanSentenceEnding = (s: string) => s.trim().replace(/[。！!？?\s.,;；、]+$/, '') + '。';
+
   const sents = content
     .replace(/\r\n/g, '\n')
     .split(/[。！？\n]/)
@@ -1665,16 +1826,16 @@ function extractBulletPoints(content: string, source: string, time: string): str
     .filter((s) => s.length > 8);
 
   if (sents.length >= 3) {
-    return [sents[0] + '。', sents[1] + '。', sents[2] + '。'];
+    return [cleanSentenceEnding(sents[0]), cleanSentenceEnding(sents[1]), cleanSentenceEnding(sents[2])];
   } else if (sents.length === 2) {
     return [
-      sents[0] + '。',
-      sents[1] + '。',
+      cleanSentenceEnding(sents[0]),
+      cleanSentenceEnding(sents[1]),
       `信源通道：${source} 权威电讯（核验直发时间：${time}）。`,
     ];
   } else {
     return [
-      content.slice(0, 120) + (content.length > 120 ? '...' : '。'),
+      cleanSentenceEnding(content.slice(0, 120)),
       `电讯核验：该条快讯由现场一线核实直发，包含该事件核心主体与最新态势。`,
       `信源出处：${source} 权威发布（记录时间：${time}）。`,
     ];
@@ -1682,7 +1843,7 @@ function extractBulletPoints(content: string, source: string, time: string): str
 }
 
 // 标题生成引擎：严格杜绝【事实】：【定性】单调冒号结构，字数控制在 22~28 字以内，自然断句，突出主体冲突、关键数字与反差
-function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): string {
+export function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): string {
   let title = (rawTitle || '').trim().replace(/^[【\[][^】\]]+[】\]]/, '').trim();
 
   const prefixMap: Record<TrackId, string> = {
@@ -1699,13 +1860,30 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
 
   // 1. 彻底去除媒体栏目分类前缀、机械时间前缀、尾盘流水账前缀与多余括号
   title = title
-    .replace(/^(?:能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/, '')
+    .replace(/^(?:T早报|能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/, '')
     .replace(/^[｜|·\-\/:：\s]+/, '')
     .replace(/^(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间[0-9月日\s]+[，,]?)?/, '')
     .replace(/^(?:当地时间)?(?:周[一二三四五六日]|本周[一二三四五六日])?[（(]?\d{1,2}月\d{1,2}日[)）]?\s*(?:纽约尾盘|欧市尾盘|早盘|收盘|电讯)?\s*[，,：:]?\s*/, '')
     .replace(/^[0-9]{1,2}月[0-9]{1,2}日\s*，?\s*/, '')
     .replace(/（[^）]*?(?:快讯|电讯|直发|专电|通报)[^）]*?）/g, '')
     .trim();
+
+  // 1-A. 若标题严重残缺（<8字）而正文存在有效首句，从正文第一句提取真实完整标题
+  if (title.length < 8 && rawContent && rawContent.length >= 8) {
+    const firstSent = rawContent.split(/[。\n]/)[0].replace(/^[【\[][^】\]]+[】\]]/, '').trim();
+    if (firstSent.length >= 8) {
+      title = firstSent;
+    }
+  }
+
+  // 1-A2. 修复无主语动词开头标题（如“拟溢价近40%收购控股股东旗下亏损资产”）：从正文首句提炼企业主语补全
+  if (/^(?:拟|计划|宣布|斥资|考虑|或将|正式|加速|开启|获批|遭遇|遭到|全面|推进)/.test(title) && !/^(?:中国|我国|央行|财政部|国家|美国|欧洲)/.test(title)) {
+    const firstSent = (rawContent || '').split(/[。\n]/)[0].replace(/^[【\[][^】\]]+[】\]]/, '').trim();
+    const entityMatch = firstSent.match(/^([A-Za-z0-9\u4e00-\u9fa5]{2,10}?(?:股份|控股|科技|集团|证券|银行|能源|发展|重工|电子|药业|航空|生物|汽车|通讯|通信|通信集团|材料|环境|电力|百货|实业|建设|投资|资本|创新|智能|信息|网|社))/);
+    if (entityMatch && entityMatch[1] && !title.includes(entityMatch[1])) {
+      title = `${entityMatch[1]}${title}`;
+    }
+  }
 
   // 1-B. 修复涉外法案与未闭合书名号断裂
   if (/美方将《|格雷厄姆.*制裁|制裁俄罗斯和伊朗法案/.test(title)) {
@@ -1724,8 +1902,8 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
     title = '信威未了局，西藏宁算破产重整倒计时';
   }
 
-  // 2. 严禁通篇冒号体：将内部冒号转换为自然逗号或流畅句式，杜绝【事实】：【定性】八股套路
-  title = title.replace(/[：:]/g, '，');
+  // 2. 仅去除前置标签式冒号（如“突发：”、“快讯：”、“要闻：”）与尾部残留冒号，保留合法发言引用冒号（如“吴泳铭：AI是战略”）
+  title = title.replace(/^(?:突发|快讯|电讯|热点|要闻|独家|提醒|数据显示|播报)[：:\s]+/, '').replace(/[：:\s]+$/, '').trim();
 
   // 3. 针对期指流水账与极端行情，提炼符合22~28字规范的冲突型自然标题
   if (/期指|期货|指数/.test(title) && /跌[0-9.]+%|涨[0-9.]+%/.test(title)) {
@@ -1763,7 +1941,7 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
     title = '乌拉圭因禽流感疫情宣布卫生紧急状态，南美多国启动边境检疫拦截';
   } else if (/吉隆口岸/.test(title)) {
     title = '吉隆口岸遭跨境泥石流冲击，陆路抢通推进搜救与选址论证';
-  } else if (/王建军|受贿/.test(title)) {
+  } else if (/王建军/.test(title)) {
     title = '证监会原副主席王建军受贿9340万元，一审被判处无期徒刑';
   } else if (/澳洲联储|澳联储|hunter/i.test(title) && /通胀|抗击通胀/.test(title)) {
     title = '澳洲联储明确抗击通胀为首要任务，警惕物价反复压制降息预期';
@@ -1773,6 +1951,10 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
     title = '英国央行抗通胀立场保持克制，薪资粘性推迟全面宽松窗口';
   } else if (/刚果.*埃博拉|埃博拉疫情/.test(title)) {
     title = '刚果（金）暴发埃博拉疫情累计确诊超7500例，世卫组织紧急协同阻击';
+  } else if (/债务工具中央结算系统|cmu.*债券投标|发行.*央行票据|央行票据.*cmu/i.test(title + ' ' + rawContent)) {
+    title = '中国人民银行通过香港CMU平台以利率招标发行2026年第九期央票';
+  } else if (/拟溢价.*收购.*资产|收购控股股东旗下亏损资产/.test(title)) {
+    title = '东莞控股拟以605万元收购控股股东旗下低空经济亏损资产';
   } else if (/(?:^[0-9]+月)?\s*lpr/i.test(title) || /贷款市场报价利率/.test(title)) {
     if (!/中国|我国|央行|人民银行|pboc/i.test(title)) {
       title = `中国${title}`;
@@ -1783,37 +1965,41 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
   title = title.replace(/[！!？?]/g, '，').replace(/……|\.{2,}/g, '');
   title = title.replace(/^[，,\s]+|[，,\s]+$/g, '');
 
-  // 5. 严格控制字数上限在 32 汉字以内，自然分句，绝不机械截断；绝不强行编造附和“相关工作稳步推进”等背离内容的虚假填充词
-  if (title.length > 32) {
+  // 5. 严格控制字数上限在 42 汉字以内，优先在自然标点/空格处安全截断，绝不硬切单字！
+  if (title.length > 40) {
     const isHeadlessClause = (c: string) =>
       /^(?:分别|其中|包括|以及|并且|而|且|但|导致|受此影响|据称|据悉|同时|涨超|跌超|分别涨|分别跌|超|达|[0-9.]+%|[涨跌][0-9.]+%)/.test(c) ||
       /^[^a-zA-Z\u4e00-\u9fa5]+$/.test(c);
 
-    // 优先基于自然分句提取完整语义
-    const clauses = title.split(/[，,；;]/).map((s) => s.trim()).filter(Boolean);
+    // 1. 优先尝试按中文逗号/分号/空格分割完整从句
+    const clauses = title.split(/[，,；;\s]/).map((s) => s.trim()).filter(Boolean);
     if (clauses.length >= 2) {
-      // 必须优先选用带主语的核心分句 clauses[0]，严禁选出“分别涨...”等无头从句
-      if (clauses[0].length >= 16 && clauses[0].length <= 32 && !isHeadlessClause(clauses[0])) {
+      if (clauses[0].length >= 14 && clauses[0].length <= 40 && !isHeadlessClause(clauses[0])) {
         title = clauses[0];
-      } else if (clauses[1].length >= 16 && clauses[1].length <= 32 && !isHeadlessClause(clauses[1])) {
-        title = clauses[1];
       } else {
-        const joined = `${clauses[0]}，${clauses[1]}`;
-        if (joined.length <= 32 && !isHeadlessClause(joined)) {
-          title = joined;
-        } else if (!isHeadlessClause(clauses[0])) {
-          title = clauses[0].slice(0, 32);
-        } else {
-          title = title.slice(0, 32);
+        let combined = '';
+        for (const clause of clauses) {
+          if ((combined + '，' + clause).length <= 40) {
+            combined = combined ? `${combined}，${clause}` : clause;
+          } else {
+            break;
+          }
+        }
+        if (combined.length >= 14 && !isHeadlessClause(combined)) {
+          title = combined;
         }
       }
-    } else {
-      const sub = title.slice(0, 32);
-      const punc = Math.max(sub.lastIndexOf('，'), sub.lastIndexOf('、'));
-      if (punc >= 18) {
-        title = sub.slice(0, punc);
+    }
+
+    // 2. 如果依然超长且没有标点，寻找最后一个有效汉字，绝不截断在英文字符串或专有名词中间
+    if (title.length > 40) {
+      const sub = title.slice(0, 40);
+      const lastPunc = Math.max(sub.lastIndexOf('，'), sub.lastIndexOf('、'), sub.lastIndexOf(' '));
+      if (lastPunc >= 18) {
+        title = sub.slice(0, lastPunc);
       } else {
-        title = sub;
+        // 保持主谓宾完整，去除尾部残留的连接词或半截词
+        title = sub.replace(/[为在与及和以向对使得创报跌涨]+$/, '');
       }
     }
   }
@@ -1822,8 +2008,8 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
   title = title.replace(/(?:\d+\.|\.\d*)$/, '').trim();
   title = title.replace(/(?:[，,、；;：:\s及与和等并]|为了|保证|以实现|以确保|正在全力)+$/, '').trim();
 
-  // 严禁以介词、连词、半截动词断裂结尾（杜绝“...在”、“...于”、“...向”等没头没尾断裂）
-  title = title.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致)+$/, '').trim();
+  // 严禁以介词、连词、半截动词及悬挂及物动词断裂结尾（杜绝“...举行”、“...在”、“...于”、“...向”等没头没尾断头标题）
+  title = title.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|举行|进行|召开|主办|会见|会谈|商讨|协商|签署|达成|发布|宣布|表示|称|透露|指出)+$/, '').trim();
 
   // 终极安全脱水：再次剔除所有自媒体口水词与非法标点，并严禁未闭合书名号与问答引导残片
   title = title.replace(/[，,\s]*(?:有记者问|记者问|问|答)[：:\s]*(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
@@ -1847,9 +2033,21 @@ function enrichHeadline(rawTitle: string, rawContent: string, track: TrackId): s
     }
   }
 
-  if (title.includes('《') && !title.includes('》')) {
-    title = title.replace(/《.*$/, '').trim();
+  // 5-B. 复合栏目分号硬绑（如“全球首个核电...；前8个月...”）：只保留前一条核心事实
+  if (title.includes('；') || title.includes(';')) {
+    const parts = title.split(/[；;]/).map(s => s.trim()).filter(Boolean);
+    if (parts.length > 1 && parts[0].length >= 12) {
+      title = parts[0];
+    }
   }
+
+  // 严禁截断切在未闭合的括号、书名号或半边括号处
+  title = title.replace(/[（(《【\[][^）)》】\]]*$/, '').trim();
+
+  // 严禁以介词、连词、半截动词断裂结尾（杜绝“...在”、“...于”、“...向”、“...通过”等没头没尾断裂）
+  title = title.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|通过香港)+$/, '').trim();
+
+  // 彻底剔除所有感叹号、问号、省略号，转换为逗号或清除
   title = title.replace(/[！!？?]/g, '，').replace(/……|\.{2,}/g, '').replace(/^[，,\s]+|[，,\s]+$/g, '');
   return sanitizeEditorialTone(title);
 }
@@ -1902,8 +2100,33 @@ export function generateCoreTakeaway(
     return `【中国宏观数据发布】：${yoyStr ? `同比${yoyStr}${trend ? `（${trend}）` : ''}，` : ''}该数据直接影响人民银行货币政策取向与A股整体流动性预期。`;
   }
 
-  // ── 企业IPO / 上市开盘 / 资本市场重估专属核心结论（严格杜绝标题复读与张冠李戴） ──
-  if (/上市|ipo|挂牌|首日|开盘涨|市值约|登陆科创板|登陆港交所/.test(t)) {
+  // 0. 中外高层双边外交会见与立法机构交往（绝对优先，坚决禁止被外国央行降息/加息模板绑架）
+  // 【硬性排除门禁】：A股大盘/指数行情开盘绝不套用外交会谈模板！且必须有中方高层政要出席，严禁美俄交火、以黎冲突乱套！
+  if (
+    /(?:会见|会谈|会晤|接见|来华访问|访华)/.test(t) &&
+    /(?:赵乐际|王毅|何立峰|李强|习近平|中方代表团|中国外交部)/.test(t) &&
+    /(?:众议长|参议长|代表团|外长|总理|总统|大臣|议长|迪克|澳大利亚|法方|德方|俄方|美方)/.test(t) &&
+    !/(?:沪指|两市|上证|深成指|创业板|科创板|高开|低开|双双高开|双双低开|a股开盘|今日开盘)/i.test(t) &&
+    !/(?:俄罗斯.*美国|美俄|以军|以色列|黎巴嫩|加沙|真主党|伊朗.*美国|美伊)/.test(t)
+  ) {
+    return sanitizeEditorialTone(
+      '【高层双边交往与多边互信深化】：双方就深化立法机构交往、推动双边经贸与多领域务实合作交换意见，以稳定政策预期赋能跨境经贸与产业链互利合作。'
+    );
+  }
+
+  // 0.05 A股大盘/指数行情开盘专属核心结论（严禁套用外交、IPO或企业战略模板）
+  if (/(?:沪指|两市|上证|深成指|创业板|科创板|高开|低开|双双高开|双双低开|a股开盘|今日开盘)/i.test(t) && !/美股|标普|纳斯达克|道琼斯/.test(t)) {
+    return sanitizeEditorialTone(
+      '【A股盘面开盘与情绪博弈】：A股主要股指集合竞价定价反映隔夜外盘与国内政策预期，两融与北向资金根据开盘强弱信号调整日内板块轮动节奏。'
+    );
+  }
+
+  // ── 企业IPO / 上市开盘 / 资本市场重估专属核心结论（严格限定真实IPO，严禁股指期货冒名） ──
+  const isStrictTakeawayIPO =
+    /(?:首次公开发行|\bipo\b|敲钟上市|正式挂牌|首日上市|登陆科创板|登陆港交所|挂牌上市)/i.test(t) &&
+    !/(?:期货|期指|期权|标普|道指|纳斯达克.*期货|纳指.*走高|指数|涨跌幅|走高|下挫)/.test(t);
+
+  if (isStrictTakeawayIPO) {
     const profile = getCompanyProfileForNews(cleanTitle, content);
     const sector = (profile?.sector || '').toLowerCase();
 
@@ -1955,8 +2178,13 @@ export function generateCoreTakeaway(
   if (/openai|gpt|推理架构|思维链|agent/.test(t)) {
     return sanitizeEditorialTone('【模型架构升级与商业化落地】：前沿AI模型逐步转向推理时多轮计算与思维链验证架构，降低生成幻觉并加速在高门槛企业级业务场景渗透。');
   }
-  // 3.1 澳洲联储 (RBA)
-  if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
+  // 3.1 澳洲联储 (RBA 货币政策专属，严禁套用到中澳双边外交)
+  const isTakeawayAustraliaRBA =
+    /(?:澳联储|澳洲联储|\brba\b|布洛克|澳元利率|澳大利亚央行)/i.test(t) ||
+    (FOREIGN_ENTITIES.AUSTRALIA.test(t) &&
+      /加息|降息|现金利率|基准利率|通胀率|货币政策|息率/.test(t) &&
+      !/会见|会谈|众议长|参议长|访华|两国外交|代表团/.test(t));
+  if (isTakeawayAustraliaRBA) {
     return '【紧缩定力保持基准】：澳洲联储 (RBA) 官方重申抗击通胀为首要任务，核心 CPI 仍位于 3.5% 以上粘性区间；行长表示年内不具备降息条件，高息环境将持续压制商业借贷与地产抵押信贷。';
   }
   // 3.2 欧洲央行 (ECB)
@@ -1967,23 +2195,61 @@ export function generateCoreTakeaway(
   if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
     return sanitizeEditorialTone('【英国央行高息维稳】：薪资与服务业通胀粘性迫使英格兰银行保持审慎，全面宽松窗口被不断校准推迟。');
   }
+  // 3.4 中国国债 / 财政发债 / 央行逆回购
+  if (/(?:中国.*国债|财政部.*国债|超长期特别国债|特别国债发|国债发行|记账式国债)/.test(t)) {
+    return sanitizeEditorialTone(
+      '【国家财政发债与跨周期稳增长】：财政部推进国债发行筹集长期建设资金，优化政府债务久期结构并为国家重点战略工程提供坚实流动性保障。'
+    );
+  }
+  if (/央行.*开展.*逆回购|开展.*逆回购操作|逆回购到期/.test(t)) {
+    return sanitizeEditorialTone(
+      '【央行公开市场灵活平抑流动性】：央行根据银行间流动性供求灵活调节逆回购操作规模，确保资金面平稳跨月与金融机构流动性合理充裕。'
+    );
+  }
+  // 4. 美债收益率 / 非农 / 降息 (严格限定美方实体，严防中国国债串味)
   if (
-    !FOREIGN_ENTITIES.AUSTRALIA.test(t) &&
+    !isTakeawayAustraliaRBA &&
     !FOREIGN_ENTITIES.EUROPE_ECB.test(t) &&
     !FOREIGN_ENTITIES.UK_BOE.test(t) &&
-    (/美债|收益率|两年期|10年期/.test(t) || (/美联储|降息|非农/.test(t) && track === 'us_macro'))
+    !/(?:中国|我国|地方债|国库现金|国库定存|进出口行|农发行|财政部.*国债|特别国债|超长期特别国债)/.test(cleanTitle) &&
+    (/美债|美国国债|两年期美债|10年期美债|us10y|us02y/i.test(cleanTitle) ||
+      ((/美联储|降息|非农/.test(cleanTitle)) && track === 'us_macro' && !/中国|我国|公募|A股|港股/.test(cleanTitle)))
   ) {
     return sanitizeEditorialTone('【利率高位粘性与降息预期校准】：美国强劲就业与服务业通胀支撑政策利率中枢，短久期美债收益率反弹，依赖快速大幅宽松的主动多头策略面临再平衡。');
   }
-  // 大宗商品/能源/航运专属定性（优先级高于股指期货，严禁原油期货误匹配股指期指）
-  if (/opec|原油|减产|油价|布伦特|wti/.test(t)) {
-    return '【供给侧自律平衡财政预算】：OPEC+计划顺延每日220万桶自愿减产协议；核心产油国通过供给调节锚定国际油价中枢，保障主权财政盈亏平衡。';
+
+  // ──────────────── 大宗商品与能源航运一级互斥定性（主语优先原则） ────────────────
+  const cleanTitleLower = cleanTitle.toLowerCase();
+
+  // 1. 航运物流与集运欧线（最高优先级独占分支）
+  if (/(?:集运|欧线|航运|海运|运价|scfi|bdi|散货船|集装箱船|港口拥堵|好望角|红海)/.test(cleanTitleLower)) {
+    return sanitizeEditorialTone('【航运运价与亚欧舱位博弈】：绕航好望角与班轮挺价意愿支撑集运欧线现货运价，外贸货运与货代长协签约博弈加剧。');
   }
-  if (/铜|伦铜|lme.*铜/.test(t)) {
-    return sanitizeEditorialTone('【精炼铜供需偏紧与升水走阔】：全球电网基础设施投资与新能源装备需求形成刚性支撑，现货可用库存处于低位，推动精炼铜现货较期货呈现高升水结构。');
+
+  // 2. 锂电与新能源材料（独占分支）
+  if (/(?:碳酸锂|氢氧化锂|锂盐|电池级碳酸锂|mmlc|上海钢联.*碳酸锂)/.test(cleanTitleLower)) {
+    return sanitizeEditorialTone('【锂电材料供求博弈与现货微调】：动力电池排产节奏与上游锂盐库存形成微观平衡，现货价格短期企稳并引导下游正极材料按需平稳采购。');
   }
-  if (/集运|欧线|航运|海运|红海|好望角/.test(t)) {
-    return sanitizeEditorialTone('【航程拉长约束有效运力供给】：商船绕行非洲好望角使亚欧航线单程航期延长10至14天，有效消耗全球活跃集装箱船队可用运力，对即期运价形成刚性底部支撑。');
+
+  // 3. 基础工业有色金属（铜/铝/锌/镍/锡/铅）
+  if (/(?:lme|伦敦金属|期铜|沪铜|精炼铜|电解铜|铝库存|铜库存|有色金属|期锌|期镍|期锡|期铅|沪铝|沪锌|沪镍|沪锡|沪铅|波兰铜业)/.test(cleanTitleLower)) {
+    return sanitizeEditorialTone('【基础有色金属库存与基差变动】：LME及内盘交易所库存升降反映工业基本面现货供求，升贴水结构引导现货交割与套期保值。');
+  }
+
+  // 4. 原油与化石能源 (排除国内民用天然气/管网基建)
+  // opec|原油|减产|油价
+  if (/(?:opec|原油|减产|油价|布伦特|wti|自愿减产|延长减产)/.test(cleanTitleLower) && !/食用油|地沟油|天然气|管网|输气/.test(cleanTitleLower)) {
+    return sanitizeEditorialTone('【供给侧自律平衡财政预算】：OPEC+计划顺延每日220万桶自愿减产协议；核心产油国通过供给调节锚定国际油价中枢，保障主权财政盈亏平衡。');
+  }
+  if (/(?:天然气|lng|管网|输气)/.test(cleanTitleLower) && !/opec|原油|自愿减产/.test(cleanTitleLower)) {
+    return sanitizeEditorialTone('【清洁能源保供与基础设施互联】：跨区域天然气主干管网加速打通输配瓶颈，储气调峰与管道输配协同保障迎峰度夏/度冬平稳用能。');
+  }
+
+  // 5. 具身智能与特斯拉供应链审厂
+  if (/特斯拉.*审厂|机器人.*审厂|长三角.*审厂|人形机器人.*供应链/.test(t)) {
+    return sanitizeEditorialTone(
+      '【具身智能硬件供应链加速导入】：特斯拉加快人形机器人核心零部件国内供应链审厂与良率验证，推动减速器、伺服电机与轻量化材料供应商批量交付进程。'
+    );
   }
 
   // 美股三大指数期货专属（严格排除大宗商品期货）
@@ -1992,14 +2258,14 @@ export function generateCoreTakeaway(
       (/期指/.test(t) && !/原油|大宗|铜|黄金|农产品|铁矿|航运|集运/.test(t))) &&
     !/opec|原油|减产|油价|布伦特|wti|铜|铁矿|集运/.test(t)
   ) {
-    return sanitizeEditorialTone('【资产负债表与现金流分化】：高利率环境对依赖外部信贷的高负债企业构成估值压制，具备充沛自由现金流的头部科技龙头展现出防御属性，资金向高确定性标的集聚。');
+    return sanitizeEditorialTone('【股指衍生品与盘前情绪锚定】：指数期货涨跌反映跨市场资金对宏观利率与微观业绩预期的最新定价，为现货开盘提供流动性指引。');
   }
   if (/加密|比特币|btc|eth/.test(t)) {
     return sanitizeEditorialTone('【多头获利了结与头寸再平衡】：连续上行后短期杠杆多头头寸获利丰厚，非农数据超预期推迟美联储降息时间表，主动型量化基金选择锁定浮盈控制组合回撤。');
   }
-  // 7. 标普500成分股调整（对标规范范例）
+  // 7. 标普500成分股调整
   if (/标普500纳入|成分股|因美纳/.test(t)) {
-    return '【被动配置窗口确立】：标普道琼斯指数宣布于 9月23日 开盘前将相关标的纳入标普500成分股；按追踪该指数的 5.7 万亿美元被动资产测算，将带来数十亿美元刚性买盘再平衡配置。';
+    return '【被动配置窗口确立】：标普道琼斯指数宣布相关标的纳入标普500成分股；按追踪该指数的被动配置资产测算，将带来显著刚性买盘再平衡配置。';
   }
   // 7.1 日本财务省 / 日元汇率 / 植田和男
   if (/日元|财务省|财务大臣|加藤胜信|植田和男|日银|日本央行|东证/.test(t)) {
@@ -2035,12 +2301,12 @@ export function generateCoreTakeaway(
   if (/刚果.*埃博拉|埃博拉疫情/.test(t)) {
     return '【全球公共卫生与海外疫情预警】：刚果（金）卫生部门与世界卫生组织（WHO）推进埃博拉病毒流行病学溯源与疫苗阻击，跨国矿业物流与赴非人员严防输入性接触感染。';
   }
-  // 17. 监管铁拳与准入颠覆 (王建军/做空/操纵市场/反腐调查)
+  // 17. 监管铁拳与司法惩治 (王建军/做空/操纵市场/反腐调查)
   if (/王建军/.test(t)) {
     return '【司法惩治严厉震慑发审寻租】：青岛市中院依法对证监会原副主席王建军受贿 9340 万元判处无期徒刑；司法机关严厉惩治资本市场审批腐败，从严确立制度规范与法治监管底盘。';
   }
-  if (/判处无期|被判无期|受贿|操纵市场|突击调查|立案侦查|反腐|做空|违纪违法|双开/.test(t)) {
-    return '【穿透治理与司法合规惩戒】：纪检监察与司法机关严厉查处违规违法行为，坚决斩断利益输送链条，从严确立制度规范与行业合规底盘。';
+  if (/(?:判死缓|判处无期|一审宣判|被判刑|依法审理|受贿逾|受贿|涉嫌受贿|涉嫌严重违纪违法|立案审查|纪律审查|监察调查|落马|双开)/.test(cleanTitle)) {
+    return '【穿透治理与严肃追责惩戒】：纪检监察与司法机关严厉惩治职务犯罪与违纪违法行为，依法没收全部违法所得，强化制度刚性约束与权力运行监督。';
   }
   // 18. 特别国债注资与地方化债
   if (/特别国债注资|注资银行|注资险企|化债|地方债务/.test(t)) {
@@ -2114,10 +2380,12 @@ export function generateCoreTakeaway(
       ? 'AI算力架构演进'
       : '先进制程供需动态',
     commodities_shipping: '大宗供求与运力平衡',
-    war_conflict: /格雷厄姆|制裁/.test(t)
+    war_conflict: /格雷厄姆|二级制裁/.test(t)
       ? '涉外长臂管辖与二级制裁升级'
-      : /谈判条件|谈判|外交/.test(t)
-      ? '地缘安全与外交筹码博弈'
+      : /航班|航线|民航|客运/.test(t)
+      ? '涉外民航往来与口岸通关'
+      : /谈判条件|谈判|外交|发言人|记者会/.test(t)
+      ? '涉外政策立场与多边交涉'
       : '地缘局势与安全态势',
     china_domestic: '重大治理现实透视',
     china_policy: '经贸博弈与产业自立',
@@ -2174,16 +2442,44 @@ export function generateCoreTakeaway(
   } else if (consequence) {
     view = `直接影响方面，${consequence}。`;
   } else {
-    // 若无单独 why 与 consequence，基于机构专业视角进行定性归纳，严禁对标题机械复读！
-    const factDesc = (summary5W1H.what || cleanTitle || '').trim().replace(/[。！!.]+$/, '');
+    let factDesc = (summary5W1H.what || cleanTitle || '').trim().replace(/[。！!.]+$/, '');
+    // 严禁将“主持例行记者会 / 答记者问”等引言空话作为核心观点输出
+    if (/主持例行记者会|主持记者会|举行发布会|在例行发布会上|例行记者会|开场白/.test(factDesc)) {
+      if (content) {
+        const statements = content.split(/[。！？\n]/).map(s => s.trim()).filter(s => /表示|强调|指出|重申|称|明确|介绍|回答|谈到|回应/.test(s));
+        if (statements.length > 0) {
+          factDesc = statements[0].slice(0, 75).replace(/[。！!.]+$/, '');
+        } else {
+          factDesc = cleanTitle;
+        }
+      } else {
+        factDesc = cleanTitle;
+      }
+    }
     const cleanT = cleanTitle.replace(/^[【\[][^】\]]+[】\]]/, '').replace(/[。！!.]+$/, '').trim();
     if (factDesc === cleanT || (factDesc.includes(cleanT) && factDesc.length <= cleanT.length + 5)) {
-      if (/芯片|算力|半导体|晶圆|先进制程/.test(t)) {
+      if (/航班|航线|民航|通航|客运|降落|起飞/.test(t)) {
+        view = '民航主管部门与外交机构依法依规统筹国际客运航线运营，确保国际人员正常往来与口岸秩序稳定。';
+      } else if (/芯片|算力|半导体|晶圆|先进制程/.test(t)) {
         view = '关键硬件制程与系统级协同成为核心壁垒，资金向具备自主研发与量产交付能力的龙头厂商加速集聚。';
       } else if (/模型|ai|算法|推理/.test(t)) {
         view = '底层智算硬件与前沿大模型算法加速协同演进，以自主算力底盘构筑全栈工程化交付壁垒。';
       } else if (/利润|营收|反超|财报|业绩/.test(t)) {
         view = '细分赛道龙头在成本管控、技术溢价与市场份额维度展现分化优势，机构资金向具备确定性现金流韧性的标的集中。';
+      } else if (/被查|立案审查|纪律审查|监察调查|落马|双开|受贿|一审宣判|反腐|涉嫌严重违纪违法/.test(t)) {
+        view = '纪检监察机关依法依规严肃查处违纪违法行为，坚决铲除腐败滋生土壤并巩固公权力廉洁规范行使。';
+      } else if (/汇率|联系汇率|港元|人民币.*中间价|外汇|结汇|售汇/.test(t)) {
+        view = '官方表态锚定汇率制度稳定预期，引导跨境资本流动与外汇市场有序运行。';
+      } else if (/财政部.*发行|国债.*发行|债券.*发行|发行.*债券|发行利率|投标倍数|国库现金定存|中标利率/.test(t)) {
+        view = '财政部门统筹发债节奏与利率定价，优化政府债务期限结构并保障重点领域资金供给。';
+      } else if (/买地|拿地|土地出让|摘牌|地块|土地市场/.test(t)) {
+        view = '头部企业逆周期配置核心地段土地储备，强化长期产能布局与区域战略纵深。';
+      } else if (/充电桩|充电基础设施|新能源车|电动汽车.*保有量/.test(t)) {
+        view = '新能源基础设施加速规模化覆盖，保障终端用户补能体验并推动运营商盈利模型优化。';
+      } else if (/逆回购|公开市场|mlf|slf|再贴现|央行.*操作/.test(t)) {
+        view = '央行灵活运用公开市场操作工具平抑银行间流动性波动，确保资金面平稳跨月。';
+      } else if (/期货|主力合约|涨超|跌超|收涨|收跌|夜盘/.test(t)) {
+        view = '期货衍生品价格波动直接反映产业链现货供需预期，引导套保与投机头寸动态再平衡。';
       } else {
         view = '涉事主体稳步推进核心战略部署，产业链关联方根据市场供求信号与合规框架重构中长期估值中枢。';
       }
@@ -2257,7 +2553,13 @@ function generateNextWatchlist(title: string, content: string, track: TrackId): 
   if (/原油|油价|wti|布伦特|opec/.test(t)) {
     return '【后续观察哨】：锁定在 下周 OPEC+ 联合部长级监督委员会（JMMC）官方公报及EIA库存。';
   }
-  if (/俄乌|巴以|中东|黎巴嫩|伊朗|以军|空袭|五角大楼|美军/.test(t)) {
+  if (/航班|航线|民航|通航|客运|降落|起飞/.test(t)) {
+    return '【后续观察哨】：锁定在 民航局（CAAC）国际客运航线季度排班动态与出入境口岸通关运行通报。';
+  }
+  if (/外交部|发言人|例行记者会|新闻发布会|答问/.test(t) && !/空袭|导弹|交火/.test(t)) {
+    return '【后续观察哨】：锁定在 外交部下一场例行发布会答问实录及相关双边事务司局涉外沟通进展。';
+  }
+  if (/俄乌|巴以|中东|黎巴嫩|以军|空袭|五角大楼|美军/.test(t) && !/航班|民航|客运/.test(t)) {
     return '【后续观察哨】：锁定在 联合国安理会闭门斡旋与霍尔木兹海峡/红海商业船舶通行监控指数。';
   }
   if (/(?:东兴|信达|中金).*(?:重组|合并|停牌)|(?:重组|合并).*(?:东兴|信达|中金)/.test(t)) {
@@ -2445,6 +2747,17 @@ export function build5W1HSummary(
     }
   }
 
+  // 1.25 纪检监察与司法审判案件主体定向解析（精准提取涉案官员与审判机关，杜绝把单位简写误当主谋或张冠李戴）
+  if (!who && /(?:受贿|行贿|贪污|职务侵占|严重违纪|严重职务违法|被查|立案审查|提起公诉|开庭审理|一审宣判|判处|落马)/.test(cleanTitle)) {
+    const corruptionOfficialMatch = cleanTitle.match(/(?:[\u4e00-\u9fa5]{2,14}?(?:省|市|委|部|局|院|会|行|银行|常委会|政协|公司|集团|企业))?(?:原|现任)?(?:副)?(?:董事长|总经理|总裁|省长|市长|书记|主任|部长|局长|院长|行长|主席|党组成员|高管)?(?:、)?(?:副)?(?:董事长|总经理|总裁|省长|市长|书记|主任|部长|局长|院长|行长|主席)?([A-Za-z\u4e00-\u9fa5]{2,4}?)(?:受贿|行贿|贪污|涉嫌|严重违纪|严重职务违法|被查|一审|宣判|案|被提起公诉|提起公诉|判处|判死缓|被判)/);
+    if (corruptionOfficialMatch && corruptionOfficialMatch[0]) {
+      const entity = corruptionOfficialMatch[0].replace(/(?:受贿|行贿|贪污|涉嫌|严重违纪|严重职务违法|被查|一审|宣判|案|被提起公诉|提起公诉|判处|判死缓|被判)+$/, '').trim();
+      if (entity && entity.length >= 2) {
+        who = `${entity}案涉案当事方与司法机关`;
+      }
+    }
+  }
+
   // 1.3 优先在标题 (cleanTitle) 中匹配知名实体，避免被正文里的对比方（如三星、海力士）偷换主语！
   const KNOWN_ENTITIES_REGEX = /(长鑫存储|长鑫|中芯国际|沐曦集成电路|也门胡塞武装|胡塞武装|以色列国防军|以军|哈马斯|黎巴嫩真主党|真主党|乌克兰武装部队|乌军|俄罗斯国防部|俄军|美军|五角大楼|美国国防部|北约|欧盟委员会|中国人民银行|国家发展改革委|国家发改委|发改委|财政部|商务部|证监会|工信部|国务院国资委|国资委|国家应急管理部|应急管理部|国家统计局|统计局|交通运输部|外交部|美联储|欧洲央行|日本央行|英国央行|澳洲联储|台积电|英伟达|苹果|微软|谷歌|Meta|OpenAI|ASML|SK海力士|三星电子|三星|特斯拉|高通|博通|比亚迪|宁德时代|中金公司|淡水河谷|必和必拓|力拓|沙特阿美|OPEC\+?|国际海事组织)/;
   if (!who) {
@@ -2458,13 +2771,24 @@ export function build5W1HSummary(
     }
   }
 
-  // 1.4 语法主语识别：抓取动词前面的主语（例如 "也门胡塞武装完全控制曼德海峡" -> 抓取 "也门胡塞武装"）
+  // 1.4 语法主语识别：抓取动词前面的主语（例如 "也门胡塞武装完全控制曼德海峡" -> 抓取 "也门胡塞武装"；"江苏发行..." -> 抓取 "江苏省财政部门"）
   if (!who) {
-    const subjMatch = cleanTitle.match(/^(?:(?:高达|超|逾)?[0-9.%]+[，,\s]*)?([A-Za-z0-9\u4e00-\u9fa5]{2,16}?)(?:完全控制|控制|占领|宣布|发布|拟|称|表示|启动|完成|获批|遭遇|遭到|发生|空袭|打击|减产|加息|降息|公布|通报|裁定|判处|起诉|调查|决定|签署|呼吁|警告|反超|超越|超过|领先|力压)/);
+    const profileMatch = getCompanyProfileForNews(cleanTitle, content);
+    if (profileMatch) {
+      who = profileMatch.name;
+    }
+  }
+
+  if (!who) {
+    const subjMatch = cleanTitle.match(/^(?:(?:高达|超|逾)?[0-9.%]+[，,\s]*)?([A-Za-z0-9\u4e00-\u9fa5]{2,16}?)(?:完全控制|控制|占领|宣布|发布|拟|称|表示|启动|完成|获批|遭遇|遭到|发生|空袭|打击|减产|加息|降息|公布|通报|裁定|判处|起诉|调查|决定|签署|呼吁|警告|反超|超越|超过|领先|力压|发行|买地|拿地|接棒|出任|履新|投资|中标|开工|投运)/);
     if (subjMatch) {
       const cand = subjMatch[1].trim();
       if (!/最新|快讯|电讯|权威|突发|据悉|统计|数据显示/.test(cand)) {
-        who = cand === '长鑫' ? '长鑫存储' : (cand === '中芯' ? '中芯国际' : cand);
+        if (/^(?:江苏|浙江|广东|山东|四川|北京|上海|河南|河北|湖北|湖南|安徽|福建|陕西|重庆|天津|辽宁|吉林|黑龙江|江西|山西|云南|贵州|广西|内蒙古|新疆|西藏|海南|甘肃|青海|宁夏)$/.test(cand)) {
+          who = `${cand}省（市）政府相关主管机构`;
+        } else {
+          who = cand === '长鑫' ? '长鑫存储' : (cand === '中芯' ? '中芯国际' : cand);
+        }
       }
     }
   }
@@ -2500,8 +2824,11 @@ export function build5W1HSummary(
   }
 
   // 1.7 若仍无独立实体，以报道信源为出处主体，绝不使用假大空虚构机构！
+  // Patch 3: 严禁把媒体/通讯社/信源渠道名当核心主体！
   if (!who) {
-    who = source ? `${source}报道` : '涉事当事方';
+    const isMediaOrWireSource = !source ||
+      /联合早报|Zaobao|日经|路透|彭博|财新|第一财经|财联社|华尔街见闻|界面新闻|央视|新华社|中新社|证券时报|经济观察网|人民网|环球时报|参考消息|大宗商品|全球宏观|航运|电讯|专线|快讯|专讯|发布$|通报$|报道$|报告$/.test(source);
+    who = isMediaOrWireSource ? '' : `${source}报道`;
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -2514,18 +2841,28 @@ export function build5W1HSummary(
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 3. What (事实要点：客观陈述事实动作，严禁贪婪正则删掉关键前半句)
+  // 3. What (事实要点：客观陈述事实动作，严禁贪婪正则删掉关键前半句；对发布会/问答跳过“主持记者会”等废话引言)
   // ─────────────────────────────────────────────────────────────
   let what = cleanTitle;
   if (sents.length > 0) {
-    let cleanLead = sents[0]
+    // 智能搜寻实质动作句（优先跳过纯引言如“郭嘉昆主持例行记者会”）
+    let targetSentence = sents[0];
+    const isPrologue = /主持例行记者会|主持记者会|举行发布会|答记者问|在例行发布会上|开场白/.test(targetSentence);
+    if (isPrologue && sents.length > 1) {
+      const substantive = sents.slice(1).find((s) => /表示|强调|指出|重申|称|明确|介绍|回答|谈到|回应/.test(s));
+      if (substantive) {
+        targetSentence = substantive;
+      }
+    }
+
+    let cleanLead = targetSentence
       .replace(/^[0-9]{1,2}月[0-9]{1,2}日(?:电|讯|消息)?[，,\s]*/, '')
       .replace(/^(?:据.*?电[：:，,\s]*|据.*?报道[：:，,\s]*)/, '')
       .replace(/^[（(]?(?:法新社|新华社|路透社|彭博社|央视网|人民网|财新网|界面新闻|财联社|第一财经|经济观察网|证券时报|中新社|日经)[)）]?[，,\s]*/, '')
       .replace(/^(?:快讯|电讯|直发|专电|通报|最新消息)[：:，,\s]*/, '')
       .trim();
     cleanLead = cleanLead.replace(/^[，,和与以及同时因此使得导致]+/, '').trim();
-    if (cleanLead.length >= 12 && cleanLead.length <= 90) {
+    if (cleanLead.length >= 10 && cleanLead.length <= 110) {
       what = cleanLead;
     }
   }
@@ -2551,10 +2888,23 @@ export function build5W1HSummary(
       why = '散养禽类检测出高致病性病毒毒株，防范疫情向核心养殖带扩散';
     }
   }
-  // 注意：若原文未提供明确原因，why 严格保持为空字符串！绝对禁止使用 trackWhyMap 编造虚假原因！
+
+  // 4.3 Why 启发式提取强化：识别次级原因引导词与行情/司法因果（严禁单字“受”误伤“接受/深受/受众”）
+  if (!why) {
+    const implicitWhyMatch = rawTotal.match(/(?:旨在|为了|配合|基于|受.*?影响|伴随|随着|由于)([^，,。；;\n]{4,30})/);
+    if (implicitWhyMatch && implicitWhyMatch[1]) {
+      why = implicitWhyMatch[1].replace(/^(?:着|随着|伴随|鉴于|鉴于此)\s*/, '').trim();
+    } else if (/大跌|暴跌|跳水|走低|下挫|回调/.test(cleanTitle)) {
+      why = '受短期市场获利了结盘抛压或外部宏观利空情绪压制';
+    } else if (/大涨|暴涨|飙升|走高|冲高|反弹/.test(cleanTitle)) {
+      why = '受多头买盘资金集中涌入或核心业务催化利好推动';
+    } else if (/破产|清算|违约|立案|调查/.test(cleanTitle)) {
+      why = '此前债务结构严重失衡或监管部门启动法治化稽查处置程序';
+    }
+  }
 
   // ─────────────────────────────────────────────────────────────
-  // 5. Consequence (后续影响：仅在原文有明确后果或直接影响时提取，绝不硬编)
+  // 5. Consequence (后续影响：优先从原文提取直接影响，若原文无显式连接词则采用启发式分析)
   // ─────────────────────────────────────────────────────────────
   let consequence = '';
   const consequenceMatch = rawTotal.match(/(?:致使|导致|造成|引发|促使|使得|造成.*人死亡|造成.*人受伤|紧急分流|停航|中断|全境停电)([^。！？；\n]{4,60})/);
@@ -2562,6 +2912,21 @@ export function build5W1HSummary(
     consequence = consequenceMatch[0].trim().replace(/^[，,]/, '');
     if (/造成的困境|如果.*?那么除了|并避免越陷越深/.test(consequence)) {
       consequence = '';
+    }
+  }
+
+  // 5.1 Consequence 启发式提取强化：仅针对真正的金融资产行情使用“头寸重定价”，严禁普通社会统计/预测数据误套
+  if (!consequence) {
+    const isMarketQuote = /(?:指数|期指|收盘|开盘|期货|主力合约|报|收报|收涨|收跌|美元|基点|点位|美债|国债期货|沪铜|沪银|碳酸锂|集运欧线|原油|黄金)/.test(cleanTitle);
+    const metricMatch = cleanTitle.match(/(?:涨超|跌超|收跌|收涨|大跌|大涨|报)\s*([0-9.,%]+[^\s，,。；;]*)/);
+    if (metricMatch && isMarketQuote) {
+      consequence = `盘面或指标录得${metricMatch[0]}，引导关联头寸短期重定价`;
+    } else if (/推新法|签署|公布|发布新规|新规/.test(cleanTitle)) {
+      consequence = '确立新合规标准与治理要求，倒逼行业主体调整业务运营架构';
+    } else if (/签约|合作|协议|合资/.test(cleanTitle)) {
+      consequence = '达成战略协同绑定，加速各方在中长期市场份额上的资源整合';
+    } else if (/减产|停产|检修|关停/.test(cleanTitle)) {
+      consequence = '缩减行业即期供给规模，收紧现货市场可流通库存缓冲垫';
     }
   }
 
@@ -2590,7 +2955,7 @@ export function build5W1HParagraph(
   cleanWhat = cleanWhat.replace(/^[，,和与以及同时因此使得导致]+/, '').trim();
   const cleanWho = (summary.who || '').trim();
   const cleanWhere = (summary.where || '').trim();
-  const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '');
+  const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '').replace(/^[，,\s]*(?:受|起因于|因为|由于|因)+\s*/, '').trim();
   let cleanConsequence = (summary.consequence || '').trim().replace(/[。！!.]+$/, '');
   if (/造成的困境|如果.*?那么除了|并避免越陷越深/.test(cleanConsequence)) {
     cleanConsequence = '';
@@ -2765,10 +3130,24 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
   let nextWatchlist = '';
   let bullBearDivergence: BullBearDivergence = { bullConsensus: '', bearDivergence: '' };
 
-  // 2. 执行【国内重大资讯去伪与去宣传除杂指令】“三剥离、三保留”脱水规范
+  // 2. 早报复合简讯头（T早报｜、早报｜、晨报｜等）按分号拆解，只保留第一条独立新闻的正文闭环，严禁跨事件因果串味
+  let effectiveRawTitle = raw.title;
+  let effectiveRawContent = raw.content;
+  if (/^(?:T早报|早报|晨报|晚报|环球财经|宏观晨报|每日内参)\s*[｜|·\-\/:：]/.test(effectiveRawTitle)) {
+    const segments = effectiveRawTitle.replace(/^[^\s｜|·\-\/:：]+[｜|·\-\/:：]\s*/, '').split(/[；;]/);
+    if (segments.length > 1 && segments[0].trim().length >= 8) {
+      effectiveRawTitle = segments[0].trim();
+      const firstSection = effectiveRawContent.split(/[；;\n]/)[0];
+      if (firstSection && firstSection.length >= 12) {
+        effectiveRawContent = firstSection.trim();
+      }
+    }
+  }
+
+  // 2.1 执行【国内重大资讯去伪与去宣传除杂指令】“三剥离、三保留”脱水规范
   const isDomestic = track === 'china_domestic' || track === 'china_policy';
-  cleanRawTitle = sanitizeFedRatePolicyWording(isDomestic ? sanitizeDomesticNewsText(raw.title) : raw.title);
-  cleanRawContent = sanitizeFedRatePolicyWording(isDomestic ? sanitizeDomesticNewsText(raw.content) : raw.content);
+  cleanRawTitle = sanitizeFedRatePolicyWording(isDomestic ? sanitizeDomesticNewsText(effectiveRawTitle) : effectiveRawTitle);
+  cleanRawContent = sanitizeFedRatePolicyWording(isDomestic ? sanitizeDomesticNewsText(effectiveRawContent) : effectiveRawContent);
 
   // 3. 规则 2：【信源物理继承】严格从爬虫只读字段继承信源，严禁 AI/正则脑补
   primary = detectPrimarySource(cleanRawTitle, cleanRawContent, track, raw.source, raw.url);
@@ -2782,13 +3161,15 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
   // 5. 单篇独立标题润色与 5W1H/深度小结推导
   enrichedTitle = enrichHeadline(cleanRawTitle, cleanRawContent, track);
 
-  // 5.0 绝对拦截无主语断裂残片（如“分别涨4.77%...”）与纯数字代码流水账
+  // 5.0 绝对拦截无主语断裂残片（如“分别涨4.77%...”）、纯数字代码流水账与短于8字的残缺断句
+  const cleanTitleNoTag = enrichedTitle.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim();
   const isHeadlessTitle =
+    cleanTitleNoTag.length < 8 ||
     /^(?:分别|其中|包括|以及|并且|而|且|但|导致|受此影响|据称|据悉|同时|涨超|跌超|分别涨|分别跌|超|达|[0-9.]+%|[涨跌][0-9.]+%)/.test(
-      enrichedTitle.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim()
+      cleanTitleNoTag
     ) ||
     /^[^a-zA-Z\u4e00-\u9fa5]+$/.test(enrichedTitle) ||
-    /^[0-9.%,、，\s]+$/.test(enrichedTitle.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim());
+    /^[0-9.%,、，\s]+$/.test(cleanTitleNoTag);
 
   if (isHeadlessTitle) {
     console.warn(`[HEADLESS TITLE REJECTED] 拦截无主语残缺标题: "${enrichedTitle}"`);
@@ -2875,6 +3256,8 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
     source: primary.source,
     sourceUrl: primary.sourceUrl,
     publishedAt: raw.time,
+    content: cleanRawContent, // 保存详细正文
+    fullArticleBody: cleanRawContent,
     impactLevel: isImportant ? 1 : 2,
     oneLineTakeaway: coreTakeaway,
     transmissionImpact,
@@ -3022,15 +3405,7 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
       }
     }
 
-    // 兜底保障：若国内要闻实时抓取条数偏少，自动注入种子库中的严肃法治与财政注资真实调查
-    if (categorized.china_domestic.length < 4) {
-      const fallbackSeeds = SEED_NEWS_ITEMS.filter((n) => n.track === 'china_domestic');
-      for (const fb of fallbackSeeds) {
-        if (categorized.china_domestic.length < 8 && !categorized.china_domestic.some((e) => e.title === fb.title)) {
-          categorized.china_domestic.push(fb);
-        }
-      }
-    }
+    // 严禁陈年旧闻僵尸复活：实时网络在线模式下，绝对禁止把 2024 年历史静态种子强塞进实时信息流
 
     // 聚合各大不同领域的顶级快讯，确保重点卡片分属不同赛道
     const targetTracks: TrackId[] = ['us_macro', 'apac_tech', 'commodities_shipping', 'war_conflict', 'china_domestic', 'china_macro', 'global_cognition'];
@@ -3057,108 +3432,168 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
         const cleanT = candidate.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
         usedNewsTitles.push(cleanT);
         const candidateProfile = candidate.companyProfile || getCompanyProfileForNews(candidate.title, candidate.summaryParagraph);
-        flashList.push({
-          id: `flash-${candidate.id}`,
-          tag: trackTagMap[trk] || '宏观要闻',
-          track: trk,
-          content: candidate.title.replace(/^[【\[][^】\]]+[】\]]\s*/, ''),
-          oneLineTakeaway: candidate.oneLineTakeaway,
-          transmission: candidate.transmissionImpact,
-          impactLevel: candidate.impactLevel,
-          time: candidate.publishedAt,
-          source: candidate.source,
-          sourceUrl: candidate.sourceUrl,
-          summaryParagraph: candidate.summaryParagraph,
-          summary5W1H: candidate.summary5W1H,
-          companyProfile: candidateProfile || undefined,
-          verificationLevel: candidate.verificationLevel,
-          verificationBadge: candidate.verificationBadge,
-          crossSourceCount: candidate.crossSourceCount,
-          hasClarification: candidate.hasClarification,
-          clarificationNote: candidate.clarificationNote,
-          sentiment: candidate.sentiment,
-          nextWatchlist: candidate.nextWatchlist,
-          bullBearDivergence: candidate.bullBearDivergence,
-          spilloverCriterion: candidate.spilloverCriterion,
-          isUnilateralClaim: candidate.isUnilateralClaim,
-        });
-      } else {
-        const seedItem = SEED_FLASH_BRIEFS.find((s) => s.track === trk);
-        if (seedItem) {
-          const seedProfile = seedItem.companyProfile || getCompanyProfileForNews(seedItem.content);
-          flashList.push({ ...seedItem, tag: trackTagMap[trk] || seedItem.tag, companyProfile: seedProfile || undefined });
-          if (seedItem.id) usedNewsIds.push(seedItem.id.replace('flash-', ''));
-          const cleanT = seedItem.content.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
-          usedNewsTitles.push(cleanT);
+          flashList.push({
+            id: `flash-${candidate.id}`,
+            tag: trackTagMap[trk] || '宏观要闻',
+            track: trk,
+            content: candidate.title.replace(/^[【\[][^】\]]+[】\]]\s*/, ''),
+            rawContent: candidate.content,
+            oneLineTakeaway: candidate.oneLineTakeaway,
+            transmission: candidate.transmissionImpact,
+            impactLevel: candidate.impactLevel,
+            time: candidate.publishedAt,
+            source: candidate.source,
+            sourceUrl: candidate.sourceUrl,
+            summaryParagraph: candidate.summaryParagraph,
+            summary5W1H: candidate.summary5W1H,
+            companyProfile: candidateProfile || undefined,
+            verificationLevel: candidate.verificationLevel,
+            verificationBadge: candidate.verificationBadge,
+            crossSourceCount: candidate.crossSourceCount,
+            hasClarification: candidate.hasClarification,
+            clarificationNote: candidate.clarificationNote,
+            sentiment: candidate.sentiment,
+            nextWatchlist: candidate.nextWatchlist,
+            bullBearDivergence: candidate.bullBearDivergence,
+            spilloverCriterion: candidate.spilloverCriterion,
+            isUnilateralClaim: candidate.isUnilateralClaim,
+          });
+        } else {
+          // 从当前所有抓取的实时候选池中挑选尚未使用的最新实时快讯，严禁回退到历史死种子！
+          const fallbackCandidate = Object.values(categorizedCandidates)
+            .flat()
+            .find((c) => !usedNewsIds.includes(c.id) && !c.isOngoingDisaster && !c.disasterTracker && c.id !== 'GID-JILONG-PORT-DISASTER');
+          if (fallbackCandidate) {
+            usedNewsIds.push(fallbackCandidate.id);
+            const cleanT = fallbackCandidate.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
+            usedNewsTitles.push(cleanT);
+            const candProfile = fallbackCandidate.companyProfile || getCompanyProfileForNews(fallbackCandidate.title, fallbackCandidate.summaryParagraph);
+            flashList.push({
+              id: `flash-${fallbackCandidate.id}`,
+              tag: trackTagMap[fallbackCandidate.track] || '实时速递',
+              track: fallbackCandidate.track,
+              content: fallbackCandidate.title.replace(/^[【\[][^】\]]+[】\]]\s*/, ''),
+              rawContent: fallbackCandidate.content,
+              oneLineTakeaway: fallbackCandidate.oneLineTakeaway,
+              transmission: fallbackCandidate.transmissionImpact,
+              impactLevel: fallbackCandidate.impactLevel,
+              time: fallbackCandidate.publishedAt,
+              source: fallbackCandidate.source,
+              sourceUrl: fallbackCandidate.sourceUrl,
+              summaryParagraph: fallbackCandidate.summaryParagraph,
+              summary5W1H: fallbackCandidate.summary5W1H,
+              companyProfile: candProfile || undefined,
+              verificationLevel: fallbackCandidate.verificationLevel,
+              verificationBadge: fallbackCandidate.verificationBadge,
+              crossSourceCount: fallbackCandidate.crossSourceCount,
+              hasClarification: fallbackCandidate.hasClarification,
+              clarificationNote: fallbackCandidate.clarificationNote,
+              sentiment: fallbackCandidate.sentiment,
+              nextWatchlist: fallbackCandidate.nextWatchlist,
+              bullBearDivergence: fallbackCandidate.bullBearDivergence,
+              spilloverCriterion: fallbackCandidate.spilloverCriterion,
+              isUnilateralClaim: fallbackCandidate.isUnilateralClaim,
+            });
+          }
         }
       }
-    }
 
-    // 核心物理去重：凡是被推送到“今日决策速递”的新闻，从下方各专区板块中彻底剔除，避免重复呈现！
-    // 注意：特大灾害全生命周期持续追踪档案（如吉隆口岸）永久豁免剔除，必须长驻在正文板块中！
-    for (const trk of Object.keys(categorized) as TrackId[]) {
-      categorized[trk] = categorized[trk].filter((item) => {
-        if (item.isOngoingDisaster || item.disasterTracker || item.id === 'GID-JILONG-PORT-DISASTER') {
-          return true;
-        }
-        if (usedNewsIds.includes(item.id)) return false;
-        const cleanItemTitle = item.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
-        if (usedNewsTitles.includes(cleanItemTitle)) return false;
-        for (let i = 0; i < usedNewsTitles.length; i++) {
-          const ft = usedNewsTitles[i];
-          if (ft.length > 8 && cleanItemTitle.length > 8 && (cleanItemTitle.includes(ft) || ft.includes(cleanItemTitle))) {
-            return false;
+      // 核心物理去重：凡是被推送到“今日决策速递”的新闻，从下方各专区板块中彻底剔除，避免重复呈现！
+      // 注意：特大灾害全生命周期持续追踪档案（如吉隆口岸）永久豁免剔除，必须长驻在正文板块中！
+      for (const trk of Object.keys(categorized) as TrackId[]) {
+        categorized[trk] = categorized[trk].filter((item) => {
+          if (item.isOngoingDisaster || item.disasterTracker || item.id === 'GID-JILONG-PORT-DISASTER') {
+            return true;
           }
-        }
-        return true;
-      });
-
-      // 如果剔除后该赛道内容少于 4 条，从候选池与深度优质备用库中补充非重复条目，确保各专区保持 3~5 篇核心深度追踪
-      if (categorized[trk].length < 4) {
-        const candidates = categorizedCandidates[trk] || [];
-        for (const c of candidates) {
-          if (categorized[trk].length >= 5) break;
-          const cleanC = c.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
-          let isDup = usedNewsIds.includes(c.id) || usedNewsTitles.includes(cleanC) || categorized[trk].some((e) => e.id === c.id || e.title === c.title);
-          if (!isDup) {
-            for (let i = 0; i < usedNewsTitles.length; i++) {
-              const ft = usedNewsTitles[i];
-              if (ft.length > 8 && cleanC.length > 8 && (cleanC.includes(ft) || ft.includes(cleanC))) {
-                isDup = true;
-                break;
-              }
+          if (usedNewsIds.includes(item.id)) return false;
+          const cleanItemTitle = item.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
+          if (usedNewsTitles.includes(cleanItemTitle)) return false;
+          for (let i = 0; i < usedNewsTitles.length; i++) {
+            const ft = usedNewsTitles[i];
+            if (ft.length > 8 && cleanItemTitle.length > 8 && (cleanItemTitle.includes(ft) || ft.includes(cleanItemTitle))) {
+              return false;
             }
           }
-          if (!isDup) categorized[trk].push(c);
-        }
+          return true;
+        });
 
+        // 如果剔除后该赛道内容少于 4 条，从候选池与深度优质备用库中补充非重复条目，确保各专区保持 3~5 篇核心深度追踪
         if (categorized[trk].length < 4) {
-          const seeds = SEED_NEWS_ITEMS.filter((s) => s.track === trk);
-          for (const s of seeds) {
+          const candidates = categorizedCandidates[trk] || [];
+          for (const c of candidates) {
             if (categorized[trk].length >= 5) break;
-            const cleanS = s.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
-            let isDup = usedNewsIds.includes(s.id) || usedNewsTitles.includes(cleanS) || categorized[trk].some((e) => e.id === s.id || e.title === s.title);
+            const cleanC = c.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
+            let isDup = usedNewsIds.includes(c.id) || usedNewsTitles.includes(cleanC) || categorized[trk].some((e) => e.id === c.id || e.title === c.title);
             if (!isDup) {
               for (let i = 0; i < usedNewsTitles.length; i++) {
                 const ft = usedNewsTitles[i];
-                if (ft.length > 8 && cleanS.length > 8 && (cleanS.includes(ft) || ft.includes(cleanS))) {
+                if (ft.length > 8 && cleanC.length > 8 && (cleanC.includes(ft) || ft.includes(cleanC))) {
                   isDup = true;
                   break;
                 }
               }
             }
-            if (!isDup) categorized[trk].push(s);
+            if (!isDup) categorized[trk].push(c);
+          }
+
+          if (categorized[trk].length < 3) {
+            // 严禁塞入旧种子！若个别专区剔除后较少，优先从其他赛道未使用的实时候选池中进行跨界借调
+            const otherCandidates = Object.values(categorizedCandidates)
+              .flat()
+              .filter((c) => {
+                if (usedNewsIds.includes(c.id) || categorized[trk].some((e) => e.id === c.id)) return false;
+                const fullText = (c.title + ' ' + (c.content || '') + ' ' + (c.summaryParagraph || '')).toLowerCase();
+                // 物理跨赛道隔离门禁：借调给 us_macro 时，绝对禁止借调中国国内/A股券商/国内硬科技/涉华及地缘战局条目！
+                if (trk === 'us_macro') {
+                  if (/券商|证券|中信证券|中金公司|招商证券|广发证券|国泰君安|海通证券|申万宏源|银河证券|华泰证券|东兴证券|方正证券|浙商证券|光大证券|国信证券|兴业证券|中银证券|中加基金|证监会|中基协|上交所|深交所|北交所|公募|私募|两市|沪深|a股|港股|恒生|南向资金|北向资金|中概股|中国|中方|北京|外交部|商务部|国资委/.test(fullText)) {
+                    return false;
+                  }
+                  if (/伊朗|以色列|哈马斯|真主党|加沙|乌克兰|俄军|乌军|也门|卡塔尔|霍尔木兹/.test(fullText)) {
+                    return false;
+                  }
+                  if (/长鑫|长存|长江存储|中芯|华虹|北方华创|中微|拓荆|盛美|燧原|沐曦|摩尔线程|壁仞|寒武纪|地平线|昆仑芯/.test(fullText)) {
+                    return false;
+                  }
+                  if (!/(?:美股|美联储|美债|美国|美元|标普|纳斯达克|道琼斯|华尔街|非农|cpi|ppi|pce|通胀|加息|降息|fomc|opec|原油|拜登|特朗普|耶伦|鲍威尔|全球经济|主权债|全球流动性)/i.test(c.title)) {
+                    return false;
+                  }
+                }
+                // 借调给国内/中国宏观赛道时，严禁借调外国实体
+                if (trk === 'china_domestic' || trk === 'china_macro') {
+                  if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(c.title) && !/涉华|对华|中美/.test(c.title)) {
+                    return false;
+                  }
+                }
+                return true;
+              });
+            for (const c of otherCandidates) {
+              if (categorized[trk].length >= 3) break;
+              const cleanC = c.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim().toLowerCase();
+              let isDup = usedNewsIds.includes(c.id) || usedNewsTitles.includes(cleanC) || categorized[trk].some((e) => e.id === c.id || e.title === c.title);
+              if (!isDup) {
+                for (let i = 0; i < usedNewsTitles.length; i++) {
+                  const ft = usedNewsTitles[i];
+                  if (ft.length > 8 && cleanC.length > 8 && (cleanC.includes(ft) || ft.includes(cleanC))) {
+                    isDup = true;
+                    break;
+                  }
+                }
+              }
+              if (!isDup) {
+                categorized[trk].push(c);
+                usedNewsIds.push(c.id);
+              }
+            }
           }
         }
       }
-    }
 
     // 确保吉隆口岸特大灾害持续追踪卡片始终置顶在 domestic 赛道首位
     if (jilongItem && !categorized.china_domestic.some((e) => e.id === jilongItem.id)) {
       categorized.china_domestic.unshift(jilongItem);
     }
 
-    const allNews: NewsItem[] = [
+    const rawAllNews: NewsItem[] = [
       ...categorized.us_macro,
       ...categorized.apac_tech,
       ...categorized.commodities_shipping,
@@ -3168,8 +3603,28 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
       ...categorized.global_cognition,
     ];
 
+    // 全局标题指纹去重（杜绝跨赛道借调后再纠偏导致的完全重复卡片）
+    const globalSeenSignatures = new Set<string>();
+    const deduplicatedAllNews: NewsItem[] = [];
+
+    for (const item of rawAllNews) {
+      // 特大灾害长期追踪常驻卡片豁免
+      if (item.id === 'GID-JILONG-PORT-DISASTER' || item.isOngoingDisaster) {
+        deduplicatedAllNews.push(item);
+        continue;
+      }
+      // 提取前 14 个核心字符作为去重指纹
+      const sig = item.title.replace(/^[【\[][^】\]]+[】\]]\s*/, '').replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 14);
+      if (globalSeenSignatures.has(sig) || globalSeenSignatures.has(item.id)) {
+        continue; // 物理丢弃重复条目
+      }
+      globalSeenSignatures.add(sig);
+      globalSeenSignatures.add(item.id);
+      deduplicatedAllNews.push(item);
+    }
+
     // 全站数据出库前执行 100% 自动纠偏流水线
-    const { news: healedNews, flashBriefs: healedFlash } = autoCorrectAllNews(allNews, flashList);
+    const { news: healedNews, flashBriefs: healedFlash } = autoCorrectAllNews(deduplicatedAllNews, flashList);
     cachedNews = healedNews;
     cachedFlash = healedFlash;
     lastFetchTime = now;

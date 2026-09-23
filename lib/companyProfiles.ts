@@ -456,6 +456,78 @@ export const CURATED_COMPANY_PROFILES: CompanyProfile[] = [
     marketRole: '央企骨干综合证券公司，服务实体经济高质量发展与多层次资本运作。',
     coreProducts: ['招商智远财富', '机构投资研报', '资产证券化与投行业务'],
   },
+  {
+    name: '特斯拉',
+    aliases: ['特斯拉', 'Tesla', 'TSLA'],
+    sector: '智能电动汽车 / 具身智能与能源',
+    description: '全球智能电动汽车与清洁能源巨头，引领自动驾驶（FSD）、人形机器人（Optimus）与4680电池全产业链研发。',
+    marketRole: '全球新能源汽车与具身智能先驱，垂直整合三电系统与超算芯片。',
+    coreProducts: ['Model 3/Y/Cybertruck', 'FSD自动驾驶系统', 'Optimus人形机器人', 'Megapack储能'],
+  },
+  {
+    name: '英伟达',
+    aliases: ['英伟达', 'NVIDIA', 'NVDA'],
+    sector: '加速计算 / AI GPU与智算底座',
+    description: '全球加速计算与全栈AI计算平台领军企业，以GPU硬件配合CUDA软件生态定义全球大模型算力标准。',
+    marketRole: '全球AI智算基础设施的核心供应商，掌握数据中心算力芯片与NVLink高速互联技术。',
+    coreProducts: ['Blackwell/Hopper系列GPU', 'CUDA统一计算架构', 'Quantum-X InfiniBand交换机'],
+  },
+  {
+    name: '台积电',
+    aliases: ['台积电', 'TSMC'],
+    sector: '先进制程晶圆代工龙头',
+    description: '全球规模最大的纯晶圆代工半导体制造巨头，率先量产3nm/2nm先进制程及CoWoS先进封装技术。',
+    marketRole: '全球先进制程代工的绝对领军者，为全球核心Fabless设计厂商提供高良率晶圆制造。',
+    coreProducts: ['3nm/2nm先进制程晶圆', 'CoWoS先进立体封装', '台南/新竹晶圆厂群'],
+  },
+  {
+    name: '苹果',
+    aliases: ['苹果', 'Apple', 'AAPL'],
+    sector: '消费电子 / 自研芯片与生态系统',
+    description: '全球高端消费电子与数字生态系统领军巨头，自主设计M系列与A系列Apple Silicon高能效芯片。',
+    marketRole: '全球高净值终端与软硬件一体化生态领导者，引领端侧AI与微型化芯片设计。',
+    coreProducts: ['iPhone', 'MacBook / M系列芯片', 'Apple Intelligence端侧系统'],
+  },
+  {
+    name: '微软',
+    aliases: ['微软', 'Microsoft', 'MSFT'],
+    sector: '企业云服务 / 生成式AI底座',
+    description: '全球企业级云计算与生产力软件领军巨头，深度战略协同OpenAI打造Azure AI超级算力底座。',
+    marketRole: '全球企业软件与云计算双寡头之一，主导生成式AI在企业级场景的规模化商业变现。',
+    coreProducts: ['Azure智能云', 'Microsoft 365 Copilot', 'Maia AI芯片'],
+  },
+  {
+    name: '谷歌',
+    aliases: ['谷歌', 'Google', 'Alphabet', 'GOOGL', 'DeepMind'],
+    sector: '前沿人工智能 / 全球互联网与云基础设施',
+    description: '全球领先的AI研究与互联网巨头，自研TPU张量处理器与Gemini原生多模态大模型矩阵。',
+    marketRole: '全球全栈AI算法与基础研究领跑者，掌控全球搜索与安卓移动生态入口。',
+    coreProducts: ['Gemini原生多模态模型', 'TPU v5/v6系列芯片', 'Google Cloud智能云'],
+  },
+  {
+    name: '腾讯',
+    aliases: ['腾讯', 'Tencent'],
+    sector: '产业互联网 / 社交与数字文娱',
+    description: '中国领先的互联网与科技综合企业，自研混元大模型矩阵与腾讯云智算平台，战略投资燧原等国产算力链。',
+    marketRole: '国内核心社交网络与产业数字化基础设施提供商，具备庞大的应用场景与算力部署。',
+    coreProducts: ['腾讯云智算中心', '混元大模型', '微信生态开放平台'],
+  },
+  {
+    name: '阿里巴巴',
+    aliases: ['阿里巴巴', '阿里', 'Alibaba', '阿里云', '通义千问'],
+    sector: '云计算 / 电商与开源AI生态',
+    description: '中国最大云计算服务商与数字商业领军企业，自研通义千问（Qwen）开源大模型与倚天710云原生CPU。',
+    marketRole: '中国公有云龙头与全球开源大模型核心推动者，支撑各行业数字化与智算转型。',
+    coreProducts: ['阿里云飞天智算平台', '通义千问系列开源大模型', '倚天710处理器'],
+  },
+  {
+    name: '阿斯麦',
+    aliases: ['阿斯麦', 'ASML'],
+    sector: '半导体光刻机制造设备',
+    description: '全球唯一的极紫外（EUV）光刻机设备垄断制造商，半导体晶圆先进制程制造物理不可或缺的核心枢纽。',
+    marketRole: '全球前道光刻设备的基石垄断者，决定摩尔定律物理极限演进节奏。',
+    coreProducts: ['High-NA EUV光刻系统', 'DUV浸润式光刻机', 'YieldStar量测系统'],
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -468,47 +540,53 @@ export const CURATED_COMPANY_PROFILES: CompanyProfile[] = [
 const GOVERNMENT_OR_PUBLIC_ENTITY_REGEX = /(?:部|局|署|院|委|厅|办|所|会|府|台|关|警|队|盟|联|党委|纪检|监察|检察|法院|公安|交警|应急|消防|海关|税务|医保|统计|防总|网信|金融监管|银保监|证监|保监|中纪委|国资委|央行|联储|五角大楼|白宫|国会|军|司令部|国务院|发改委|工信部|商务部|财政部|外交部|教育部|科技部|住建部|交通部|人社部|文旅部|自然资源部|卫健委|退役军人部|生态环境部|农业农村部|市委|省委|县委|管委会|街道|社区|协会|中心)$/;
 
 /**
+ * 金融市场衍生品、宏观指标与非企业通用词汇黑名单（绝对严禁将其误识别为企业主体！）
+ */
+const FINANCIAL_MARKET_TERMS_REGEX = /(?:美股|港股|A股|欧股|道指|标普|纳指|恒指|期货|期指|期权|外汇|国债|美债|德债|英债|日债|短端|长端|利率|收益率|大跌|大涨|反弹|走高|走低|跳水|震荡|回落|盘整|科技股|周期股|蓝筹股|权重股|碳酸锂|铁矿石|原油|黄金|白银|现货|指数|合约|收盘|开盘|尾盘|早盘|主力合约|资金面|逆回购|shibor|lpr|pmi|cpi|ppi|gdp|非农|出货量|成交额|成交量|涨跌|上行|下行|跌幅|涨幅|但科技|小幅|窄幅)/i;
+
+/**
  * 常见非企业名称（产品词、事件词、地理词、通用概念词）
  */
 const NON_COMPANY_NOUNS_REGEX = /(?:机器人|芯片|大模型|应用|系统|平台|项目|标准|数据|指南|规范|计划|方案|政策|通知|报告|规划|创新药|疫苗|车型|电池|手机|手机壳|算法|模型|设备|工程|基站|网络|口岸|边境|干线|灾害|暴雨|山洪|泥石流|事故|地震)$/;
 
 /**
  * 从文本中精确查找或动态推断涉事企业主体业务概况
+ * 严格遵循 Title-First 标题锚定原则：绝对禁止在正文漫游匹配，防止正文提及的对比公司、券商或客户李代桃僵
  */
 export function getCompanyProfileForNews(title: string, content?: string): CompanyProfile | null {
   const cleanTitle = (title || '').replace(/^[【\[][^】\]]+[】\]]/, '').trim();
-  const combined = `${cleanTitle} ${content || ''}`.trim();
-  if (!combined) return null;
+  if (!cleanTitle) return null;
 
-  // 1. 最高优先级：优先在【报道大标题 cleanTitle】中严格匹配核心主体！
-  // 杜绝因正文偶然引述（如“华泰证券研报...谈及中金公司重组”）而把标题真正主角李代桃僵
+  // 1. 若标题涉及上市辅导/保荐（如“沐曦集成电路开启A股上市辅导”），优先提取真正被辅导的企业，严禁被保荐券商（海通/中金/中信等）劫持！
+  const isIpoOrSponsorshipNews = /上市辅导|a股辅导|ipo辅导|上市备案|接受辅导|保荐/i.test(cleanTitle);
+
+  // 1.1 优先在标题中匹配非券商类的实体企业
   for (const profile of CURATED_COMPANY_PROFILES) {
+    const isBrokerage = profile.sector.includes('券商') || profile.sector.includes('投资银行');
+    if (isIpoOrSponsorshipNews && isBrokerage) {
+      continue; // 遇到上市辅导类新闻，跳过券商，优先寻找实业/科技主角
+    }
     if (profile.aliases.some((alias) => cleanTitle.includes(alias))) {
       return profile;
     }
   }
 
-  // 2. 其次在全文 combined 中匹配，对 2 个字以内的短别名必须执行语义防伤边界校验
-  for (const profile of CURATED_COMPANY_PROFILES) {
-    if (profile.aliases.some((alias) => {
-      if (alias.length <= 2) {
-        // 短别名必须有否定前后视保护，严禁误伤“其中金融”、“盘中金额”、“手中资金”等非实体词汇
-        const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const rx = new RegExp(`(?<![其盘手期高当月])${escaped}(?![融属价额条矿盘])`);
-        return rx.test(combined);
-      }
-      return combined.includes(alias);
-    })) {
-      return profile;
-    }
-  }
-
-  // 3. 若未命中静态图谱库，智能探测未收录的科技/半导体/上市主体并动态合成背景
-  const detected = detectUncuratedCompany(cleanTitle, combined);
+  // 1.2 针对未收录的科技/半导体/上市主体进行智能探测（优先于券商兜底）
+  const detected = detectUncuratedCompany(cleanTitle, `${cleanTitle} ${content || ''}`);
   if (detected) {
     return detected;
   }
 
+  // 1.3 若非上市辅导类新闻，且标题确实明确以券商自身为主体（如“华泰证券发布策略研报”、“中金公司拟吸收合并...”）
+  if (!isIpoOrSponsorshipNews) {
+    for (const profile of CURATED_COMPANY_PROFILES) {
+      if (profile.aliases.some((alias) => cleanTitle.includes(alias))) {
+        return profile;
+      }
+    }
+  }
+
+  // 彻底移除旧版在 content 全文中漫游匹配 Curated Profiles 的降级逻辑（只能在 cleanTitle 匹配！杜绝正文偶发提及英特尔、海通证券等导致李代桃僵）
   return null;
 }
 
@@ -516,29 +594,43 @@ export function getCompanyProfileForNews(title: string, content?: string): Compa
  * 针对未列入静态库的涉事企业进行模式探测与智能背景合成
  */
 function detectUncuratedCompany(title: string, fullText: string): CompanyProfile | null {
-  // 模式 A: 必须包含明确企业身份指示词（如 "AI芯片公司燧原", "存储芯片龙头长鑫", "GPU厂商摩尔线程", "芯片企业瀚博"）
-  const explicitCompanyMatch = title.match(
-    /(?:AI芯片|算力芯片|GPU|CPU|半导体|芯片|存储|大模型|具身智能|机器人|晶圆代工|自动驾驶|新能源|动力电池|造车)?\s*(?:公司|厂商|龙头|企业|独角兽|品牌|设计商|供应商|集成商|造车新势力)\s*([A-Za-z\u4e00-\u9fa5]{2,10})/
-  );
+  // 红线拦截 1：任何涉及金融衍生品、指数大盘、市场涨跌或宏观利率的新闻，绝对严禁提取假企业！
+  if (/(?:美股期货|期指|大盘|标普|道指|纳斯达克|指数|期货|期权|黄金现货|国债收益率|利率|逆回购|shibor|碳酸锂|铁矿石)/i.test(title)) {
+    return null;
+  }
 
-  // 模式 B: 标准带企业组织形式法定后缀的企业名（如 "某某科技"、"某某半导体"、"某某软件"、"某某股份"、"某某证券"）
-  const corporateSuffixMatch = title.match(
-    /([A-Z\u4e00-\u9fa5]{2,8}(?:半导体|集成电路|微电子|软件|网络|动力|制药|药业|重工|能源|股份|智算|计算|微|电子|精密|电工|光电|新材料|生物科技|科技|证券|期货|信托|基金))/
+  // 模式 A: 必须包含明确企业身份指示词（如 "AI芯片公司燧原", "存储芯片龙头长鑫", "GPU厂商摩尔线程"）
+  const explicitCompanyMatch = title.match(
+    /(?:AI芯片|算力芯片|GPU|CPU|半导体|芯片|存储|大模型|具身智能|机器人|晶圆代工|自动驾驶|新能源|动力电池|造车)\s*(?:公司|厂商|龙头|独角兽|设计商|供应商|集成商|造车新势力)\s*([A-Za-z\u4e00-\u9fa5]{2,10})/
   );
 
   let targetName = '';
-  let industryHint = '';
+  const industryHint = explicitCompanyMatch ? explicitCompanyMatch[0] : '';
 
   if (explicitCompanyMatch && explicitCompanyMatch[1]) {
     const cand = explicitCompanyMatch[1].trim();
     // 截断动词等后续无用内容（如 "燧原上市" -> "燧原"）
-    const verbCut = cand.match(/^([A-Za-z\u4e00-\u9fa5]{2,6}?)(?:上市|开盘|IPO|发布|量产|获批|完成|入局|反超|增资|挂牌|停牌|暴涨|大跌)/);
+    const verbCut = cand.match(/^([A-Za-z\u4e00-\u9fa5]{2,6}?)(?:上市|开盘|IPO|发布|量产|获批|完成|入局|反超|增资|挂牌|停牌|暴涨|大跌|走高|小幅)/);
     targetName = verbCut ? verbCut[1] : cand;
-  } else if (corporateSuffixMatch && corporateSuffixMatch[1]) {
-    targetName = corporateSuffixMatch[1].trim();
+  }
+
+  // 模式 B: 针对启动上市辅导/IPO企业主体（如 "沐曦集成电路开启A股上市辅导"）
+  if (!targetName) {
+    const ipoCoachMatch = title.match(/(?:公司|企业|独角兽)?([A-Za-z\u4e00-\u9fa5]{2,10}?)(?:开启|启动|接受|冲刺|完成)?(?:A股上市辅导|A股辅导|上市辅导|IPO辅导|上市备案)/i);
+    if (ipoCoachMatch && ipoCoachMatch[1]) {
+      const cand = ipoCoachMatch[1].trim().replace(/(?:公司|企业|独角兽)$/, '');
+      if (cand.length >= 2 && !/^(?:多家|部分|相关|首批|国内|各类|券商|机构)/.test(cand)) {
+        targetName = cand;
+      }
+    }
   }
 
   if (!targetName || targetName.length < 2 || targetName.length > 10) {
+    return null;
+  }
+
+  // 严正红线：排除金融市场术语
+  if (FINANCIAL_MARKET_TERMS_REGEX.test(targetName)) {
     return null;
   }
 
@@ -554,7 +646,7 @@ function detectUncuratedCompany(title: string, fullText: string): CompanyProfile
 
   // 排除通用无主体指称的虚词/修饰词
   if (
-    /^(?:新一代|首款|首个|全新|多款|多项|一批|各类|最新|重大|相关|全国|全球|国内|国际|部分|中国|美国|欧洲|日本|中央|国务院|发改委|商务部|财政部|央行|联储|政府|法院|公安)/.test(
+    /^(?:新一代|首款|首个|全新|多款|多项|一批|各类|最新|重大|相关|全国|全球|国内|国际|部分|中国|美国|欧洲|日本|中央|国务院|发改委|商务部|财政部|央行|联储|政府|法院|公安|美股|道指|标普|纳指)/.test(
       targetName
     )
   ) {

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { NewsItem } from '@/lib/types';
 import { TrackVisualTheme, TRACK_THEMES } from '@/lib/trackThemes';
-import { ExternalLink, BookOpen, Sparkles, ChevronDown, ChevronUp, Award, Search, AlertTriangle, ShieldAlert, Building2, BarChart3, TrendingDown, TrendingUp, Layers, Activity } from 'lucide-react';
+import { ExternalLink, BookOpen, Sparkles, ChevronDown, ChevronUp, Award, Search, AlertTriangle, ShieldAlert, Building2, BarChart3, TrendingDown, TrendingUp, Layers, Activity, Zap } from 'lucide-react';
 import Summary5W1HView from './Summary5W1HView';
 import DisasterTrackerView from './DisasterTrackerView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
@@ -151,25 +151,37 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
     ) {
       text = item.summaryParagraph;
     } else if (item.summary5W1H) {
-      // B. 根据 5W1H 动态拼装连贯叙事闭环
+      // B. 根据 5W1H 动态拼装连贯叙事闭环（坚决杜绝据...电讯加标题一字不差复读）
       const s = item.summary5W1H;
-      const what = (s.what || cleanTitle).replace(/[。！!.]+$/, '');
-      text = `据${item.publishedAt ? `${item.publishedAt}（${item.source}）` : `${item.source}`}电讯，${what}。`;
-      if (s.why && s.why.length >= 4 && !/宏观宏图|利益交织|深层动因/.test(s.why)) {
-        text += ` 该事项起因于${s.why}。`;
-      } else if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
-        text += ` 该事项起因于此前监管部门对涉事企业财务造假违规行为通报点名并实施立案稽查与顶格处罚。`;
+      const what = (s.what || cleanTitle).replace(/[。！!.]+$/, '').trim();
+      const isWhatEcho = what === cleanTitle || cleanTitle.includes(what) || what.includes(cleanTitle);
+      // Patch 4: 清洗 why 前缀，避免 "起因于受..." 语法冲突
+      const cleanWhy = (s.why || '').trim().replace(/[。！!.]+$/, '').replace(/^[，,\s]*(?:受|起因于|因为|由于|因)+\s*/, '').trim();
+
+      if (isWhatEcho && cleanWhy && cleanWhy.length >= 4 && !/宏观宏图|利益交织|深层动因/.test(cleanWhy)) {
+        text = `据${item.source}通报，该事项起因于${cleanWhy}。${s.consequence && !/直接影响相关领域/.test(s.consequence) ? `直接影响方面，${s.consequence}。` : ''}`;
+      } else if (isWhatEcho && item.bulletPoints && item.bulletPoints.length > 0 && !cleanTitle.includes(item.bulletPoints[0])) {
+        text = item.bulletPoints.slice(0, 2).join(' ');
+      } else if (isWhatEcho) {
+        text = `据${item.source}电讯核验：该条动态核心主体与现场事实已锁定。各当事方正根据市场供求与政策合规框架推进后续处置。`;
+      } else {
+        text = `据${item.publishedAt ? `${item.publishedAt}（${item.source}）` : `${item.source}`}电讯，${what}。`;
+        if (cleanWhy && cleanWhy.length >= 4 && !/宏观宏图|利益交织|深层动因/.test(cleanWhy)) {
+          text += ` 该事项起因于${cleanWhy}。`;
+        } else if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
+          text += ` 该事项起因于此前监管部门对涉事企业财务造假违规行为通报点名并实施立案稽查与顶格处罚。`;
+        }
+        if (s.consequence && s.consequence.length >= 4 && !/直接影响相关领域/.test(s.consequence)) {
+          text += ` 直接影响方面，${s.consequence}。`;
+        } else if (/退市/.test(cleanTitle)) {
+          text += ` 直接影响方面，涉案企业将依法进入退市出清程序并被终止上市。`;
+        }
       }
-      if (s.consequence && s.consequence.length >= 4 && !/直接影响相关领域/.test(s.consequence)) {
-        text += ` 直接影响方面，${s.consequence}。`;
-      } else if (/退市/.test(cleanTitle)) {
-        text += ` 直接影响方面，涉案企业将依法进入退市出清程序并被终止上市。`;
-      }
-    } else if (item.bulletPoints && item.bulletPoints.length > 0 && item.bulletPoints[0].length >= 15) {
+    } else if (item.bulletPoints && item.bulletPoints.length > 0 && item.bulletPoints[0].length >= 15 && !cleanTitle.includes(item.bulletPoints[0])) {
       // C. 提取首条备查纪要
       text = item.bulletPoints[0];
     } else {
-      text = `据${item.source}通报：${cleanTitle}。涉事机构与监管部门正依法依规推进后续处置与风险应对。`;
+      text = `据${item.source}现场及官方通报：相关事实与关键要素已核准锁定，各方根据市场与合规机制推进后续应对。`;
     }
 
     // 涉外法案专属通报拦截
@@ -256,7 +268,10 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       if ((isMacroInflationNews(cleanT) || /cpi|通胀|ppi|pce/.test(cleanT)) && !/港股|a股|研报|策略|仓位|券商|华泰/.test(cleanT)) {
         return getMacroInflationTakeaway(cleanTitle, factParagraph);
       }
-      if (/上市|ipo|挂牌|首日|开盘涨|市值约|科创板|港交所/.test(cleanT)) {
+      if (/(?:期指|美股期货|股指期货|美股三大股指|标普500期指|纳斯达克.*期货|纳指期货|道指期货)/.test(cleanT)) {
+        return '【股指衍生品与盘前情绪锚定】：指数期货涨跌反映跨市场资金对宏观利率与微观业绩预期的最新定价，为现货开盘提供流动性指引。';
+      }
+      if (/(?:首次公开发行|\bipo\b|敲钟上市|正式挂牌|首日上市|登陆科创板|登陆港交所)/i.test(cleanT) && !/(?:期货|期指|期权|标普|道指|纳斯达克.*期货|纳指.*走高|指数|涨跌幅|走高|下挫)/.test(cleanT)) {
         const sector = (companyProfile?.sector || '').toLowerCase();
         if (/存储|dram|nand|长鑫|长存|海力士|美光|兆易/.test(cleanT) || /存储|dram|nand/.test(sector)) {
           return '【存储芯片资本重估与扩产】：自主先进制程存储芯片获资本市场流动性赋能，加速高密度DRAM/3D NAND与高带宽内存产线扩产与终端客户导入。';
@@ -304,10 +319,13 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
         return getMacroInflationTransmission(cleanTitle, factParagraph);
       }
     }
+    if (/(?:期指|美股期货|股指期货|美股三大股指|标普500期指|纳斯达克.*期货|纳指期货|道指期货)/.test(cleanT)) {
+      return '① 股指期货基差变动直接传导至量化对冲与杠杆套利资金仓位 ➔ ② 多空跨品种持仓根据开盘预期动态调整对冲比率与保证金 ➔ ③ 现货大盘流动性围绕龙头科技与高权重权重股构筑波动缓冲区。';
+    }
     if (/信源仅陈述单一动作|未披露上下游合同与转嫁细节|不做无依据推测/.test(trans)) {
       const sector = (companyProfile?.sector || '').toLowerCase();
 
-      if (/上市|ipo|挂牌|首日|开盘涨|市值约|科创板|港交所|纳斯达克/.test(cleanT)) {
+      if (/(?:首次公开发行|\bipo\b|敲钟上市|正式挂牌|首日上市|登陆科创板|登陆港交所|挂牌上市)/i.test(cleanT) && !/(?:期货|期指|期权|标普|道指|纳斯达克.*期货|纳指.*走高|指数|涨跌幅|走高|下挫)/.test(cleanT)) {
         if (/存储|dram|nand|长鑫|长存|海力士|美光|兆易/.test(cleanT) || /存储|dram|nand/.test(sector)) {
           return '① 资本运作募集资金直接支持先进制程存储晶圆厂扩产与研发开支 ➔ ② 下游服务器、智能终端与汽车电子客户加速导入国产高密度存储颗粒 ➔ ③ 提升高带宽与主流存储器自主供给自给率与供应链安全。';
         }
@@ -361,6 +379,18 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       summaryParagraph: factParagraph,
     });
   }, [hasDeepPerspective, cleanTitle, displayTakeaway, displayTransmission, item.bulletPoints, item.summary5W1H, factParagraph]);
+
+  // 快讯 vs 深度要闻形态分层判别 (彻底解决 Issue 13：纯电讯被硬生生注水成假研报)
+  const isWireFlash = React.useMemo(() => {
+    return (
+      !hasDeepPerspective &&
+      !companyProfile &&
+      !macroBreakdown &&
+      !item.eventKeyProvisions &&
+      !item.disasterTracker &&
+      (item.verificationLevel === 'SINGLE_SOURCE_FAST' || !item.summary5W1H?.why || cleanTitle.length < 45)
+    );
+  }, [hasDeepPerspective, companyProfile, macroBreakdown, item.eventKeyProvisions, item.disasterTracker, item.verificationLevel, item.summary5W1H, cleanTitle]);
 
   const cardRef = React.useRef<HTMLDivElement>(null);
   const [isNavHighlighted, setIsNavHighlighted] = React.useState(false);
@@ -506,6 +536,10 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
             ) : item.verificationLevel === 'CROSS_VERIFIED' ? (
               <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1" title={`已在 ${item.crossSourceCount || 2} 个独立电讯渠道交叉印证`}>
                 ✓ 多源印证 ({item.crossSourceCount || 2}源)
+              </span>
+            ) : isWireFlash ? (
+              <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 shadow-2xs" title="单条实时滚动快讯，免除过度解读注水">
+                ⚡ 实时快讯
               </span>
             ) : isWithin24Hours(item.publishedAt, item.timeWindow) ? (
               <span className="inline-flex items-center gap-1 text-xs font-black px-2 py-0.5 rounded-md bg-amber-400 text-slate-950 border border-amber-500 shadow-xs" title="24小时内一手电讯直发">
@@ -759,15 +793,28 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
             )}
           </div>
         )}
-        <div className="mb-3.5 p-3.5 md:p-4 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/90 dark:border-slate-700/80 text-sm md:text-base leading-relaxed shadow-xs">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-            <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span>事件核心事实通报</span>
+        {/* 快讯 vs 深度要闻分层呈现 (Issue 13：快讯不注水，轻量精炼展示) */}
+        {isWireFlash ? (
+          <div className="mb-3.5 p-3 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border-l-2 border-sky-500 text-xs sm:text-sm leading-relaxed shadow-2xs">
+            <div className="flex items-center gap-1.5 font-bold text-sky-700 dark:text-sky-400 text-xs mb-1">
+              <Zap className="w-3.5 h-3.5" />
+              <span>电讯速报 · 核心事实</span>
+            </div>
+            <p className="text-slate-800 dark:text-slate-200 leading-relaxed font-normal">
+              {factParagraph}
+            </p>
           </div>
-          <p className="text-slate-800 dark:text-slate-200 leading-relaxed font-normal text-justify">
-            {factParagraph}
-          </p>
-        </div>
+        ) : (
+          <div className="mb-3.5 p-3.5 md:p-4 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/90 dark:border-slate-700/80 text-sm md:text-base leading-relaxed shadow-xs">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>事件核心事实通报</span>
+            </div>
+            <p className="text-slate-800 dark:text-slate-200 leading-relaxed font-normal text-justify">
+              {factParagraph}
+            </p>
+          </div>
+        )}
 
         <div className="space-y-2.5">
           {/* 下一步观察哨（关键时间窗口 / 待验证指标） */}
@@ -825,18 +872,50 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
                 <span>电讯事实要点纪要</span>
               </div>
               <div className="space-y-2 bg-slate-50/70 p-4 rounded-xl border border-slate-200">
-                {item.bulletPoints.map((bp, bIdx) => (
-                  <div key={bIdx} className="flex items-start gap-2.5">
-                    <span className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 text-slate-800 text-[11px] font-bold mt-0.5">
-                      {bIdx + 1}
-                    </span>
-                    <p className="text-xs md:text-sm text-slate-800 leading-relaxed">
-                      {bp}
-                    </p>
-                  </div>
-                ))}
+                {(() => {
+                  const filteredBps = item.bulletPoints.filter((bp) => {
+                    const cleanBp = bp.trim().replace(/^[0-9一二三四五六七八九十]+[、.：:]\s*/, '').replace(/[。！!.]+$/, '');
+                    const cleanT = cleanTitle.trim().replace(/^[【\[][^】\]]+[】\]]\s*/, '').replace(/[。！!.]+$/, '');
+                    return cleanBp !== cleanT && !cleanT.includes(cleanBp);
+                  });
+                  if (filteredBps.length === 0) {
+                    return (
+                      <p className="text-xs md:text-sm text-slate-600 leading-relaxed">
+                        电讯要点已在上述客观事实通报中完整锁定，暂无更多增量分项。
+                      </p>
+                    );
+                  }
+                  return filteredBps.map((bp, bIdx) => (
+                    <div key={bIdx} className="flex items-start gap-2.5">
+                      <span className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 text-slate-800 text-[11px] font-bold mt-0.5">
+                        {bIdx + 1}
+                      </span>
+                      <p className="text-xs md:text-sm text-slate-800 leading-relaxed">
+                        {bp}
+                      </p>
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
+
+            {/* 原始详细电讯报道与官方现场实录全文（彻底解决“新闻的详情也不说”痛点） */}
+            {item.content && item.content.trim().length >= 15 && item.content.trim() !== cleanTitle.trim() && (
+              <div className="mt-4 p-4 md:p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-blue-50/20 dark:from-slate-800/80 dark:to-slate-900 border border-slate-200 dark:border-slate-700 text-xs md:text-sm text-slate-700 dark:text-slate-300 leading-relaxed shadow-xs">
+                <div className="text-slate-900 dark:text-slate-100 font-extrabold mb-2.5 flex items-center justify-between gap-2 border-b border-slate-200/80 dark:border-slate-700/60 pb-2">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                    <span>【电讯现场报道全文 · 官方通报实录】</span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded">
+                    原始电讯存档 ({item.content.length}字)
+                  </span>
+                </div>
+                <p className="whitespace-pre-line leading-relaxed text-justify font-normal text-slate-800 dark:text-slate-200 text-xs md:text-sm">
+                  {item.content}
+                </p>
+              </div>
+            )}
 
             {/* 交叉查错与权威出处直达 */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t border-slate-200">

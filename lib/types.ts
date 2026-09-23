@@ -91,6 +91,8 @@ export interface NewsItem {
   source: string;
   sourceUrl: string;
   publishedAt: string;
+  content?: string;             // 原始抓取到的详细正文
+  fullArticleBody?: string;     // 深度抓取到的完整文章
   impactLevel: ImpactLevel;
   oneLineTakeaway: string;
   transmissionImpact: string;
@@ -129,6 +131,7 @@ export interface FlashBrief {
   time: string;
   source: string;
   sourceUrl?: string;
+  rawContent?: string; // 原始抓取详细电讯全文与现场实录
   summaryParagraph?: string; // 遵守 5W1H 原则的一段连贯深度小结
   summary5W1H?: Summary5W1H;
   companyProfile?: CompanyProfile; // 涉事核心主体/企业业务与生态背景速览

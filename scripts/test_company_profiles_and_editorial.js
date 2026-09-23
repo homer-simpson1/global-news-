@@ -1,6 +1,28 @@
-const { getCompanyProfileForNews, CURATED_COMPANY_PROFILES } = require('../lib/companyProfiles');
-const { autoCorrectTakeaway, autoCorrectInterestTransmission, autoCorrectNewsItem, autoCorrectSummaryParagraph, isHeadlineEcho } = require('../lib/selfHealingEngine');
-const { fallback_to_grounded_summary } = require('../lib/rssFetcher');
+const fs = require('fs');
+const path = require('path');
+const ts = require('typescript');
+const Module = require('module');
+const ROOT = path.resolve(__dirname, '..');
+const origResolve = Module._resolveFilename;
+Module._resolveFilename = function (req, p, m, o) {
+  if (req.startsWith('@/')) req = path.join(ROOT, req.slice(2));
+  return origResolve.call(this, req, p, m, o);
+};
+require.extensions['.ts'] = function (module, filename) {
+  const content = fs.readFileSync(filename, 'utf8');
+  const compiled = ts.transpileModule(content, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    },
+  });
+  module._compile(compiled.outputText, filename);
+};
+
+const { getCompanyProfileForNews, CURATED_COMPANY_PROFILES } = require('../lib/companyProfiles.ts');
+const { autoCorrectTakeaway, autoCorrectInterestTransmission, autoCorrectNewsItem, autoCorrectSummaryParagraph, isHeadlineEcho } = require('../lib/selfHealingEngine.ts');
+const { fallback_to_grounded_summary } = require('../lib/rssFetcher.ts');
 
 console.log('===========================================================');
 console.log('🧪 核心主体速览、去标题复读与利益链传导自愈深度全面测试');

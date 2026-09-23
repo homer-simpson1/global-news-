@@ -206,9 +206,10 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
           } else if (brief.summary5W1H) {
             const s = brief.summary5W1H;
             const what = (s.what || parsed.title).replace(/[。！!.]+$/, '');
+            const cleanWhy = (s.why || '').trim().replace(/[。！!.]+$/, '').replace(/^[，,\s]*(?:受|起因于|因为|由于|因)+\s*/, '').trim();
             factParagraph = `据${brief.time ? `${brief.time}（${brief.source}）` : brief.source}电讯，${what}。`;
-            if (s.why && s.why.length >= 4 && !/宏观宏图|利益交织|深层动因/.test(s.why)) {
-              factParagraph += ` 该事项起因于${s.why}。`;
+            if (cleanWhy && cleanWhy.length >= 4 && !/宏观宏图|利益交织|深层动因/.test(cleanWhy)) {
+              factParagraph += ` 该事项起因于${cleanWhy}。`;
             }
             if (s.consequence && s.consequence.length >= 4 && !/直接影响相关领域/.test(s.consequence)) {
               factParagraph += ` 直接影响方面，${s.consequence}。`;
@@ -272,7 +273,7 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                     <span
                       className={`text-xs font-bold px-3 py-1 rounded-lg border ${theme.tagBadge}`}
                     >
-                      {parsed.tag || theme.name}
+                      {theme.name || parsed.tag}
                     </span>
 
                     <span className="text-[11px] font-bold font-mono tracking-wider text-slate-400 dark:text-slate-500 uppercase">
@@ -470,6 +471,24 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                       logicChain={deepContent?.logicChain}
                       onClose={() => toggleExpand(brief.id)}
                     />
+
+                    {/* 原始详细电讯报道与官方现场实录全文（彻底解决“新闻的详情也不说”痛点） */}
+                    {brief.rawContent && brief.rawContent.trim().length >= 30 && brief.rawContent.trim() !== parsed.title.trim() && (
+                      <div className="mt-4 p-4 md:p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-blue-50/20 dark:from-slate-800/80 dark:to-slate-900 border border-slate-200 dark:border-slate-700 text-xs md:text-sm text-slate-700 dark:text-slate-300 leading-relaxed shadow-xs">
+                        <div className="text-slate-900 dark:text-slate-100 font-extrabold mb-2.5 flex items-center justify-between gap-2 border-b border-slate-200/80 dark:border-slate-700/60 pb-2">
+                          <div className="flex items-center gap-2">
+                            <BookOpen className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                            <span>【电讯现场报道全文 · 官方通报实录】</span>
+                          </div>
+                          <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded">
+                            原始电讯存档 ({brief.rawContent.length}字)
+                          </span>
+                        </div>
+                        <p className="whitespace-pre-line leading-relaxed text-justify font-normal text-slate-800 dark:text-slate-200 text-xs md:text-sm">
+                          {brief.rawContent}
+                        </p>
+                      </div>
+                    )}
 
                     {/* 交叉查错与权威出处直达 */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Summary5W1H, EventKeyProvisions } from '@/lib/types';
-import { FileText, AlertTriangle, X, Building2, BarChart3, Layers, Activity, ShieldAlert, FileCheck, Sparkles, CheckCircle2, GitBranch } from 'lucide-react';
+import { FileText, AlertTriangle, X, Building2, BarChart3, Layers, Activity, ShieldAlert, FileCheck, Sparkles, CheckCircle2, GitBranch, BookOpen } from 'lucide-react';
 import { CompanyProfile, getCompanyProfileForNews } from '@/lib/companyProfiles';
 import {
   getMacroInflationBreakdown,
@@ -78,7 +78,7 @@ export default function Summary5W1HView({
   if (!paragraph && summary) {
     const when = summary.when || (time ? `${time}` : '权威电讯通报');
     const cleanWhat = (summary.what || (title ? title.replace(/^【.*?】\s*/, '') : '发布最新核心进展')).trim().replace(/[。！!.]+$/, '');
-    const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '');
+    const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '').replace(/^[，,\s]*(?:受|起因于|因为|由于|因)+\s*/, '').trim();
     let cleanConsequence = (summary.consequence || '').trim().replace(/[。！!.]+$/, '');
 
     // 剔除破损因果碎片
@@ -171,6 +171,57 @@ export default function Summary5W1HView({
         </div>
       </div>
 
+      {/* 1. 5W1H 客观事实全貌通报与前因后果深度叙事 (彻底解决“前因后果什么都没有，详情也不说”) */}
+      {paragraph && (
+        <div className="p-4 md:p-5 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 shadow-sm space-y-3">
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700/60 pb-2.5 flex-wrap">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+              <span className="font-extrabold text-xs md:text-sm text-slate-900 dark:text-slate-100">
+                【5W1H 事实全貌 · 前因后果通报】
+              </span>
+            </div>
+            <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">
+              权威要素核验闭环
+            </span>
+          </div>
+
+          <p className="text-sm md:text-base text-slate-800 dark:text-slate-200 leading-relaxed font-normal text-justify">
+            {paragraph}
+          </p>
+
+          {/* 5W1H 关键要素直观解构条（起因背景、直接影响、核心当事方、时间节点） */}
+          {summary && (summary.why || summary.consequence || summary.who || summary.when) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60 text-xs">
+              {(summary.why || '').trim() && (
+                <div className="p-2.5 rounded-lg bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/40">
+                  <span className="font-bold text-amber-900 dark:text-amber-300 block mb-0.5">📌 起因 / 动因背景：</span>
+                  <span className="text-slate-700 dark:text-slate-300 leading-relaxed">{summary.why.replace(/^[，,\s]*(?:受|起因于|因为|由于|因)+\s*/, '')}</span>
+                </div>
+              )}
+              {(summary.consequence || '').trim() && (
+                <div className="p-2.5 rounded-lg bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/70 dark:border-rose-900/40">
+                  <span className="font-bold text-rose-900 dark:text-rose-300 block mb-0.5">⚡ 直接影响 / 后续走向：</span>
+                  <span className="text-slate-700 dark:text-slate-300 leading-relaxed">{summary.consequence}</span>
+                </div>
+              )}
+              {summary.who && (
+                <div className="p-2.5 rounded-lg bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-900/40">
+                  <span className="font-bold text-blue-900 dark:text-blue-300 block mb-0.5">👤 核心当事方 / 涉事主体：</span>
+                  <span className="text-slate-700 dark:text-slate-300 leading-relaxed">{summary.who}</span>
+                </div>
+              )}
+              {summary.when && (
+                <div className="p-2.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 block mb-0.5">⏰ 时间节点 / 通报窗口：</span>
+                  <span className="text-slate-600 dark:text-slate-300 leading-relaxed">{summary.when}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 宏观通胀关键分项矩阵穿透（环比/同比与5大分项） */}
       {activeMacro && (
         <div className="p-3.5 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs md:text-sm shadow-xs space-y-2.5">
@@ -240,52 +291,54 @@ export default function Summary5W1HView({
         </div>
       )}
 
-      {/* 独家深度透视 · 核心论点、论据与强逻辑链路 */}
-      <div className="p-4 md:p-5 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 shadow-sm space-y-3.5">
-        {/* 1. 独家核心论点 */}
-        {thesis && (
-          <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border-l-4 border-blue-600 text-sm md:text-base">
-            <div className="text-xs font-black text-blue-900 dark:text-blue-300 mb-1 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              <span>【独家解读 · 核心论点】</span>
+      {/* 2. 独家深度透视 · 核心论点、论据与强逻辑链路 (仅在内容有效存在时渲染，严禁空白容器) */}
+      {(thesis || (evidence && evidence.length > 0) || logicChain) && (
+        <div className="p-4 md:p-5 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 shadow-sm space-y-3.5">
+          {/* 1. 独家核心论点 */}
+          {thesis && (
+            <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border-l-4 border-blue-600 text-sm md:text-base">
+              <div className="text-xs font-black text-blue-900 dark:text-blue-300 mb-1 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span>【独家解读 · 核心论点】</span>
+              </div>
+              <p className="font-bold text-slate-900 dark:text-slate-100 leading-relaxed">
+                {thesis}
+              </p>
             </div>
-            <p className="font-bold text-slate-900 dark:text-slate-100 leading-relaxed">
-              {thesis}
-            </p>
-          </div>
-        )}
+          )}
 
-        {/* 2. 支撑论据 */}
-        {evidence && evidence.length > 0 && (
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-700/80 text-xs md:text-sm">
-            <div className="font-extrabold text-slate-800 dark:text-slate-200 mb-1.5 flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>【底层硬核事实 · 关键论据】</span>
+          {/* 2. 支撑论据 */}
+          {evidence && evidence.length > 0 && (
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-700/80 text-xs md:text-sm">
+              <div className="font-extrabold text-slate-800 dark:text-slate-200 mb-1.5 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>【底层硬核事实 · 关键论据】</span>
+              </div>
+              <ul className="space-y-1.5 text-slate-700 dark:text-slate-300">
+                {evidence.map((ev, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">•</span>
+                    <span>{ev}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul className="space-y-1.5 text-slate-700 dark:text-slate-300">
-              {evidence.map((ev, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">•</span>
-                  <span>{ev}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+          )}
 
-        {/* 3. 强逻辑传导路径 */}
-        {logicChain && (
-          <div className="p-3.5 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-xs md:text-sm">
-            <div className="font-extrabold text-indigo-950 dark:text-indigo-300 mb-1.5 flex items-center gap-1.5">
-              <GitBranch className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-              <span>【强逻辑演绎 · 一级传导链路】</span>
+          {/* 3. 强逻辑传导路径 */}
+          {logicChain && (
+            <div className="p-3.5 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-xs md:text-sm">
+              <div className="font-extrabold text-indigo-950 dark:text-indigo-300 mb-1.5 flex items-center gap-1.5">
+                <GitBranch className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>【强逻辑演绎 · 一级传导链路】</span>
+              </div>
+              <div className="text-indigo-950 dark:text-indigo-200 font-medium leading-relaxed">
+                {logicChain}
+              </div>
             </div>
-            <div className="text-indigo-950 dark:text-indigo-200 font-medium leading-relaxed">
-              {logicChain}
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* 重大事件具体内容与核心条款穿透清单 (解答“具体内容是什么”) */}
       {activeProvisions && (
