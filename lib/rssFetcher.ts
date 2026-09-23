@@ -2841,17 +2841,35 @@ export function build5W1HSummary(
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 3. What (事实要点：客观陈述事实动作，严禁贪婪正则删掉关键前半句；对发布会/问答跳过“主持记者会”等废话引言)
+  // 3. What (事实要点：客观陈述事实动作，严禁贪婪正则删掉关键前半句；对发布会/问答/回应跳过“主持记者会/就某事回应”等引言，直取实质回复内容)
   // ─────────────────────────────────────────────────────────────
   let what = cleanTitle;
   if (sents.length > 0) {
-    // 智能搜寻实质动作句（优先跳过纯引言如“郭嘉昆主持例行记者会”）
-    let targetSentence = sents[0];
-    const isPrologue = /主持例行记者会|主持记者会|举行发布会|答记者问|在例行发布会上|开场白/.test(targetSentence);
-    if (isPrologue && sents.length > 1) {
-      const substantive = sents.slice(1).find((s) => /表示|强调|指出|重申|称|明确|介绍|回答|谈到|回应/.test(s));
-      if (substantive) {
-        targetSentence = substantive;
+    let targetSentence = '';
+    // 3.1 若标题或首句属于“...回应”、“...答记者问”、“主持例行记者会”等，直接搜寻正文中官员/机构实质回复语句
+    const isResponseOrBriefing = /回应|答问|答记者问|记者会|发布会|开场白|中方表示|中方指出|对此有何评论/.test(cleanTitle + ' ' + (sents[0] || ''));
+    if (isResponseOrBriefing) {
+      // 遍历所有句子，找到包含真实答复动作且具有实际说明内容的句子（跳过纯问句与主持引言）
+      const substantiveAnswer = sents.find((s) => {
+        const clean = s.trim();
+        if (/主持例行记者会|主持记者会|举行发布会|在例行发布会上|开场白|有记者提问|有何评论|外交部发言人郭嘉昆/.test(clean) && !/表示|强调|指出|重申|称|明确|介绍|回答/.test(clean)) {
+          return false;
+        }
+        return /(?:表示|强调|指出|重申|称|明确|介绍|回答|谈到|回应|敦促|呼吁|要求|反对|坚持|保障|推进)[，,\s]*/.test(clean) && clean.length >= 15;
+      });
+      if (substantiveAnswer) {
+        targetSentence = substantiveAnswer;
+      }
+    }
+
+    if (!targetSentence) {
+      targetSentence = sents[0];
+      const isPrologue = /主持例行记者会|主持记者会|举行发布会|答记者问|在例行发布会上|开场白/.test(targetSentence);
+      if (isPrologue && sents.length > 1) {
+        const substantive = sents.slice(1).find((s) => /表示|强调|指出|重申|称|明确|介绍|回答|谈到|回应/.test(s));
+        if (substantive) {
+          targetSentence = substantive;
+        }
       }
     }
 
@@ -2862,7 +2880,7 @@ export function build5W1HSummary(
       .replace(/^(?:快讯|电讯|直发|专电|通报|最新消息)[：:，,\s]*/, '')
       .trim();
     cleanLead = cleanLead.replace(/^[，,和与以及同时因此使得导致]+/, '').trim();
-    if (cleanLead.length >= 10 && cleanLead.length <= 110) {
+    if (cleanLead.length >= 10 && cleanLead.length <= 150) {
       what = cleanLead;
     }
   }

@@ -793,28 +793,64 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
             )}
           </div>
         )}
-        {/* 快讯 vs 深度要闻分层呈现 (Issue 13：快讯不注水，轻量精炼展示) */}
-        {isWireFlash ? (
-          <div className="mb-3.5 p-3 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border-l-2 border-sky-500 text-xs sm:text-sm leading-relaxed shadow-2xs">
-            <div className="flex items-center gap-1.5 font-bold text-sky-700 dark:text-sky-400 text-xs mb-1">
-              <Zap className="w-3.5 h-3.5" />
-              <span>电讯速报 · 核心事实</span>
+        {/* 核心事实通报与详细事实要点（首屏直出，拒绝隐藏或折叠详情） */}
+        <div className="mb-3.5 p-3.5 md:p-4 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/90 dark:border-slate-700/80 text-sm md:text-base leading-relaxed shadow-xs">
+          <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-200/80 dark:border-slate-700/60">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+              <BookOpen className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span>【事件核心事实通报 · 官方电讯实录】</span>
             </div>
-            <p className="text-slate-800 dark:text-slate-200 leading-relaxed font-normal">
-              {factParagraph}
-            </p>
+            {item.content && item.content.length > 50 && (
+              <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                电讯全文 {item.content.length} 字
+              </span>
+            )}
           </div>
-        ) : (
-          <div className="mb-3.5 p-3.5 md:p-4 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/90 dark:border-slate-700/80 text-sm md:text-base leading-relaxed shadow-xs">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              <span>事件核心事实通报</span>
+          
+          {/* 核心段落 */}
+          <p className="text-slate-800 dark:text-slate-200 leading-relaxed font-normal text-justify mb-3">
+            {factParagraph}
+          </p>
+
+          {/* 首屏直出：电讯事实要点与分项纪要（若存在） */}
+          {(() => {
+            const filteredBps = (item.bulletPoints || []).filter((bp) => {
+              const cleanBp = bp.trim().replace(/^[0-9一二三四五六七八九十]+[、.：:]\s*/, '').replace(/[。！!.]+$/, '');
+              const cleanT = cleanTitle.trim().replace(/^[【\[][^】\]]+[】\]]\s*/, '').replace(/[。！!.]+$/, '');
+              return cleanBp !== cleanT && !cleanT.includes(cleanBp) && !factParagraph.includes(cleanBp);
+            });
+            if (filteredBps.length === 0) return null;
+            return (
+              <div className="mt-2.5 pt-2.5 border-t border-slate-200/70 dark:border-slate-700/50 space-y-1.5">
+                <div className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1 mb-1">
+                  <span>📌 关键事实要素与详细清单：</span>
+                </div>
+                {filteredBps.map((bp, bIdx) => (
+                  <div key={bIdx} className="flex items-start gap-2 text-xs md:text-sm text-slate-700 dark:text-slate-300">
+                    <span className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-[11px] font-bold mt-0.5">
+                      {bIdx + 1}
+                    </span>
+                    <p className="leading-relaxed font-normal">{bp}</p>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* 首屏直出：若正文包含长篇报道详情，提供就地“查看电讯全文实录”开关 */}
+          {item.content && item.content.trim().length >= 40 && item.content.trim() !== cleanTitle.trim() && !factParagraph.includes(item.content.slice(0, 40)) && (
+            <div className="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-700/50">
+              <details className="group/fulltext cursor-pointer">
+                <summary className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 select-none">
+                  <span>📰 查看完整电讯报道全文实录 ({item.content.length}字)</span>
+                </summary>
+                <div className="mt-2.5 p-3 rounded-lg bg-white/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/70 text-xs md:text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed text-justify">
+                  {item.content}
+                </div>
+              </details>
             </div>
-            <p className="text-slate-800 dark:text-slate-200 leading-relaxed font-normal text-justify">
-              {factParagraph}
-            </p>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="space-y-2.5">
           {/* 下一步观察哨（关键时间窗口 / 待验证指标） */}

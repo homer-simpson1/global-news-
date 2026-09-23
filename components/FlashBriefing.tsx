@@ -432,15 +432,36 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
                   </div>
                 )}
 
-                {/* 事件核心事实通报（彻底替代原无实质内容的“核心结论”，专职客观详情陈述） */}
+                {/* 事件核心事实通报与电讯实录（首屏直出） */}
                 <div className="mb-2.5 p-3.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/90 dark:border-slate-700/80 text-xs sm:text-sm leading-relaxed shadow-xs">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    <span>事件核心事实通报</span>
+                  <div className="flex items-center justify-between gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 pb-1 border-b border-slate-200/70 dark:border-slate-700/50">
+                    <div className="flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      <span>【事件核心事实通报 · 官方电讯实录】</span>
+                    </div>
+                    {brief.rawContent && brief.rawContent.length > 50 && (
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {brief.rawContent.length}字
+                      </span>
+                    )}
                   </div>
                   <p className="text-slate-800 dark:text-slate-200 leading-relaxed font-normal text-justify">
                     {factParagraph}
                   </p>
+
+                  {/* 若正文包含长篇报道详情，提供就地“查看电讯全文实录”开关 */}
+                  {brief.rawContent && brief.rawContent.trim().length >= 40 && brief.rawContent.trim() !== parsed.title.trim() && !factParagraph.includes(brief.rawContent.slice(0, 40)) && (
+                    <div className="mt-2.5 pt-2 border-t border-slate-200/70 dark:border-slate-700/50">
+                      <details className="group/flashfull cursor-pointer">
+                        <summary className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 select-none">
+                          <span>📰 查看完整电讯报道全文实录 ({brief.rawContent.length}字)</span>
+                        </summary>
+                        <div className="mt-2 p-2.5 rounded-lg bg-white/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/70 text-xs text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed text-justify">
+                          {brief.rawContent}
+                        </div>
+                      </details>
+                    </div>
+                  )}
                 </div>
 
                 {/* 下一步观察哨 */}
