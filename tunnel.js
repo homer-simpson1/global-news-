@@ -75,6 +75,11 @@ function startTunnel() {
       console.log('2. 保持此窗口打开，即可随时多人在线访问。');
       console.log('3. 关闭此黑色窗口即停止公网分享。\n');
 
+      // 自动记录最新公网网址到本地文件，方便随时查阅
+      try {
+        fs.writeFileSync(path.join(__dirname, 'public_url.txt'), publicUrl, 'utf8');
+      } catch (e) {}
+
       // 自动在默认浏览器中打开
       exec(`start ${publicUrl}`);
     }
@@ -84,7 +89,8 @@ function startTunnel() {
   tunnel.stderr.on('data', checkChunk);
 
   tunnel.on('close', (code) => {
-    console.log(`\n隧道已关闭 (code: ${code})`);
+    console.log(`\n[提示] 隧道连接中断 (code: ${code})，3秒后自动尝试重新连接保持在线...`);
+    setTimeout(startTunnel, 3000);
   });
 }
 
