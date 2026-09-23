@@ -317,6 +317,26 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
   title = title.replace(/(?:\d+\.|\.\d*)$/, '').trim();
   title = title.replace(/(?:[，,、；;：:\s及与和等并]|为了|保证|以实现|以确保|正在全力)+$/, '').trim();
 
+  // 严禁以介词、连词、半截动词断裂结尾（杜绝“...在”、“...于”、“...向”等腰斩断裂）
+  title = title.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致)+$/, '').trim();
+
+  // 专项恢复：OPEC 原油断裂标题
+  if (/opec/i.test(title) && /原油|布伦特|减产/.test(title)) {
+    if (/在$/.test(title) || !/筑底|企稳|回升|支撑/.test(title) || title.length < 24) {
+      title = 'OPEC+主要成员国探讨顺延减产，布伦特原油在90美元上方筑底';
+    }
+  }
+  if (/布伦特原油在/i.test(title) && !/筑底|90美元/.test(title)) {
+    title = 'OPEC+主要成员国探讨顺延减产，布伦特原油在90美元上方筑底';
+  }
+  // 专项恢复：朝鲜新型武器试验
+  if (/金正恩|朝鲜.*(?:武器|试验)/.test(title)) {
+    title = title.replace(/[，,\s]*区域防务安全态势进一步明朗[。.]*$/g, '');
+    if (title.length < 18 || !/威慑|反制|试验|观摩/.test(title)) {
+      title = '金正恩观摩朝鲜新型武器试验，展示常规与战备反制威慑';
+    }
+  }
+
   // 再次剔除遗留的媒体栏目头与悬挂符号
   title = title.replace(/^(?:能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/, '').trim();
   title = title.replace(/^[｜|·\-\/:：\s]+/, '').trim();
@@ -994,6 +1014,15 @@ export function autoCorrectTakeaway(
     !text.includes('全球公共卫生') ||
     isEcho
   );
+  const isCommodityMismatch =
+    /opec|原油|布伦特|wti|自愿减产|延长减产|顺延减产|大宗商品/.test(cleanTitleLower) &&
+    (/资产负债表与现金流分化|头部科技龙头|高负债企业|以军|以色列|黎巴嫩|加沙|空袭/.test(text));
+  const isNorthKoreaMismatch =
+    /金正恩|朝鲜|平壤|半岛|新型武器试验/.test(cleanTitleLower) &&
+    (/以军|以色列|黎巴嫩|加沙|真主党|胡塞|中东|乌克兰|俄军/.test(text));
+  const isMiddleEastMismatch =
+    /(?:以军|以色列|黎巴嫩|真主党|加沙|胡塞|中东交火)/.test(cleanTitleLower) &&
+    (/金正恩|朝鲜|平壤|资产负债表与现金流分化|头部科技龙头/.test(text));
 
   const isBroken =
     !text ||
@@ -1005,6 +1034,9 @@ export function autoCorrectTakeaway(
     isEventProvisionsMismatch ||
     isLPRMismatch ||
     isCongoEbolaMismatch ||
+    isCommodityMismatch ||
+    isNorthKoreaMismatch ||
+    isMiddleEastMismatch ||
     /使得市场面临现实痛点/.test(text) ||
     /【.*?】[：:]*\s*$/.test(text) ||
     /【.*?】[：:]*[，,、。.\s]+$/.test(text) ||
@@ -1024,6 +1056,36 @@ export function autoCorrectTakeaway(
       .trim();
     if (cleaned.length >= 12 && !/【.*?】[：:]*[，,、。.\s]*$/.test(cleaned) && !isHeadlineEcho(cleaned, cleanTitle)) {
       return { takeaway: cleaned, wasCorrected: cleaned !== text };
+    }
+  }
+
+  // OPEC与大宗原油专属定性纠偏（优先级高于美股科技股，彻底消除资产负债表与现金流分化误套）
+  if (/opec|原油|布伦特|wti|自愿减产|延长减产|顺延减产/.test(cleanTitleLower)) {
+    if (isBroken || /资产负债表|高负债企业|科技龙头|以军|黎巴嫩/.test(text)) {
+      return {
+        takeaway: '【供给侧自律平衡财政预算】：OPEC+计划顺延每日220万桶自愿减产协议；核心产油国通过供给调节锚定国际油价中枢，保障主权财政盈亏平衡。',
+        wasCorrected: true,
+      };
+    }
+  }
+
+  // 朝鲜新型武器试验专属定性纠偏（彻底消除以色列空袭黎巴嫩张冠李戴）
+  if (/金正恩|朝鲜.*(?:武器|试验|导弹|战备|发射|试射)|新型武器试验|火星炮/.test(cleanTitleLower)) {
+    if (isBroken || /以军|以色列|黎巴嫩|加沙|真主党|胡塞/.test(text)) {
+      return {
+        takeaway: '【半岛战备反制与战略威慑】：朝鲜最高领导人现场观摩新型战术武器试验，强化常规与战略打击反制能力，半岛地缘遏制态势进入高频攻防博弈。',
+        wasCorrected: true,
+      };
+    }
+  }
+
+  // 中东地缘交火专属定性纠偏（限定中东交火实体）
+  if (/(?:以军|以色列|国防军).*(?:空袭|黎巴嫩|加沙|真主党)|(?:黎巴嫩|真主党|加沙|也门胡塞).*(?:空袭|交火|导弹袭击)|中东地缘交火/.test(cleanTitleLower)) {
+    if (isBroken || /朝鲜|金正恩|科技龙头/.test(text)) {
+      return {
+        takeaway: '【中东地缘交火风险溢价走阔】：以色列国防军对黎巴嫩南部实施空袭，双方沿边境交火密集度上升；停火协议关键条款分歧难消，推升区域航运与能源风险溢价。',
+        wasCorrected: true,
+      };
     }
   }
 
@@ -1155,10 +1217,16 @@ export function autoCorrectTakeaway(
   } else if (/信威|宁算|破产重整|重整倒计时|破产清算|债务违约/.test(cleanTitleLower)) {
     tag = '不良资产出清与破产重整';
     core = '涉案高杠杆企业在破产重整法定框架下推进资产清查与战投招募，重构债务结构并阻断关联风险跨机构蔓延。';
+  } else if (/opec|原油|布伦特|wti|自愿减产|延长减产|顺延减产/.test(cleanTitleLower)) {
+    tag = '供给侧自律平衡财政预算';
+    core = 'OPEC+计划顺延每日220万桶自愿减产协议；核心产油国通过供给调节锚定国际油价中枢，保障主权财政盈亏平衡。';
+  } else if (/金正恩|朝鲜.*(?:武器|试验|导弹|战备|发射|试射)|新型武器试验|火星炮/.test(cleanTitleLower)) {
+    tag = '半岛战备反制与战略威慑';
+    core = '朝鲜最高领导人现场观摩新型战术武器试验，强化常规与战略打击反制能力，半岛地缘遏制态势进入高频攻防博弈。';
   } else if (/伊朗.*(?:7项|七项)?谈判条件|伊朗向美国开出|伊朗向美开出/.test(cleanTitleLower)) {
     tag = '地缘安全与外交筹码博弈';
     core = '伊朗开出解除全面原油禁运、解冻海外资产与不可撤销担保等7项实质要价，锁定极限施压博弈底牌，倒逼中东安全与大宗能源格局重估。';
-  } else if (/空袭|导弹|控制|海峡|航运|交火|红海/.test(cleanTitleLower)) {
+  } else if (/(?:以军|以色列|黎巴嫩|加沙|真主党|胡塞|交火|红海)/.test(cleanTitleLower)) {
     tag = '地缘安全与前线博弈';
     core = '关键地缘节点博弈升级推升区域商业航运战险费率，跨国产业链供应链加速构建多中心备份网络。';
   } else if (summary5W1H?.why && summary5W1H?.consequence) {

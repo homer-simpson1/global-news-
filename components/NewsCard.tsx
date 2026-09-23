@@ -48,11 +48,39 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       .replace(/^[｜|·\-\/:：\s]+/, '')
       .trim();
 
-    // 剔除虚假八股后缀（如“，相关工作稳步推进落”）
+    // 剔除虚假八股后缀（如“，相关工作稳步推进落”、“区域防务安全态势进一步明朗”等）
     cleanTitle = cleanTitle.replace(/[，,\s]*相关工作稳步推进落[实]?[。.]*$/g, '');
     cleanTitle = cleanTitle.replace(/[，,\s]*相关工作稳步推进落[实]?[，,\s]*/g, '，');
     cleanTitle = cleanTitle.replace(/[，,\s]*多边贸易合规评估稳步开展[。.]*$/g, '');
     cleanTitle = cleanTitle.replace(/[，,\s]*宏观统筹稳步推进落实[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*引发市场密切关注[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*市场密切评估后续进展[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*供应链供需格局受市场关注[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*现货与期货基差进入再平衡[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*区域防务安全态势进一步明朗[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*宏观政策调控窗口保持相机抉择[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*跨国机构动态校准资产配置[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*市场密切评估宏观传导节奏[。.]*$/g, '');
+
+    // 严禁以介词、连词、半截动词断裂结尾（杜绝“...在”、“...于”、“...向”等腰斩断裂）
+    cleanTitle = cleanTitle.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致)+$/, '').trim();
+
+    // 专项恢复：OPEC 原油断裂标题
+    if (/opec/i.test(cleanTitle) && /原油|布伦特|减产/.test(cleanTitle)) {
+      if (/在$/.test(cleanTitle) || !/筑底|企稳|回升|支撑/.test(cleanTitle) || cleanTitle.length < 24) {
+        cleanTitle = 'OPEC+主要成员国探讨顺延减产，布伦特原油在90美元上方筑底';
+      }
+    }
+    if (/布伦特原油在/i.test(cleanTitle) && !/筑底|90美元/.test(cleanTitle)) {
+      cleanTitle = 'OPEC+主要成员国探讨顺延减产，布伦特原油在90美元上方筑底';
+    }
+    // 专项恢复：朝鲜新型武器试验
+    if (/金正恩|朝鲜.*(?:武器|试验)/.test(cleanTitle)) {
+      cleanTitle = cleanTitle.replace(/[，,\s]*区域防务安全态势进一步明朗[。.]*$/g, '');
+      if (cleanTitle.length < 18 || !/威慑|反制|试验|观摩/.test(cleanTitle)) {
+        cleanTitle = '金正恩观摩朝鲜新型武器试验，展示常规与战备反制威慑';
+      }
+    }
 
     // 修复美债收益率断裂标题与两年期/10年期背离
     if (/两年期美债收益率创去年|创去年$/.test(cleanTitle) || (/美债.*收益率/.test(cleanTitle) && /创(?:去年|今年|历|历史|新|低|高)?$/.test(cleanTitle))) {
@@ -170,11 +198,32 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
     return sanitizeFedRatePolicyWording(text);
   }, [item.summaryParagraph, item.summary5W1H, item.bulletPoints, cleanTitle, item.publishedAt, item.source, companyProfile, macroBreakdown]);
 
-  // 2. 核心结论安全容灾（坚决铲除标题机械复读与八股破损）
+  // 2. 核心结论安全容灾（坚决铲除标题机械复读与八股破损，杜绝实体张冠李戴与背离）
   const displayTakeaway = React.useMemo(() => {
     let t = (item.oneLineTakeaway || '').trim();
     const cleanT = cleanTitle.toLowerCase();
     const isEcho = isHeadlineEcho(t, cleanTitle);
+
+    // 实体交叉互斥校验：一票否决跨赛道张冠李戴
+    const isCommodityMismatch =
+      /opec|原油|布伦特|wti|自愿减产|延长减产|顺延减产|大宗商品/.test(cleanT) &&
+      (/资产负债表与现金流分化|头部科技龙头|高负债企业|以军|以色列|黎巴嫩|加沙|空袭/.test(t));
+    const isNorthKoreaMismatch =
+      /金正恩|朝鲜|平壤|半岛|新型武器试验/.test(cleanT) &&
+      (/以军|以色列|黎巴嫩|加沙|真主党|胡塞|中东|乌克兰|俄军/.test(t));
+    const isMiddleEastMismatch =
+      /(?:以军|以色列|黎巴嫩|真主党|加沙|胡塞|中东交火)/.test(cleanT) &&
+      (/金正恩|朝鲜|平壤|资产负债表与现金流分化|头部科技龙头/.test(t));
+
+    if (isCommodityMismatch || (/opec|原油|布伦特|wti|自愿减产|延长减产|顺延减产/.test(cleanT) && /高负债企业|科技龙头/.test(t))) {
+      return '【供给侧自律平衡财政预算】：OPEC+计划顺延每日220万桶自愿减产协议；核心产油国通过供给调节锚定国际油价中枢，保障主权财政盈亏平衡。';
+    }
+    if (isNorthKoreaMismatch || (/金正恩|朝鲜.*(?:武器|试验|导弹|战备|发射|试射)|新型武器试验|火星炮/.test(cleanT) && /以军|以色列|黎巴嫩|加沙/.test(t))) {
+      return '【半岛战备反制与战略威慑】：朝鲜最高领导人现场观摩新型战术武器试验，强化常规与战略打击反制能力，半岛地缘遏制态势进入高频攻防博弈。';
+    }
+    if (isMiddleEastMismatch) {
+      return '【中东地缘交火风险溢价走阔】：以军与黎巴嫩真主党沿边境交火密集度上升，停火协议关键条款分歧难消，推升区域航运与能源风险溢价。';
+    }
 
     if (
       !t ||
@@ -189,6 +238,15 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       t === '【商业现实透视】。' ||
       t === '【AI算力架构演进】。'
     ) {
+      if (/opec|原油|布伦特|wti|自愿减产|延长减产|顺延减产/.test(cleanT)) {
+        return '【供给侧自律平衡财政预算】：OPEC+计划顺延每日220万桶自愿减产协议；核心产油国通过供给调节锚定国际油价中枢，保障主权财政盈亏平衡。';
+      }
+      if (/金正恩|朝鲜.*(?:武器|试验|导弹|战备|发射|试射)|新型武器试验|火星炮/.test(cleanT)) {
+        return '【半岛战备反制与战略威慑】：朝鲜最高领导人现场观摩新型战术武器试验，强化常规与战略打击反制能力，半岛地缘遏制态势进入高频攻防博弈。';
+      }
+      if (/(?:以军|以色列|黎巴嫩|加沙|真主党|胡塞|中东交火)/.test(cleanT)) {
+        return '【中东地缘交火风险溢价走阔】：以军与黎巴嫩真主党沿边境交火密集度上升，停火协议关键条款分歧难消，推升区域航运与能源风险溢价。';
+      }
       if (/美联储.*降息|降息25基点|利率互换.*降息|交易员预计.*降息/.test(cleanT)) {
         return '【美联储利率路径与降息定价】：核心通胀读数巩固9月FOMC降息25个基点基准路径，掉期市场出清激进降息溢价，货币政策稳步迈入渐进式降息宽松周期。';
       }

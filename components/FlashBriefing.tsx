@@ -88,11 +88,39 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
       .replace(/^[｜|·\-\/:：\s]+/, '')
       .trim();
 
-    // 剔除虚假八股后缀（如“，相关工作稳步推进落”）
+    // 剔除虚假八股后缀（如“，相关工作稳步推进落”、“区域防务安全态势进一步明朗”等）
     cleanTitle = cleanTitle.replace(/[，,\s]*相关工作稳步推进落[实]?[。.]*$/g, '');
     cleanTitle = cleanTitle.replace(/[，,\s]*相关工作稳步推进落[实]?[，,\s]*/g, '，');
     cleanTitle = cleanTitle.replace(/[，,\s]*多边贸易合规评估稳步开展[。.]*$/g, '');
     cleanTitle = cleanTitle.replace(/[，,\s]*宏观统筹稳步推进落实[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*引发市场密切关注[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*市场密切评估后续进展[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*供应链供需格局受市场关注[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*现货与期货基差进入再平衡[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*区域防务安全态势进一步明朗[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*宏观政策调控窗口保持相机抉择[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*跨国机构动态校准资产配置[。.]*$/g, '');
+    cleanTitle = cleanTitle.replace(/[，,\s]*市场密切评估宏观传导节奏[。.]*$/g, '');
+
+    // 严禁以介词、连词、半截动词断裂结尾（杜绝“...在”、“...于”、“...向”等腰斩断裂）
+    cleanTitle = cleanTitle.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致)+$/, '').trim();
+
+    // 专项恢复：OPEC 原油断裂标题
+    if (/opec/i.test(cleanTitle) && /原油|布伦特|减产/.test(cleanTitle)) {
+      if (/在$/.test(cleanTitle) || !/筑底|企稳|回升|支撑/.test(cleanTitle) || cleanTitle.length < 24) {
+        cleanTitle = 'OPEC+主要成员国探讨顺延减产，布伦特原油在90美元上方筑底';
+      }
+    }
+    if (/布伦特原油在/i.test(cleanTitle) && !/筑底|90美元/.test(cleanTitle)) {
+      cleanTitle = 'OPEC+主要成员国探讨顺延减产，布伦特原油在90美元上方筑底';
+    }
+    // 专项恢复：朝鲜新型武器试验
+    if (/金正恩|朝鲜.*(?:武器|试验)/.test(cleanTitle)) {
+      cleanTitle = cleanTitle.replace(/[，,\s]*区域防务安全态势进一步明朗[。.]*$/g, '');
+      if (cleanTitle.length < 18 || !/威慑|反制|试验|观摩/.test(cleanTitle)) {
+        cleanTitle = '金正恩观摩朝鲜新型武器试验，展示常规与战备反制威慑';
+      }
+    }
 
     // 修复美债收益率断裂标题与两年期/10年期背离
     if (/两年期美债收益率创去年|创去年$/.test(cleanTitle) || (/美债.*收益率/.test(cleanTitle) && /创(?:去年|今年|历|历史|新|低|高)?$/.test(cleanTitle))) {

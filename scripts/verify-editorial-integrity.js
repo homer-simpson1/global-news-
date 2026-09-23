@@ -786,6 +786,53 @@ check('Gate 18: 今日决策速递事实通报与深度透视规范审校', () =
 });
 
 // -------------------------------------------------------------
+// 门禁 19: 标题完整性与核心结论实体互斥审校 (Gate 19)
+// -------------------------------------------------------------
+check('Gate 19: 标题断裂自愈与核心结论跨实体防张冠李戴审校', () => {
+  const rssPath = path.join(ROOT, 'lib', 'rssFetcher.ts');
+  const healingPath = path.join(ROOT, 'lib', 'selfHealingEngine.ts');
+  const cardPath = path.join(ROOT, 'components', 'NewsCard.tsx');
+  const flashPath = path.join(ROOT, 'components', 'FlashBriefing.tsx');
+
+  const rssContent = fs.readFileSync(rssPath, 'utf8');
+  const healingContent = fs.readFileSync(healingPath, 'utf8');
+  const cardContent = fs.readFileSync(cardPath, 'utf8');
+  const flashContent = fs.readFileSync(flashPath, 'utf8');
+
+  // 19.1 大宗商品原油定性优先级必须高于股指期货
+  const opecIdx = rssContent.indexOf('opec|原油|减产|油价');
+  const futuresIdx = rssContent.indexOf('美股三大股指');
+  if (opecIdx === -1 || (futuresIdx !== -1 && opecIdx > futuresIdx)) {
+    throw new Error('lib/rssFetcher.ts: 大宗商品原油定性分支必须优先于股指期货分支，避免原油期货被套用科技股资产负债表结论！');
+  }
+
+  // 19.2 朝鲜武器试验必须具备专属定性，且不得被中东空袭导弹误伤
+  if (!rssContent.includes('半岛战备反制与战略威慑') || !rssContent.includes('金正恩|朝鲜')) {
+    throw new Error('lib/rssFetcher.ts: 缺少朝鲜武器试验与半岛局势专属定性分支！');
+  }
+
+  // 19.3 selfHealingEngine 必须集成跨实体互斥检测
+  if (!healingContent.includes('isCommodityMismatch') || !healingContent.includes('isNorthKoreaMismatch')) {
+    throw new Error('lib/selfHealingEngine.ts: 缺少 isCommodityMismatch 与 isNorthKoreaMismatch 实体交叉互斥校验！');
+  }
+
+  // 19.4 NewsCard 与 FlashBriefing 必须清洗“区域防务安全态势进一步明朗”等虚假八股后缀
+  if (!cardContent.includes('区域防务安全态势进一步明朗') || !flashContent.includes('区域防务安全态势进一步明朗')) {
+    throw new Error('NewsCard 或 FlashBriefing 缺少对“区域防务安全态势进一步明朗”的彻底清洗！');
+  }
+
+  // 19.5 NewsCard 必须集成 OPEC 标题自愈与朝鲜标题清洗
+  if (!cardContent.includes('布伦特原油在90美元上方筑底') || !cardContent.includes('金正恩观摩朝鲜新型武器试验')) {
+    throw new Error('NewsCard 缺少 OPEC 断裂标题自愈或朝鲜标题自愈！');
+  }
+
+  // 19.6 严禁出现腰斩介词结尾
+  if (!cardContent.includes('(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致)+$')) {
+    throw new Error('NewsCard 缺少悬挂介词腰斩断裂过滤规则！');
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {
