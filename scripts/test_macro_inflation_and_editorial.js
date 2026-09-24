@@ -1,3 +1,25 @@
+const fs = require('fs');
+const path = require('path');
+const ts = require('typescript');
+const Module = require('module');
+const ROOT = path.resolve(__dirname, '..');
+const origResolve = Module._resolveFilename;
+Module._resolveFilename = function (req, p, m, o) {
+  if (req.startsWith('@/')) req = path.join(ROOT, req.slice(2));
+  return origResolve.call(this, req, p, m, o);
+};
+require.extensions['.ts'] = function (module, filename) {
+  const content = fs.readFileSync(filename, 'utf8');
+  const compiled = ts.transpileModule(content, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    },
+  });
+  module._compile(compiled.outputText, filename);
+};
+
 const {
   getMacroInflationBreakdown,
   isMacroInflationNews,
@@ -5,14 +27,14 @@ const {
   getMacroInflationTransmission,
   buildMacroInflationFactParagraph,
   getMacroInflationNextWatchlist,
-} = require('../lib/macroInflationEngine');
+} = require('../lib/macroInflationEngine.ts');
 const {
   autoCorrectTakeaway,
   autoCorrectInterestTransmission,
   autoCorrectNewsItem,
   autoCorrectSummaryParagraph,
   isHeadlineEcho,
-} = require('../lib/selfHealingEngine');
+} = require('../lib/selfHealingEngine.ts');
 
 console.log('===========================================================');
 console.log('🧪 宏观通胀关键指标矩阵(环比/同比)与分项深度穿透全流程测试');

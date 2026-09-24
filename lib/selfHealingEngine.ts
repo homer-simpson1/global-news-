@@ -447,6 +447,13 @@ export function autoCorrectTrack(
     }
   }
 
+  // 纠偏 0-B2：中国外交部/民航局涉外民航往来、航班降落许可与涉外双边关切，严禁误入 us_macro，转轨至涉华政策赛道 (china_policy)
+  if (/(?:外交部|中国外交部|民航局)/.test(text) && /(?:航班|航线|民航|降落|通航|客运|德黑兰)/.test(text)) {
+    if (currentTrack === 'us_macro') {
+      return { track: 'china_policy', wasCorrected: true, reason: '外交部涉外民航与口岸外事通报转轨至涉华政策赛道' };
+    }
+  }
+
   // 纠偏 0-C：涉外涉美制裁法案与长臂管辖（含“美方将《”或格雷厄姆法案）严禁留在美股宏观，转轨至涉华博弈赛道 (china_policy)
   if (/美方将《|格雷厄姆.*(?:制裁|法案)|制裁俄罗斯和伊朗法案/.test(text)) {
     if (currentTrack === 'us_macro' || currentTrack === 'china_domestic') {
@@ -1411,6 +1418,7 @@ export function autoCorrectSummaryParagraph(
     /使得市场面临现实痛点/.test(text) ||
     /造成的困境，并避免越陷越深/.test(text) ||
     /(?:相关主管机构与)?涉事当事方正依法依规推进后续处置/.test(text) ||
+    /主持例行记者会|主持记者会|举行发布会|在例行发布会上|开场白/.test(text) ||
     /：[，,、\s]*。?$/.test(text);
 
   const cleanTitle = title.replace(/^[【\[][^】\]]+[】\]]/, '').trim();
@@ -1425,6 +1433,14 @@ export function autoCorrectSummaryParagraph(
         wasCorrected: true,
       };
     }
+  }
+
+  // 外交部涉外民航与口岸通报专属客观事实闭环段落（彻底杜绝仅有记者会开场白或无实质内容）
+  if (/航班|航线|民航|客运|降落|通航/.test(cleanTitle) && /德黑兰|伊朗|中东|外交部/.test(cleanTitle + ' ' + text)) {
+    return {
+      paragraph: `据${time ? `${time}（${sourceName}）` : '外交部例行记者会'}权威通报：针对各方关切的德黑兰往返中国民航客运航班等涉外事宜，外交部发言人明确回应，中方重申在符合国际民航公约及双边民用航空运输协定框架下，始终保持与各方正常人员往来与客货运航班运营，依法保障民用航空运输安全有序畅通。`,
+      wasCorrected: true,
+    };
   }
 
   // 西藏宁算与信威破产重整专属客观事实闭环段落

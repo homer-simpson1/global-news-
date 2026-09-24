@@ -1,19 +1,38 @@
-﻿/**
- * 专项防回归测试：德国/欧洲主权债及非美海外宏观新闻严禁挂载美国 BLS CPI 报告
- */
+const fs = require('fs');
+const path = require('path');
+const ts = require('typescript');
+const Module = require('module');
+const ROOT = path.resolve(__dirname, '..');
+const origResolve = Module._resolveFilename;
+Module._resolveFilename = function (req, p, m, o) {
+  if (req.startsWith('@/')) req = path.join(ROOT, req.slice(2));
+  return origResolve.call(this, req, p, m, o);
+};
+require.extensions['.ts'] = function (module, filename) {
+  const content = fs.readFileSync(filename, 'utf8');
+  const compiled = ts.transpileModule(content, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    },
+  });
+  module._compile(compiled.outputText, filename);
+};
+
 const {
   isMacroInflationNews,
   getMacroInflationBreakdown,
   getMacroInflationTakeaway,
   getMacroInflationTransmission,
   buildMacroInflationFactParagraph,
-} = require('../lib/macroInflationEngine');
+} = require('../lib/macroInflationEngine.ts');
 const {
   autoCorrectNewsItem,
   autoCorrectTrack,
   autoCorrectTakeaway,
   autoCorrectSummaryParagraph,
-} = require('../lib/selfHealingEngine');
+} = require('../lib/selfHealingEngine.ts');
 
 let failures = 0;
 function assert(desc, condition, details = '') {

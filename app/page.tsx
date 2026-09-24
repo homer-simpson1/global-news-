@@ -197,17 +197,21 @@ function TerminalApp() {
           parsedN = null;
           parsedB = null;
         } else {
-          // 关键自愈门禁：若本地缓存中包含严重破损或污染的旧标题（如“创去年”、“相关工作稳步推进”、“美方将《”、“涉事主体推进核心战略部署”），强制清空旧缓存！
-          const hasCorruptNews = parsedN.some((n: any) =>
-            /创去年|相关工作稳步推进|美方将《|特稿\s*[｜|]/.test(n.title || '') ||
-            /涉事主体推进核心战略部署/.test(n.oneLineTakeaway || '') ||
-            /美方将《/.test(n.summaryParagraph || '')
-          );
-          const hasCorruptBriefs = Array.isArray(parsedB) && parsedB.some((b: any) =>
-            /创去年|相关工作稳步推进|美方将《|特稿\s*[｜|]/.test(b.content || '') ||
-            /涉事主体推进核心战略部署/.test(b.oneLineTakeaway || '') ||
-            /美方将《/.test(b.summaryParagraph || '')
-          );
+          // 关键自愈门禁：若本地缓存中包含严重破损或污染的旧标题（如“创去年”、“相关工作稳步推进”、“美方将《”、“郭嘉昆/主持例行记者会”）、或涉美制裁标签误挂在德黑兰航班新闻，强制清空旧缓存！
+          const isCorruptItem = (item: any) => {
+            const title = item.title || item.content || '';
+            const takeaway = item.oneLineTakeaway || '';
+            const para = item.summaryParagraph || '';
+            return (
+              /创去年|相关工作稳步推进|美方将《|特稿\s*[｜|]/.test(title) ||
+              /涉事主体推进核心战略部署/.test(takeaway) ||
+              /美方将《|主持例行记者会|主持记者会/.test(para) ||
+              (/德黑兰|航班|航线/.test(title) && /涉外长臂管辖与二级制裁升级/.test(takeaway)) ||
+              (/德黑兰|航班|航线/.test(title) && item.track === 'us_macro')
+            );
+          };
+          const hasCorruptNews = parsedN.some(isCorruptItem);
+          const hasCorruptBriefs = Array.isArray(parsedB) && parsedB.some(isCorruptItem);
           if (hasCorruptNews || hasCorruptBriefs) {
             console.log('[Cache] 本地缓存检测到破损污染旧闻，强制清除旧缓存并拉取最新数据');
             localStorage.removeItem('git_cached_news');

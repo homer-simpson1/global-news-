@@ -3,7 +3,7 @@ import { SEED_FLASH_BRIEFS, SEED_NEWS_ITEMS, SEED_MARKET_QUOTES, GYIRONG_PORT_DI
 import { fetchVerifiedMarketQuotes, getCachedVerifiedQuotesSnapshot } from './quotesVerifier';
 import { enforceCountryEntityGuardrails, checkCrossContamination, validateTitleSummaryEntityConsistency, FOREIGN_ENTITIES } from './guardrails';
 import { autoCorrectAllNews, autoCorrectFlashBrief, sanitizeEditorialTone } from './selfHealingEngine';
-import { EDITORIAL_CHIEF_SYSTEM_PROMPT } from './aiService';
+import { EDITORIAL_CHIEF_SYSTEM_PROMPT, extractIntelligenceDeterministic } from './aiService';
 import { getCompanyProfileForNews } from './companyProfiles';
 import {
   getMacroInflationBreakdown,
@@ -533,7 +533,7 @@ export function evaluateCapitalMarketRelevance(
 
   // ── E. 企业 / 行业重大事件 ──────────────────────────────────────────────
   const corpHits = (text.match(
-    /业绩|营收|净利润|裁员|并购|收购|合并|分拆|破产|重组|倒闭|IPO|上市|退市|融资|增发|回购|分红|股息|大合同|中标|失标|召回|监管罚款|巨额罚款|反垄断|违规|造假|欺诈|暴雷|违约|芯片|算力|gpu|cpu|半导体|先进制程|大模型|生成式ai|人工智能|超级应用|流片|晶圆|架构|发布.*芯片|发布.*模型|发布.*智能|量产交付|earnings|revenue|profit|layoff|merger|acquisition|bankruptcy|restructur|IPO\b|ipo\b|financing|dividend|buyback/gi
+    /业绩|营收|净利润|裁员|并购|收购|合并|分拆|破产|重组|倒闭|IPO|上市|退市|融资|增发|回购|分红|股息|大合同|中标|失标|召回|监管罚款|巨额罚款|反垄断|违规|造假|欺诈|暴雷|违约|芯片|算力|gpu|cpu|半导体|先进制程|大模型|生成式ai|人工智能|超级应用|流片|晶圆|架构|发布.*芯片|发布.*模型|发布.*智能|量产交付|云市场|ai市场|出货量|出货|销量|客户验证|小批量|供应链|硬件|更新|升级为|earnings|revenue|profit|layoff|merger|acquisition|bankruptcy|restructur|IPO\b|ipo\b|financing|dividend|buyback/gi
   ) || []).length;
   if (corpHits >= 1) {
     const score = Math.min(corpHits >= 3 ? 2 : 1, 2);
@@ -1273,64 +1273,42 @@ export function classifyTrack(item: RawLiveItem): TrackId {
     return 'china_policy';
   }
 
-  if ((FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.US_MACRO.test(t)) && !/涉华|对华|中美/.test(t)) {
-    return 'us_macro';
+  // 中国外交部/民航局涉外民航往来与口岸通报：归入 china_policy，严禁落入 us_macro
+  if (/(?:中国|中方|我国)?(?:外交部|民航局)/.test(t) && /(?:航班|航线|民航|降落|通航|客运|德黑兰)/.test(t)) {
+    return 'china_policy';
   }
 
-  // 【通用重大外溢冲击收录标准判定准则】：
-  const spillover = evaluateSpilloverImpact(item.title, item.content);
-  if (spillover.isSpilloverMajor) {
-    if (spillover.criteriaIndex === 3) {
-      return 'china_policy';
-    }
-    if (/大模型|算力|芯片|半导体|先进制程|存储芯片|长鑫|长存|中芯|华虹|北方华创/.test(t)) return 'apac_tech';
-    if (FOREIGN_ENTITIES.JAPAN.test(t)) return /半导体|芯片/.test(t) ? 'apac_tech' : 'global_cognition';
-    if (FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.US_MACRO.test(t)) return 'us_macro';
-    if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t)) return 'war_conflict';
-    if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(t)) return 'global_cognition';
-    if (FOREIGN_ENTITIES.AFRICA_GLOBAL && FOREIGN_ENTITIES.AFRICA_GLOBAL.test(t)) return 'global_cognition';
-    if (/美国|美方|特朗普|拜登|密歇根|加州|德州|英国|法国|德国|日本|俄罗斯|乌克兰|刚果|非洲/.test(item.title) && !/涉华|对华|中美/.test(item.title)) {
-      return 'global_cognition';
-    }
-    return 'china_domestic';
-  }
-
-  // 联合早报与财新网等严肃中立信源电讯精准对齐赛道：
-  if (item.wireChannel === 'CH_ZAOBAO' || item.wireChannel === 'CH_CAIXIN') {
-    if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t) || /伊朗|以色列|哈马斯|真主党|加沙|乌克兰|俄军|乌军/.test(t)) {
-      return 'war_conflict';
-    }
-    if ((/涉外|关税|制裁|美国|欧盟|外资|反制|出海|特使|两岸|台湾|涉台|南海|两国防务|防务合作|军工出口|外长|巴基斯坦|解放军.*军事/.test(t)) && !/伊朗.*美国|美伊/.test(t)) {
-      return 'china_policy';
-    }
-    if (/世界模型|大模型|生成式ai|算力|芯片|半导体|人形机器人/.test(t)) {
+  // 1. 算力硬件与前沿模型 (融合芯片硬件与OpenAI、Google、大模型突破及自主半导体产业链，严格优先于普通美国主权词)
+  if (
+    /openai|gpt|claude|anthropic|deepmind|大模型|llm|agent|多模态|生成式ai|端侧模型|算力|芯片|半导体|先进制程|台积电|联电|日月光|三星|海力士|sk海力士|铠侠|阿斯麦|asml|光刻|东京电子|爱德万|ai芯片|英伟达|高通|博通|超威|arm|数据中心|hbm|cowos|先进封装|长鑫|长存|长江存储|中芯|华虹|北方华创|中微|拓荆|盛美|燧原|沐曦|摩尔线程|壁仞|寒武纪|地平线|昆仑芯|存储芯片|晶圆代工|dram|nand/.test(
+      t
+    )
+  ) {
+    if (!/涉华|对华|中美经贸|中美博弈/.test(item.title)) {
       return 'apac_tech';
     }
-    if (FOREIGN_ENTITIES.JAPAN.test(t)) return /半导体|芯片/.test(t) ? 'apac_tech' : 'global_cognition';
-    if (FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.US_MACRO.test(t)) return 'us_macro';
-    if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t)) return 'war_conflict';
-    if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(t)) return 'global_cognition';
-    if (FOREIGN_ENTITIES.GLOBAL_FOREIGN.test(t)) return 'global_cognition';
-    if (FOREIGN_ENTITIES.AFRICA_GLOBAL && FOREIGN_ENTITIES.AFRICA_GLOBAL.test(t)) return 'global_cognition';
-    return 'china_domestic';
   }
 
-  // 1. 大宗商品与能源航运 (原油、天然气、LNG、海运、集运欧线、运价指数、伦铜、铁矿石、大宗金属)
+  // 2. 大宗商品与能源航运 (原油、天然气、LNG、海运、集运欧线、运价指数、伦铜、铁矿石、大宗金属、农产品期货期权)
   if (
-    /原油|wti|布伦特|天然气|lng|ttf|集运|欧线|海运|航运|运价|scfi|bdi|散货|好望角|马六甲|苏伊士|红海.*(?:绕航|航运|船|货轮|护航)|伦铜|lme.*铜|铜价|锂矿|铁矿石|大宗商品/.test(
+    /原油|wti|布伦特|天然气|lng|ttf|集运|欧线|海运|航运|运价|scfi|bdi|散货|好望角|马六甲|苏伊士|红海.*(?:绕航|航运|船|货轮|护航)|伦铜|lme.*铜|铜价|锂矿|铁矿石|大宗商品|葵花籽油|豆粕|棕榈油|郑州商品交易所|大连商品交易所|上期所/.test(
       t
     )
   ) {
     return 'commodities_shipping';
   }
 
-  // 2. 俄乌局势与美伊中东战局
+  // 3. 俄乌局势与美伊中东战局、半岛局势与朝美对话
   if (
-    /乌克兰|俄罗斯|普京|泽连斯基|俄军|乌军|顿涅茨克|库尔斯克|基辅|莫斯科|伊朗|以色列|以军|内塔尼亚胡|哈马斯|真主党|黎巴嫩|加沙|中东|也门|五角大楼|美军|空袭|导弹|无人机|巡航导弹|战机|防务|停火|武器|泄密/.test(
+    /乌克兰|俄罗斯|普京|泽连斯基|俄军|乌军|顿涅茨克|库尔斯克|基辅|莫斯科|伊朗|以色列|以军|内塔尼亚胡|哈马斯|真主党|黎巴嫩|加沙|中东|也门|五角大楼|美军|空袭|导弹|无人机|巡航导弹|战机|防务|停火|武器|泄密|朝美|朝核|李在明|金正恩|平壤/.test(
       t
     )
   ) {
     return 'war_conflict';
+  }
+
+  if ((FOREIGN_ENTITIES.US_ALL.test(t) || FOREIGN_ENTITIES.US_MACRO.test(t)) && !/涉华|对华|中美/.test(t)) {
+    return 'us_macro';
   }
 
   // 涉外AI出口管制/跨国大模型非法蒸馏与涉密防务博弈：一票落入发达国家对华博弈 (china_policy)
@@ -2388,7 +2366,11 @@ export function generateCoreTakeaway(
       ? '涉外政策立场与多边交涉'
       : '地缘局势与安全态势',
     china_domestic: '重大治理现实透视',
-    china_policy: '经贸博弈与产业自立',
+    china_policy: /航班|航线|民航|客运|降落|通航/.test(t)
+      ? '涉外民航往来与口岸通关'
+      : /美方|美国|制裁|法案|关税|清单|出口管制|格雷厄姆/.test(t)
+      ? '经贸博弈与涉外对等反制'
+      : '经贸博弈与产业自立',
     china_macro: /cpi|居民消费价格/.test(t)
       ? '物价信号影响货币政策'
       : /ppi|生产者价格/.test(t)
@@ -2481,7 +2463,7 @@ export function generateCoreTakeaway(
       } else if (/期货|主力合约|涨超|跌超|收涨|收跌|夜盘/.test(t)) {
         view = '期货衍生品价格波动直接反映产业链现货供需预期，引导套保与投机头寸动态再平衡。';
       } else {
-        view = '涉事主体稳步推进核心战略部署，产业链关联方根据市场供求信号与合规框架重构中长期估值中枢。';
+        view = `${cleanTitle}。各方密切跟踪其对产业链上下游供需格局与市场定价预期的边际影响。`;
       }
     } else {
       view = `${factDesc}。`;
@@ -2536,7 +2518,7 @@ function generateNextWatchlist(title: string, content: string, track: TrackId): 
     return getMacroInflationNextWatchlist(title, content);
   }
   if (/美联储|降息|加息|非农|美债|收益率/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
-    return '【后续观察哨】：锁定在 9月18日 FOMC 议息决议（降息25bps基准路径落地）与美联储最新季度点阵图指引。';
+    return '【后续观察哨】：锁定在 下一次 FOMC 议息决议声明、最新季度利率点阵图及美联储主席新闻发布会。';
   }
   if (/台积电|先进制程|2nm|晶圆|芯片|半导体|英伟达|算力|asml/.test(t)) {
     return '【后续观察哨】：锁定在 下周英伟达全球开发者峰会及台积电投资人法说会资本开支指引。';
@@ -3194,6 +3176,18 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
     return null;
   }
   summary5W1H = build5W1HSummary(enrichedTitle, cleanRawContent, raw.time, primary.source, track);
+
+  // 融合确定性智能提炼器：若 5W1H 中因果缺失，使用正文证据句补齐
+  if (cleanRawContent && cleanRawContent.length > 30 && (!summary5W1H.why || !summary5W1H.consequence)) {
+    const aiDet = extractIntelligenceDeterministic(enrichedTitle, cleanRawContent, primary.source, raw.time, track);
+    if (!summary5W1H.why && aiDet.summary5W1H.why) {
+      summary5W1H.why = aiDet.summary5W1H.why;
+    }
+    if (!summary5W1H.consequence && aiDet.summary5W1H.consequence) {
+      summary5W1H.consequence = aiDet.summary5W1H.consequence;
+    }
+  }
+
   summaryParagraph = build5W1HParagraph(summary5W1H, enrichedTitle, cleanRawContent, primary.source);
   coreTakeaway = generateCoreTakeaway(enrichedTitle, cleanRawContent, track, summary5W1H);
   transmissionImpact = inferTransmission(track, enrichedTitle, cleanRawContent);
@@ -3598,7 +3592,8 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
                 }
               }
               if (!isDup) {
-                categorized[trk].push(c);
+                const adaptedItem = { ...c, track: trk };
+                categorized[trk].push(adaptedItem);
                 usedNewsIds.push(c.id);
               }
             }

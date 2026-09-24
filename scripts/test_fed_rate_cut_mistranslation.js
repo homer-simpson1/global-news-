@@ -1,6 +1,28 @@
+const fs = require('fs');
+const path = require('path');
+const ts = require('typescript');
+const Module = require('module');
+const ROOT = path.resolve(__dirname, '..');
+const origResolve = Module._resolveFilename;
+Module._resolveFilename = function (req, p, m, o) {
+  if (req.startsWith('@/')) req = path.join(ROOT, req.slice(2));
+  return origResolve.call(this, req, p, m, o);
+};
+require.extensions['.ts'] = function (module, filename) {
+  const content = fs.readFileSync(filename, 'utf8');
+  const compiled = ts.transpileModule(content, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    },
+  });
+  module._compile(compiled.outputText, filename);
+};
+
 const {
   sanitizeFedRatePolicyWording,
-} = require('../lib/macroInflationEngine');
+} = require('../lib/macroInflationEngine.ts');
 
 const {
   autoCorrectTitle,
@@ -10,7 +32,7 @@ const {
   autoCorrectTakeaway,
   autoCorrectInterestTransmission,
   autoCorrectNewsItem,
-} = require('../lib/selfHealingEngine');
+} = require('../lib/selfHealingEngine.ts');
 
 let passedCount = 0;
 let totalCount = 0;
