@@ -856,9 +856,9 @@ check('Gate 20: 动态端到端采编流质量与全链路防踩踏实测门禁'
     module._compile(compiled.outputText, filename);
   };
 
-  const { detectPrimarySource, cleanWireHeadline, isCalendarOrDigestSpam } = require('../lib/rssFetcher.ts');
+  const { detectPrimarySource, cleanWireHeadline, isCalendarOrDigestSpam, enrichHeadline } = require('../lib/rssFetcher.ts');
   const { getCompanyProfileForNews } = require('../lib/companyProfiles.ts');
-  const { autoCorrectTrack, autoCorrectTakeaway, autoCorrectInterestTransmission } = require('../lib/selfHealingEngine.ts');
+  const { autoCorrectTrack, autoCorrectTakeaway, autoCorrectInterestTransmission, autoCorrectTitle } = require('../lib/selfHealingEngine.ts');
 
   // 20.1 真实信源归因断言：严禁向国内权威部委/交易所通报强加路透/彭博标签
   const scioSource = detectPrimarySource('国新办开局起步发布会：国家粮食局介绍大国粮仓', '', '财联社');
@@ -943,6 +943,41 @@ check('Gate 21: 严禁 9月9日 历史僵尸旧闻与实时流种子污染门禁
   // 21.3 前端 localStorage 必须包含主动清空 9月9日 脏缓存的守卫
   if (!pageContent.includes('hasStaleDateNews') || !pageContent.includes('9月9日')) {
     throw new Error('app/page.tsx 缺少针对 9月9日 历史脏缓存的主动清理守卫！');
+  }
+});
+
+// -------------------------------------------------------------
+// 门禁 22: 严禁无主语动词开头标题与空洞物价兜底结论 (Gate 22)
+// -------------------------------------------------------------
+check('Gate 22: 严禁“刷新/创下”无主语病句与美债套用泛化物价结论', () => {
+  const { enrichHeadline } = require('../lib/rssFetcher.ts');
+  const { autoCorrectTitle, autoCorrectTakeaway } = require('../lib/selfHealingEngine.ts');
+
+  // 22.1 测试 enrichHeadline 面对长标题截断，严禁把无主语动词后半句当标题
+  const mockWireTitle = '10年期美债收益率周三涨超15个基点，刷新2007年月以来最高位至5.13%上方';
+  const mockWireContent = '周三（9月23日）纽约尾盘，美国10年期基准国债收益率涨15.29个基点，报5.1142%，日内交投于4.9307%-5.1329%区间，逼近2007年7月13日盘中最高位5.1412%。';
+  const enriched = enrichHeadline(mockWireTitle, mockWireContent, 'us_macro');
+  if (/^刷新/.test(enriched) || !enriched.includes('10年期')) {
+    throw new Error(`标题主语缺失违规：标题依然为无主语动词开头病句 "${enriched}"`);
+  }
+  if (enriched.includes('2007年月')) {
+    throw new Error(`机翻残存违规：标题包含机翻错误 "2007年月" -> "${enriched}"`);
+  }
+
+  // 22.2 测试 autoCorrectTitle 遇到无主语动词时，结合上下文自动补回资产主体
+  const headlessTitle = '刷新2007年月以来最高位至5.13%上方';
+  const correctedTitle = autoCorrectTitle(headlessTitle, { content: mockWireContent, what: '10年期美债收益率走高' });
+  if (/^刷新/.test(correctedTitle) || !correctedTitle.includes('10年期') && !correctedTitle.includes('美债')) {
+    throw new Error(`autoCorrectTitle 修复失败：未补全资产主体 "${correctedTitle}"`);
+  }
+
+  // 22.3 测试核心结论严禁套用空洞物价兜底
+  const takeawayRes = autoCorrectTakeaway('【宏观物价中枢与货币政策校准】：物价读数直接决定央行货币政策与流动性调控节奏，资产市场贴现率与跨资产股债配置据此完成重平衡。', '10年期美债收益率周三涨超15个基点，刷新2007年以来最高位至5.13%上方');
+  if (takeawayRes.takeaway.includes('宏观物价中枢') || takeawayRes.takeaway.includes('物价读数直接决定')) {
+    throw new Error(`核心结论套用空洞物价模板违规："${takeawayRes.takeaway}"`);
+  }
+  if (!takeawayRes.takeaway.includes('5.13%') || !takeawayRes.takeaway.includes('贴现率')) {
+    throw new Error(`核心结论未包含具体点位或贴现率定性："${takeawayRes.takeaway}"`);
   }
 });
 

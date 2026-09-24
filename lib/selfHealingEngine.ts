@@ -151,7 +151,7 @@ export function sanitizeEditorialTone(text: string): string {
 /**
  * 1. 标题脱水、去杂与结构化自动纠偏 (Title Auto-Healing)
  */
-export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string; what?: string }): string {
+export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string; what?: string; content?: string }): string {
   if (!rawTitle) {
     return context?.what?.slice(0, 26) || '全球重大宏观与产业实质变局追踪';
   }
@@ -280,13 +280,21 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
     }
   }
 
-  // H. 拦截并修复无主语断裂残片（如“分别涨4.77%...”、“其中3.6%...”）
+  // 修复快讯机翻漏字（如“2007年月以来” -> “2007年以来”）
+  title = title.replace(/(\d{4}年)月以来/, '$1以来');
+
+  // H. 拦截并修复无主语断裂残片（如“分别涨4.77%...”、“刷新2007年...”、“其中3.6%...”）
   const isHeadless =
     /^(?:分别|其中|包括|以及|并且|而|且|但|导致|受此影响|据称|据悉|同时|涨超|跌超|分别涨|分别跌|超|达|[0-9.]+%|[涨跌][0-9.]+%)/.test(title) ||
+    /^(?:刷新|创下?|创出|突破|跌破|升破|逼近|触及|报|拉升|回落|走高|走低|跳水|大跌|大涨)\b/.test(title) ||
     /^[0-9.%,、，\s]+$/.test(title);
 
   if (isHeadless) {
-    if (context?.what && context.what.length >= 6 && !/^(?:分别|其中|包括)/.test(context.what)) {
+    const rawContextText = `${context?.content || ''} ${context?.what || ''}`;
+    const assetMatch = rawContextText.match(/(?:美国)?(?:10年期基准国债|10年期美债|两年期美债|2年期美债|30年期美债|5年期美债|美债|美国国债|德国国债|德债|现货黄金|现货白银|伦铜|布伦特原油|WTI原油|美元指数|纳斯达克|标普500|道琼斯)(?:收益率)?/i);
+    if (assetMatch && !title.includes(assetMatch[0])) {
+      title = `${assetMatch[0]}${title}`;
+    } else if (context?.what && context.what.length >= 6 && !/^(?:分别|其中|包括|刷新|创下?)/.test(context.what)) {
       title = context.what.slice(0, 26);
     } else if (context?.takeaway && context.takeaway.length >= 6) {
       const takeClean = context.takeaway.replace(/^[【\[][^】\]]+[】\]]\s*[:：]?\s*/, '').slice(0, 26);
@@ -1118,6 +1126,9 @@ export function autoCorrectTakeaway(
     text.includes('深化立法机构交往') &&
     (!/(?:赵乐际|王毅|何立峰|李强|习近平|中方代表团|中国外交部)/.test(cleanTitleLower) ||
       /(?:俄罗斯.*美国|美俄|拉夫罗夫.*鲁比奥|鲁比奥.*拉夫罗夫|以军|以色列|黎巴嫩|加沙|伊朗.*美国|美伊)/.test(cleanTitleLower));
+  const isInflationMismatch =
+    text.includes('宏观物价中枢与货币政策校准') &&
+    (/(?:国债|美债|债券).*收益率|(?:10年期|两年期|2年期|5年期|30年期).*收益率|刷新.*最高位/.test(cleanTitleLower) || /(?:5\.\d+%|4\.\d+%|基点|bps)/.test(cleanTitleLower));
 
   const isBroken =
     !text ||
@@ -1133,6 +1144,7 @@ export function autoCorrectTakeaway(
     isNorthKoreaMismatch ||
     isMiddleEastMismatch ||
     isDiplomacyMismatch ||
+    isInflationMismatch ||
     (/航班|航线|民航|客运/.test(cleanTitleLower) && /涉外长臂管辖与二级制裁/.test(text)) ||
     /主持例行记者会|主持记者会|举行发布会|在例行发布会上|例行记者会|开场白/.test(text) ||
     /使得市场面临现实痛点/.test(text) ||
@@ -1335,6 +1347,11 @@ export function autoCorrectTakeaway(
   } else if (/美联储.*降息|降息25基点|利率互换.*降息|交易员预计.*降息/.test(cleanTitleLower)) {
     tag = '美联储利率路径与降息定价';
     core = '核心通胀读数巩固9月FOMC降息25个基点基准路径，掉期市场出清激进降息溢价，货币政策稳步迈入渐进式降息宽松周期。';
+  } else if (/(?:国债|美债|债券).*收益率.*(?:刷新|突破|涨|跌|高位|创|至|报)|(?:10年期|两年期|2年期|5年期|30年期).*收益率/.test(cleanTitleLower) || (/(?:收益率|国债)/.test(cleanTitleLower) && /(?:5\.\d+%|4\.\d+%|基点|bps)/.test(cleanTitleLower))) {
+    const rateMatch = cleanTitle.match(/(\d+\.\d+[%％])/);
+    const rateStr = rateMatch ? `突破${rateMatch[1]}` : '阶段性走高';
+    tag = '基准美债重定价与贴现率冲击';
+    core = `长短端美债收益率快速拉升并${rateStr}，直接推高跨资产无风险贴现率中枢，对权益市场估值中枢与跨国借贷流动性形成约束。`;
   } else if (/加息|降息|美联储|收益率|国债|央行/.test(cleanTitleLower)) {
     tag = '宏观流动性与利率校准';
     core = '基准利率与债券收益率曲线变动直接影响跨资产定价锚，机构资金重新平衡防御资产久期敞口。';
@@ -1559,6 +1576,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   const correctedTitle = autoCorrectTitle(item.title, {
     takeaway: item.oneLineTakeaway,
     what: item.summary5W1H?.what,
+    content: item.summaryParagraph || (item.bulletPoints && item.bulletPoints[0]),
   });
 
   const { track: correctedTrack } = autoCorrectTrack(item.track, correctedTitle, item.summaryParagraph);
@@ -1607,7 +1625,9 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   );
 
   let cleanWatchlist = sanitizeEditorialTone(item.nextWatchlist || '');
-  if (isMacroInflationNews(cleanTitleLower) && /9月11日\s*20:30/.test(cleanWatchlist)) {
+  if (/央行下一次货币政策例会利率决议与核心通胀次月读数趋势/.test(cleanWatchlist) && (/(?:国债|美债|债券).*收益率|(?:10年期|两年期|2年期|5年期|30年期).*收益率/.test(cleanTitleLower) || /(?:5\.\d+%|4\.\d+%|基点|bps)/.test(cleanTitleLower))) {
+    cleanWatchlist = '【后续观察哨】：锁定在 美国财政部下批国债标售竞标倍数、下一次 FOMC 议息决议与联储主席最新政策表态。';
+  } else if (isMacroInflationNews(cleanTitleLower) && /9月11日\s*20:30/.test(cleanWatchlist)) {
     cleanWatchlist = getMacroInflationNextWatchlist(cleanTitle, item.summaryParagraph);
   } else if (/lpr|贷款市场报价利率/i.test(cleanTitleLower)) {
     cleanWatchlist = '关注央行公开市场操作净投放规模、存量房贷利率批量调整落地及四季度降准政策窗口。';

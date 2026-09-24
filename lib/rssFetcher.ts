@@ -1854,6 +1854,18 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
     }
   }
 
+  // 1-A1. 修复动词/比率残句开头（如“刷新2007年...”、“创2007年...”等无主语病句）：从正文提取完整资产主体补全
+  if (/^(?:刷新|创下?|创出|突破|跌破|升破|逼近|触及|攀升至|涨超|跌超|报|大涨|大跌)\b/.test(title)) {
+    const firstSent = (rawContent || '').split(/[。\n]/)[0].replace(/^[【\[][^】\]]+[】\]]/, '').trim();
+    const assetMatch = firstSent.match(/(?:美国)?(?:10年期基准国债|10年期美债|两年期美债|2年期美债|30年期美债|5年期美债|美债|美国国债|德国国债|德债|现货黄金|现货白银|伦铜|布伦特原油|WTI原油|美元指数|纳斯达克|标普500|道琼斯)(?:收益率)?/i);
+    if (assetMatch && !title.includes(assetMatch[0])) {
+      title = `${assetMatch[0]}${title}`;
+    }
+  }
+
+  // 修复快讯机翻漏字（如“2007年月以来” -> “2007年以来”）
+  title = title.replace(/(\d{4}年)月以来/, '$1以来');
+
   // 1-A2. 修复无主语动词开头标题（如“拟溢价近40%收购控股股东旗下亏损资产”）：从正文首句提炼企业主语补全
   if (/^(?:拟|计划|宣布|斥资|考虑|或将|正式|加速|开启|获批|遭遇|遭到|全面|推进)/.test(title) && !/^(?:中国|我国|央行|财政部|国家|美国|欧洲)/.test(title)) {
     const firstSent = (rawContent || '').split(/[。\n]/)[0].replace(/^[【\[][^】\]]+[】\]]/, '').trim();
@@ -1947,6 +1959,7 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
   if (title.length > 40) {
     const isHeadlessClause = (c: string) =>
       /^(?:分别|其中|包括|以及|并且|而|且|但|导致|受此影响|据称|据悉|同时|涨超|跌超|分别涨|分别跌|超|达|[0-9.]+%|[涨跌][0-9.]+%)/.test(c) ||
+      /^(?:刷新|创下?|创出|突破|跌破|升破|逼近|触及|报|涨|跌|回落|走高|走低|拉升|下挫|飙升|暴跌|大涨|大跌)\b/.test(c) ||
       /^[^a-zA-Z\u4e00-\u9fa5]+$/.test(c);
 
     // 1. 优先尝试按中文逗号/分号/空格分割完整从句
@@ -1965,6 +1978,8 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
         }
         if (combined.length >= 14 && !isHeadlessClause(combined)) {
           title = combined;
+        } else if (clauses[0].length >= 8 && !isHeadlessClause(clauses[0])) {
+          title = clauses[0];
         }
       }
     }
@@ -2190,9 +2205,14 @@ export function generateCoreTakeaway(
     !FOREIGN_ENTITIES.EUROPE_ECB.test(t) &&
     !FOREIGN_ENTITIES.UK_BOE.test(t) &&
     !/(?:中国|我国|地方债|国库现金|国库定存|进出口行|农发行|财政部.*国债|特别国债|超长期特别国债)/.test(cleanTitle) &&
-    (/美债|美国国债|两年期美债|10年期美债|us10y|us02y/i.test(cleanTitle) ||
+    (/美债|美国国债|两年期美债|10年期美债|5年期美债|30年期美债|us10y|us02y/i.test(cleanTitle) ||
       ((/美联储|降息|非农/.test(cleanTitle)) && track === 'us_macro' && !/中国|我国|公募|A股|港股/.test(cleanTitle)))
   ) {
+    if (/(?:刷新|突破|最高位|高位|涨超|走高|创|至|报)/.test(cleanTitle) && /(?:\d+\.\d+[%％]|基点|bps)/.test(cleanTitle + ' ' + content)) {
+      const rateMatch = (cleanTitle + ' ' + content).match(/(\d+\.\d+[%％])/);
+      const rateStr = rateMatch ? `突破${rateMatch[1]}` : '阶段高位';
+      return sanitizeEditorialTone(`【基准美债重定价与贴现率冲击】：长短端美债收益率快速拉升并${rateStr}，直接推高跨资产无风险贴现率中枢，对权益市场估值中枢与跨国借贷流动性形成约束。`);
+    }
     return sanitizeEditorialTone('【利率高位粘性与降息预期校准】：美国强劲就业与服务业通胀支撑政策利率中枢，短久期美债收益率反弹，依赖快速大幅宽松的主动多头策略面临再平衡。');
   }
 
