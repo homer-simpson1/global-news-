@@ -197,15 +197,19 @@ function TerminalApp() {
           parsedN = null;
           parsedB = null;
         } else {
-          // 关键自愈门禁：若本地缓存中包含严重破损或污染的旧标题（如“创去年”、“相关工作稳步推进”、“美方将《”、“郭嘉昆/主持例行记者会”）、或涉美制裁标签误挂在德黑兰航班新闻，强制清空旧缓存！
+          // 关键自愈门禁：若本地缓存中包含严重破损或污染的旧标题（如“创去年”、“刷新2007”、“涉事主体”、“目标到”、“5.13%”等），强制清空旧缓存！
           const isCorruptItem = (item: any) => {
             const title = item.title || item.content || '';
             const takeaway = item.oneLineTakeaway || '';
             const para = item.summaryParagraph || '';
+            const watchlist = item.nextWatchlist || '';
             return (
-              /创去年|相关工作稳步推进|美方将《|特稿\s*[｜|]/.test(title) ||
-              /涉事主体推进核心战略部署/.test(takeaway) ||
+              /创去年|相关工作稳步推进|美方将《|特稿\s*[｜|]|刷新\d+年|最高位至|涉事主体|目标到.*目标到|目标到，泰国|刷新2007年月/.test(title) ||
+              /涉事主体|根据市场信号与制度合规框架重构/.test(takeaway) ||
               /美方将《|主持例行记者会|主持记者会/.test(para) ||
+              (/5\.13%|刷新.*最高位/.test(title) && /宏观物价中枢/.test(takeaway)) ||
+              (/泰国.*投资委员会|目标到/.test(title) && /先进制程供需动态/.test(takeaway)) ||
+              (/泰国.*投资委员会|目标到/.test(title) && /英伟达全球开发者峰会/.test(watchlist)) ||
               (/德黑兰|航班|航线/.test(title) && /涉外长臂管辖与二级制裁升级/.test(takeaway)) ||
               (/德黑兰|航班|航线/.test(title) && item.track === 'us_macro')
             );

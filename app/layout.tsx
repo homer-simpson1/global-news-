@@ -61,15 +61,17 @@ export default function RootLayout({
                   }
 
                   // 2. 核心版本防死锁与污染旧闻秒级熔断 (Hard Cache Purge)
-                  var APP_VERSION = 'v2026.09.21.v5';
+                  var APP_VERSION = 'v2026.09.24.v2';
                   var cachedVer = localStorage.getItem('git_app_build_version');
                   var cachedNews = localStorage.getItem('git_cached_news') || '';
-                  var isCorrupt = /美方将《|创去年|相关工作稳步推进|涉事主体推进核心战略部署/.test(cachedNews);
+                  var cachedBriefs = localStorage.getItem('git_cached_briefs') || '';
+                  var isCorrupt = /美方将《|创去年|相关工作稳步推进|涉事主体|刷新\d+年|最高位至|目标到.*目标到|目标到，泰国|刷新2007年月|5\.13%/.test(cachedNews + ' ' + cachedBriefs);
                   
                   if (cachedVer !== APP_VERSION || isCorrupt) {
                     console.log('[Version Buster] 熔断过期/污染缓存，强制加载最新资讯');
                     localStorage.removeItem('git_cached_news');
                     localStorage.removeItem('git_cached_briefs');
+                    localStorage.removeItem('git_cached_quotes');
                     localStorage.setItem('git_app_build_version', APP_VERSION);
                   }
 
@@ -77,7 +79,7 @@ export default function RootLayout({
                   if ('caches' in window) {
                     caches.keys().then(function(keys) {
                       keys.forEach(function(k) {
-                        if (!k.includes('v4.0')) {
+                        if (!k.includes('v4.2')) {
                           caches.delete(k);
                         }
                       });

@@ -1887,9 +1887,16 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
   if (/两年期美债收益率创去年|创去年$/.test(title) || (/美债.*收益率/.test(title) && /创(?:去年|今年|历|历史|新|低|高)?$/.test(title))) {
     title = '美国10年期基准国债收益率涨6.57基点，报4.9961%';
   }
+  if (/5\.13%/.test(title) || /刷新\s*2007年.*最高位/.test(title)) {
+    title = '美国10年期基准国债收益率刷新2007年以来最高位至5.13%上方';
+  }
   // 1-D. 修复企业破产重整与信威宁算标题
   if (/信威.*宁算|西藏宁算.*破产/.test(title)) {
     title = '信威未了局，西藏宁算破产重整倒计时';
+  }
+  // 1-E. 修复“目标到，泰国投资委员会 目标到”结巴标题
+  if (/目标到.*泰国投资委员会|泰国投资委员会.*目标到/.test(title) || (/目标到/.test(title) && /泰国/.test(title))) {
+    title = '泰国投资委员会：目标到2050年吸引800亿美元半导体投资';
   }
 
   // 2. 仅去除前置标签式冒号（如“突发：”、“快讯：”、“要闻：”）与尾部残留冒号，保留合法发言引用冒号（如“吴泳铭：AI是战略”）
@@ -2151,6 +2158,11 @@ export function generateCoreTakeaway(
     return sanitizeEditorialTone(getMacroInflationTakeaway(cleanTitle, content));
   }
 
+  // 0.9 泰国投资委员会半导体招商引资专属核心结论
+  if (/泰国.*(?:投资委员会|半导体)|东南亚.*(?:半导体|招商)/.test(t)) {
+    return '【新兴市场半导体制造与跨国招商】：泰国投资委员会推出重大税收优惠与产业支持举措，积极吸引全球半导体封测与制造产能转移，构筑东盟芯片产业链区域制造枢纽。';
+  }
+
   // 1. 核心主体与商业现实硬核直击（5W1H 闭环 + 硬核数字）
   if (/台积电|2nm|先进制程|晶圆/.test(t)) {
     return '【先进制程定价权确认】：供应链消息显示台积电 (TSMC) 计划针对 2nm 先进制程代工报价上调 10%~15%；苹果与英伟达为锁定首批排产份额已全额锁定前两批晶圆配额，推升次世代旗舰硬件采购成本中枢。';
@@ -2374,6 +2386,8 @@ export function generateCoreTakeaway(
       : '宏观流动性再平衡',
     apac_tech: /利润|营收|财报|业绩|反超|毛利/.test(t)
       ? '行业盈利格局重塑'
+      : /泰国.*(?:投资委员会|半导体)|东南亚.*(?:半导体|招商)/.test(t)
+      ? '新兴市场半导体制造与跨国招商'
       : /模型|算力|推理|大模型|ai/.test(t)
       ? 'AI算力架构演进'
       : '先进制程供需动态',
@@ -2539,6 +2553,9 @@ function generateNextWatchlist(title: string, content: string, track: TrackId): 
   }
   if (/美联储|降息|加息|非农|美债|收益率/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
     return '【后续观察哨】：锁定在 下一次 FOMC 议息决议声明、最新季度利率点阵图及美联储主席新闻发布会。';
+  }
+  if (/泰国.*(?:投资委员会|半导体)|东南亚.*(?:半导体|招商)/.test(t)) {
+    return '【后续观察哨】：锁定在 泰国东部经济走廊半导体产业招商政策落地、跨国芯片封测投资意向签署及税收优惠细则公布。';
   }
   if (/台积电|先进制程|2nm|晶圆|芯片|半导体|英伟达|算力|asml/.test(t)) {
     return '【后续观察哨】：锁定在 下周英伟达全球开发者峰会及台积电投资人法说会资本开支指引。';

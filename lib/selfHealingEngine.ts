@@ -177,10 +177,19 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
   if (title.includes('两年期') && !title.includes('10年期') && (context?.what || '').includes('10年期基准国债') && !(context?.what || '').includes('两年期')) {
     title = '美国10年期基准国债收益率涨6.57基点，报4.9961%';
   }
+  // 专项自愈：美债 5.13% 收益率缺失主体补全与机翻“2007年月”脱水
+  if (/5\.13%/.test(title) || /刷新\s*2007年.*最高位/.test(title)) {
+    title = '美国10年期基准国债收益率刷新2007年以来最高位至5.13%上方';
+  }
 
   // 0-C. 专项自愈：企业破产重整与信威宁算标题纯净化
   if (/信威.*宁算|西藏宁算.*破产/.test(title)) {
     title = '信威未了局，西藏宁算破产重整倒计时';
+  }
+
+  // 0-D. 专项自愈：消除“目标到，泰国投资委员会 目标到”类严重结巴倒装残片
+  if (/目标到.*泰国投资委员会|泰国投资委员会.*目标到/.test(title) || (/目标到/.test(title) && /泰国/.test(title))) {
+    title = '泰国投资委员会：目标到2050年吸引800亿美元半导体投资';
   }
 
   // 清洗记者问答引导残片（如“，问 美东时间”、“有记者问：”等）
@@ -303,6 +312,8 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
   }
 
   // 彻底剔除人工附会的虚假八股后缀，杜绝标题与实际事实内容背离（支持中英文逗号与空格）
+  title = title.replace(/[，,\s]*涉事主体[，,\s]*稳步推进.*$/g, '');
+  title = title.replace(/[，,\s]*涉事主体.*$/g, '');
   title = title.replace(/[，,\s]*相关工作稳步推进落[实]?[。.]*$/g, '');
   title = title.replace(/[，,\s]*相关工作稳步推进落[实]?[，,\s]*/g, '，');
   title = title.replace(/[，,\s]*多边贸易合规评估稳步开展[。.]*$/g, '');
@@ -1332,6 +1343,9 @@ export function autoCorrectTakeaway(
       tag = '行业盈利格局重塑';
       core = '细分赛道龙头在成本管控、技术溢价与市场份额维度展现分化优势，机构资金向具备确定性现金流韧性的标的集中。';
     }
+  } else if (/泰国.*(?:投资委员会|半导体)|东南亚.*(?:半导体|招商)/.test(cleanTitleLower)) {
+    tag = '新兴市场半导体制造与跨国招商';
+    core = '泰国投资委员会推出重大税收优惠与产业支持举措，积极吸引全球半导体封测与制造产能转移，构筑东盟芯片产业链区域制造枢纽。';
   } else if (/台积电|2nm|先进制程|晶圆|光刻|代工|hbm/.test(cleanTitleLower)) {
     tag = '先进制程供需动态';
     core = '先进制程晶圆代工产能紧平衡支撑核心制造方定价权，前沿芯片设计商全额锁定首批晶圆配额以保障硬件交付。';
@@ -1570,6 +1584,47 @@ export function autoCorrectSummaryParagraph(
 }
 
 /**
+ * 8.3 后续观察哨智能校验与纠偏 (Watchlist Auto-Healing)
+ */
+export function autoCorrectWatchlist(
+  watchlist: string | undefined,
+  title: string,
+  summaryParagraph?: string
+): string {
+  let cleanWatchlist = sanitizeEditorialTone(watchlist || '');
+  const cleanTitleLower = (title || '').toLowerCase();
+
+  // 1. 泰国投资委员会 / 东南亚半导体产业招商引资专属观察哨（严禁误套用英伟达开发者峰会及台积电资本开支）
+  if (/泰国.*(?:投资委员会|半导体)|东南亚.*(?:半导体|招商)/.test(cleanTitleLower)) {
+    return '【后续观察哨】：锁定在 泰国东部经济走廊半导体产业招商政策落地、跨国芯片封测投资意向签署及税收优惠细则公布。';
+  }
+
+  // 2. 基准美债 5.13% / 收益率冲高专属观察哨（严禁套用央行货币政策例会利率决议模版）
+  if (
+    /(?:国债|美债|债券).*收益率|(?:10年期|两年期|2年期|5年期|30年期).*收益率|刷新.*最高位至/.test(cleanTitleLower) ||
+    /(?:5\.\d+%|4\.\d+%|基点|bps)/.test(cleanTitleLower)
+  ) {
+    if (
+      /央行下一次货币政策例会利率决议与核心通胀次月读数趋势/.test(cleanWatchlist) ||
+      !cleanWatchlist ||
+      cleanWatchlist.length < 15
+    ) {
+      return '【后续观察哨】：锁定在 美国财政部下批国债标售竞标倍数、下一次 FOMC 议息决议与联储主席最新政策表态。';
+    }
+  }
+
+  if (isMacroInflationNews(cleanTitleLower) && /9月11日\s*20:30/.test(cleanWatchlist)) {
+    return getMacroInflationNextWatchlist(title, summaryParagraph);
+  } else if (/lpr|贷款市场报价利率/i.test(cleanTitleLower)) {
+    return '关注央行公开市场操作净投放规模、存量房贷利率批量调整落地及四季度降准政策窗口。';
+  } else if (/刚果.*埃博拉|埃博拉疫情/i.test(cleanTitleLower)) {
+    return '密切追踪世界卫生组织（WHO）关于刚果（金）疫情是否升级为国际关注突发公共卫生事件（PHEIC）评估及入境检疫公报。';
+  }
+
+  return cleanWatchlist;
+}
+
+/**
  * 9. 全量单篇新闻深度自愈流水线 (Single News Item Auto-Correction Pipeline)
  */
 export function autoCorrectNewsItem(item: NewsItem): NewsItem {
@@ -1624,16 +1679,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
     correctedTrack
   );
 
-  let cleanWatchlist = sanitizeEditorialTone(item.nextWatchlist || '');
-  if (/央行下一次货币政策例会利率决议与核心通胀次月读数趋势/.test(cleanWatchlist) && (/(?:国债|美债|债券).*收益率|(?:10年期|两年期|2年期|5年期|30年期).*收益率/.test(cleanTitleLower) || /(?:5\.\d+%|4\.\d+%|基点|bps)/.test(cleanTitleLower))) {
-    cleanWatchlist = '【后续观察哨】：锁定在 美国财政部下批国债标售竞标倍数、下一次 FOMC 议息决议与联储主席最新政策表态。';
-  } else if (isMacroInflationNews(cleanTitleLower) && /9月11日\s*20:30/.test(cleanWatchlist)) {
-    cleanWatchlist = getMacroInflationNextWatchlist(cleanTitle, item.summaryParagraph);
-  } else if (/lpr|贷款市场报价利率/i.test(cleanTitleLower)) {
-    cleanWatchlist = '关注央行公开市场操作净投放规模、存量房贷利率批量调整落地及四季度降准政策窗口。';
-  } else if (/刚果.*埃博拉|埃博拉疫情/i.test(cleanTitleLower)) {
-    cleanWatchlist = '密切追踪世界卫生组织（WHO）关于刚果（金）疫情是否升级为国际关注突发公共卫生事件（PHEIC）评估及入境检疫公报。';
-  }
+  const cleanWatchlist = autoCorrectWatchlist(item.nextWatchlist, cleanTitle, item.summaryParagraph);
 
   // 门禁：非中国国内治理/涉华赛道，严禁挂上国内责任事故或外溢标签
   let cleanSpillover = item.spilloverCriterion;
@@ -1777,7 +1823,7 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
   );
 
   const cleanTransmission = sanitizeEditorialTone(correctedTransmission);
-  const cleanWatchlist = sanitizeEditorialTone(flash.nextWatchlist || '');
+  const cleanWatchlist = autoCorrectWatchlist(flash.nextWatchlist, cleanContent, flash.summaryParagraph);
 
   const { paragraph: cleanParagraph } = autoCorrectSummaryParagraph(
     flash.summaryParagraph,

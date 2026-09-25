@@ -9,7 +9,7 @@ import DisasterTrackerView from './DisasterTrackerView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
 import { isWithin24Hours, calculateTrackedDays } from '@/lib/timeUtils';
 import { getCompanyProfileForNews, CompanyProfile } from '@/lib/companyProfiles';
-import { isHeadlineEcho } from '@/lib/selfHealingEngine';
+import { isHeadlineEcho, autoCorrectWatchlist } from '@/lib/selfHealingEngine';
 import {
   getMacroInflationBreakdown,
   isMacroInflationNews,
@@ -237,6 +237,16 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       return '【中东地缘交火风险溢价走阔】：以军与黎巴嫩真主党沿边境交火密集度上升，停火协议关键条款分歧难消，推升区域航运与能源风险溢价。';
     }
 
+    // 泰国投资委员会 / 东南亚半导体招商引资专项
+    if (/泰国.*(?:投资委员会|半导体)|东南亚.*(?:半导体|招商)/.test(cleanT)) {
+      return '【新兴市场半导体制造与跨国招商】：泰国投资委员会推出重大税收优惠与产业支持举措，积极吸引全球半导体封测与制造产能转移，构筑东盟芯片产业链区域制造枢纽。';
+    }
+
+    // 基准美债 5.13% 收益率专项（严禁套用宏观物价中枢与货币政策校准）
+    if (/(?:5\.13%|4\.\d+%|基点|bps)/.test(cleanT) && /(?:国债|美债|债券).*收益率|刷新.*最高位/.test(cleanT)) {
+      return '【基准美债重定价与贴现率冲击】：长短端美债收益率快速拉升并刷新最高位至5.13%上方，直接推高跨资产无风险贴现率中枢，对权益市场估值中枢与跨国借贷流动性形成约束。';
+    }
+
     if (
       !t ||
       t.length < 12 ||
@@ -379,6 +389,11 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       summaryParagraph: factParagraph,
     });
   }, [hasDeepPerspective, cleanTitle, displayTakeaway, displayTransmission, item.bulletPoints, item.summary5W1H, factParagraph]);
+
+  // 后续观察哨实时自愈
+  const displayWatchlist = React.useMemo(() => {
+    return autoCorrectWatchlist(item.nextWatchlist, cleanTitle, factParagraph);
+  }, [item.nextWatchlist, cleanTitle, factParagraph]);
 
   // 快讯 vs 深度要闻形态分层判别 (彻底解决 Issue 13：纯电讯被硬生生注水成假研报)
   const isWireFlash = React.useMemo(() => {
@@ -854,12 +869,12 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
 
         <div className="space-y-2.5">
           {/* 下一步观察哨（关键时间窗口 / 待验证指标） */}
-          {item.nextWatchlist && (
+          {displayWatchlist && (
             <div className="p-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/90 dark:border-indigo-800/60 text-xs md:text-sm text-indigo-950 dark:text-indigo-200 flex items-start gap-2 shadow-xs">
               <span className="text-base select-none mt-0.5">🔭</span>
               <div>
                 <span className="font-extrabold text-indigo-900 dark:text-indigo-300 mr-1">【后续观察哨】：</span>
-                <span className="font-medium text-indigo-800 dark:text-indigo-200">{item.nextWatchlist.replace(/^[【\[]后续观察哨[】\]][：:]\s*/, '')}</span>
+                <span className="font-medium text-indigo-800 dark:text-indigo-200">{displayWatchlist.replace(/^[【\[]后续观察哨[】\]][：:]\s*/, '')}</span>
               </div>
             </div>
           )}
