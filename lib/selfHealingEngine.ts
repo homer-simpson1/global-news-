@@ -337,11 +337,36 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
     }
   }
 
+  // 关键自愈：智能补齐以“至/报/达/创/收于/位于/处于”等悬挂词结尾的残缺标题（例如“波罗的海干散货指数涨1.25%，至”）
+  const danglingTailMatch = title.match(/(?:[，,、\s]+)(?:至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至)$/);
+  if (danglingTailMatch) {
+    const rawContext = `${context?.content || ''} ${context?.what || ''} ${context?.takeaway || ''}`;
+    // 从上下文中提取该悬挂词后面紧跟的数值/点位/幅度（例如“至3473点”、“报4.9961%”）
+    const followMatch = rawContext.match(/(?:至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至)\s*([0-9.,]+(?:\s*(?:点|基点|%|美元|桶|元|万|亿))?)/);
+    if (followMatch && followMatch[1] && followMatch[1].length >= 1) {
+      title = `${title}${followMatch[1]}`;
+    } else {
+      // 若上下文无明确后续数值，直接彻底切除末尾逗号及悬挂介词/连词，还原为干净完整的主谓句
+      title = title.replace(/(?:[，,、；;：:\s]+(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|收于|跌至|涨至|升至|降至))+$/, '').trim();
+    }
+  }
+
+  // 专项恢复：波罗的海干散货指数残破自愈
+  if (/波罗的海.*指数/.test(title) && /(?:，|,)?\s*至$/.test(title)) {
+    const bdiMatch = `${context?.content || ''} ${context?.what || ''}`.match(/([0-9]{3,5}\s*点)/);
+    if (bdiMatch) {
+      title = `${title}${bdiMatch[1]}`;
+    } else {
+      title = title.replace(/[，,\s]*至$/, '');
+    }
+  }
+
   // 清除末尾悬垂小数点与残缺连接词（绝不误伤“8月份”、“26.9亿”等正常数字内容；使用分组避免误伤“落实”之“实”）
   title = title.replace(/(?:\d+\.|\.\d*)$/, '').trim();
   title = title.replace(/(?:[，,、；;：:\s及与和等并]|为了|保证|以实现|以确保|正在全力)+$/, '').trim();
 
   // 严禁以介词、连词、半截动词断裂结尾（杜绝“...在”、“...于”、“...向”、“...举行”等腰斩断裂）
+  title = title.replace(/(?:[，,、；;：:\s]+(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|举行|进行|召开|主办|会见|会谈|商讨|协商|签署|达成|发布|宣布|表示|称|透露|指出|通过|经由|通过香港|收于|跌至|涨至|升至|降至))+$/, '').trim();
   title = title.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|举行|进行|召开|主办|会见|会谈|商讨|协商|签署|达成|发布|宣布|表示|称|透露|指出)+$/, '').trim();
 
   // 专项恢复：OPEC 原油断裂标题
@@ -387,6 +412,7 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
     title = title.replace(/《.*$/, '').trim();
   }
   title = title.replace(/[（(《【\[][^）)》】\]]*$/, '').trim();
+  title = title.replace(/(?:[，,、；;：:\s]+(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|举行|进行|召开|主办|会见|会谈|商讨|协商|签署|达成|发布|宣布|表示|称|透露|指出|通过|经由|通过香港|收于|跌至|涨至|升至|降至))+$/, '').trim();
   title = title.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|举行|进行|召开|主办|会见|会谈|商讨|协商|签署|达成|发布|宣布|表示|称|透露|指出|通过|经由|通过香港)+$/, '').trim();
   title = title.replace(/^[，,\s]+|[，,\s]+$/g, '').trim();
 

@@ -9,7 +9,7 @@ import DisasterTrackerView from './DisasterTrackerView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
 import { isWithin24Hours, calculateTrackedDays } from '@/lib/timeUtils';
 import { getCompanyProfileForNews, CompanyProfile } from '@/lib/companyProfiles';
-import { isHeadlineEcho, autoCorrectWatchlist } from '@/lib/selfHealingEngine';
+import { isHeadlineEcho, autoCorrectWatchlist, autoCorrectTitle } from '@/lib/selfHealingEngine';
 import {
   getMacroInflationBreakdown,
   isMacroInflationNews,
@@ -63,6 +63,12 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
     cleanTitle = cleanTitle.replace(/[，,\s]*市场密切评估宏观传导节奏[。.]*$/g, '');
 
     // 严禁以介词、连词、半截动词断裂结尾（杜绝“...在”、“...于”、“...向”等腰斩断裂）
+    cleanTitle = autoCorrectTitle(cleanTitle, {
+      content: item.summaryParagraph || (item.bulletPoints && item.bulletPoints.join(' ')),
+      what: item.summary5W1H?.what,
+      takeaway: item.oneLineTakeaway,
+    });
+    cleanTitle = cleanTitle.replace(/(?:[，,、；;：:\s]+(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|通过香港|收于|跌至|涨至|升至|降至))+$/, '').trim();
     cleanTitle = cleanTitle.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致)+$/, '').trim();
 
     // 专项恢复：OPEC 原油断裂标题
@@ -112,7 +118,7 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       googleSearchUrl: getSearchUrl(keywords, 'google'),
       baiduSearchUrl: getSearchUrl(keywords, 'baidu'),
     };
-  }, [item.id, item.title, item.source, item.summaryParagraph]);
+  }, [item.id, item.title, item.source, item.summaryParagraph, item.bulletPoints, item.summary5W1H, item.oneLineTakeaway]);
 
   // 涉事主体/企业背景速览检索 (解答“为什么不简单介绍这家公司”)
   const companyProfile: CompanyProfile | null = React.useMemo(() => {

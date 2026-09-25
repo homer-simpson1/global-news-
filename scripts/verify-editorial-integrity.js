@@ -982,6 +982,42 @@ check('Gate 22: 严禁“刷新/创下”无主语病句与美债套用泛化物
 });
 
 // -------------------------------------------------------------
+// 门禁 23: 严禁以“至/在/于/向/报/达”等悬挂介词腰斩断尾 (Gate 23)
+// -------------------------------------------------------------
+check('Gate 23: 严禁“，至”等悬挂介词腰斩断尾与波罗的海干散货自愈门禁', () => {
+  const { enrichHeadline } = require('../lib/rssFetcher.ts');
+  const { autoCorrectTitle } = require('../lib/selfHealingEngine.ts');
+
+  // 23.1 测试 autoCorrectTitle 遇到上下文有点位时，自动结合上下文智能补齐
+  const danglingTitle1 = '波罗的海干散货指数涨1.25%，至';
+  const mockContext1 = { content: '据电讯消息，波罗的海干散货指数涨1.25%，至3473点。', what: '波罗的海干散货指数走高' };
+  const healedTitle1 = autoCorrectTitle(danglingTitle1, mockContext1);
+  if (healedTitle1.endsWith('至') || healedTitle1.endsWith('，')) {
+    throw new Error(`autoCorrectTitle 未能消除悬挂介词："${healedTitle1}"`);
+  }
+  if (!healedTitle1.includes('3473点')) {
+    throw new Error(`autoCorrectTitle 未能根据上下文智能补全关键点位："${healedTitle1}"`);
+  }
+
+  // 23.2 测试 autoCorrectTitle 面对无数字上下文时，彻底剥离逗号与悬挂介词
+  const danglingTitle2 = '欧洲泛欧斯托克600指数早盘下挫，在';
+  const mockContext2 = { content: '欧洲股市早盘震荡走弱。' };
+  const healedTitle2 = autoCorrectTitle(danglingTitle2, mockContext2);
+  if (/(?:[，,、\s]+(?:在|于|向|至|报|达)$|\b(?:在|至)$)/.test(healedTitle2)) {
+    throw new Error(`autoCorrectTitle 未能彻底剔除悬挂介词："${healedTitle2}"`);
+  }
+  if (healedTitle2.endsWith('，') || healedTitle2.endsWith(',')) {
+    throw new Error(`autoCorrectTitle 结尾遗留逗号："${healedTitle2}"`);
+  }
+
+  // 23.3 测试 enrichHeadline 对悬挂介词的免疫力
+  const enrichedRes = enrichHeadline('美联储隔夜逆回购规模跌破3000亿，报', '隔夜逆回购规模跌破3000亿美元，报2950亿美元。', 'us_macro');
+  if (enrichedRes.endsWith('报') || enrichedRes.endsWith('，')) {
+    throw new Error(`enrichHeadline 未能修复悬挂动词/介词："${enrichedRes}"`);
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {

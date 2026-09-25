@@ -94,6 +94,9 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
       cleanTitle = '美国10年期基准国债收益率刷新2007年以来最高位至5.13%上方';
     }
 
+    cleanTitle = cleanTitle.replace(/(?:[，,、；;：:\s]+(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|通过香港|收于|跌至|涨至|升至|降至))+$/, '').trim();
+    cleanTitle = cleanTitle.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致)+$/, '').trim();
+
     return {
       tag,
       title: cleanTitle,

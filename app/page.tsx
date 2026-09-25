@@ -205,6 +205,7 @@ function TerminalApp() {
             const watchlist = item.nextWatchlist || '';
             return (
               /创去年|相关工作稳步推进|美方将《|特稿\s*[｜|]|刷新\d+年|最高位至|涉事主体|目标到.*目标到|目标到，泰国|刷新2007年月/.test(title) ||
+              /(?:[，,、\s]+(?:至|在|于|向|报|达)$|\b至$)/.test(title) ||
               /涉事主体|根据市场信号与制度合规框架重构/.test(takeaway) ||
               /美方将《|主持例行记者会|主持记者会/.test(para) ||
               (/5\.13%|刷新.*最高位/.test(title) && /宏观物价中枢/.test(takeaway)) ||

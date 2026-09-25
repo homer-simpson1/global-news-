@@ -2004,11 +2004,34 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
     }
   }
 
+  // 关键自愈：智能补齐以“至/报/达/创/收于/位于/处于”等悬挂词结尾的残缺标题（例如“波罗的海干散货指数涨1.25%，至”）
+  const danglingTailMatch = title.match(/(?:[，,、\s]+)(?:至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至)$/);
+  if (danglingTailMatch) {
+    const rawContext = `${rawContent || ''}`;
+    const followMatch = rawContext.match(/(?:至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至)\s*([0-9.,]+(?:\s*(?:点|基点|%|美元|桶|元|万|亿))?)/);
+    if (followMatch && followMatch[1] && followMatch[1].length >= 1) {
+      title = `${title}${followMatch[1]}`;
+    } else {
+      title = title.replace(/(?:[，,、；;：:\s]+(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|收于|跌至|涨至|升至|降至))+$/, '').trim();
+    }
+  }
+
+  // 专项恢复：波罗的海干散货指数残破自愈
+  if (/波罗的海.*指数/.test(title) && /(?:，|,)?\s*至$/.test(title)) {
+    const bdiMatch = (rawContent || '').match(/([0-9]{3,5}\s*点)/);
+    if (bdiMatch) {
+      title = `${title}${bdiMatch[1]}`;
+    } else {
+      title = title.replace(/[，,\s]*至$/, '');
+    }
+  }
+
   // 严禁截断切在数字小数点后或尾部遗留顿号/逗号/残缺连接词（绝不误伤“8月份”、“26.9亿”等正常数字内容）
   title = title.replace(/(?:\d+\.|\.\d*)$/, '').trim();
   title = title.replace(/(?:[，,、；;：:\s及与和等并]|为了|保证|以实现|以确保|正在全力)+$/, '').trim();
 
   // 严禁以介词、连词、半截动词及悬挂及物动词断裂结尾（杜绝“...举行”、“...在”、“...于”、“...向”等没头没尾断头标题）
+  title = title.replace(/(?:[，,、；;：:\s]+(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|举行|进行|召开|主办|会见|会谈|商讨|协商|签署|达成|发布|宣布|表示|称|透露|指出|通过|经由|通过香港|收于|跌至|涨至|升至|降至))+$/, '').trim();
   title = title.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|举行|进行|召开|主办|会见|会谈|商讨|协商|签署|达成|发布|宣布|表示|称|透露|指出)+$/, '').trim();
 
   // 终极安全脱水：再次剔除所有自媒体口水词与非法标点，并严禁未闭合书名号与问答引导残片
@@ -2045,6 +2068,7 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
   title = title.replace(/[（(《【\[][^）)》】\]]*$/, '').trim();
 
   // 严禁以介词、连词、半截动词断裂结尾（杜绝“...在”、“...于”、“...向”、“...通过”等没头没尾断裂）
+  title = title.replace(/(?:[，,、；;：:\s]+(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|通过香港|收于|跌至|涨至|升至|降至))+$/, '').trim();
   title = title.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|通过香港)+$/, '').trim();
 
   // 彻底剔除所有感叹号、问号、省略号，转换为逗号或清除

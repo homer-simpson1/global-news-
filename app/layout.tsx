@@ -61,11 +61,11 @@ export default function RootLayout({
                   }
 
                   // 2. 核心版本防死锁与污染旧闻秒级熔断 (Hard Cache Purge)
-                  var APP_VERSION = 'v2026.09.24.v2';
+                  var APP_VERSION = 'v2026.09.25.v1';
                   var cachedVer = localStorage.getItem('git_app_build_version');
                   var cachedNews = localStorage.getItem('git_cached_news') || '';
                   var cachedBriefs = localStorage.getItem('git_cached_briefs') || '';
-                  var isCorrupt = /美方将《|创去年|相关工作稳步推进|涉事主体|刷新\d+年|最高位至|目标到.*目标到|目标到，泰国|刷新2007年月|5\.13%/.test(cachedNews + ' ' + cachedBriefs);
+                  var isCorrupt = /美方将《|创去年|相关工作稳步推进|涉事主体|刷新\d+年|最高位至|目标到.*目标到|目标到，泰国|刷新2007年月|5\.13%|[，,、\s]+(?:至|在|于|向|报|达)(?:["'，,\s]|$)|\b至$/.test(cachedNews + ' ' + cachedBriefs);
                   
                   if (cachedVer !== APP_VERSION || isCorrupt) {
                     console.log('[Version Buster] 熔断过期/污染缓存，强制加载最新资讯');
