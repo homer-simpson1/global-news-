@@ -149,6 +149,92 @@ export function sanitizeEditorialTone(text: string): string {
 }
 
 /**
+ * 标题断尾与无标点悬挂词自愈引擎 (Dangling Clause & Stutter Healing)
+ * 彻底解决无逗号从句以及直接以动词/介词/副词/半截动宾收尾的残缺标题（如“美国芯片公司AMD斥资”、“AI行业面临须”、“我国生成式人工智能用户规模突破”、“MSCI亚太指数下跌1%至”、“中国台湾证交所加权股价指数收低0.8%报”）
+ * 优先从上下文正文中提取补全，提取不到时回退剥离悬挂词；同时彻底消除同词镜像复读。
+ */
+export function healDanglingClause(
+  rawTitle: string,
+  context?: { content?: string; what?: string; takeaway?: string; why?: string }
+): string {
+  let title = (rawTitle || '').trim();
+  if (!title) return title;
+
+  // 1. 处理同词结巴重复与镜像复读（如“长鑫科技拟动用， 长鑫科技拟动用”或“长鑫科技拟动用 长鑫科技拟动用”）
+  title = title.replace(/([^，,；;\s]{3,25})[，,\s]+\1/g, '$1');
+  title = title.replace(/^(.{2,30}?)[，,\s|｜]+(?:\1)(.*)$/, '$1$2').trim();
+
+  // 2. 匹配末尾悬挂词（无论是否有前置标点）：在/拟/将/创/报/达/于/面临/斥资/突破/须/至/拟动用/拟以 等
+  const DANGLING_REGEX = /(?:[，,、\s]*)(至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至|突破|面临须|面临|斥资|拟动用|拟以|拟|将|须|在|于|向|从|对|考虑|计划|预计|加速|推进|进入|启动|成为|陷入|纳入|列入|涵盖)$/;
+  const match = title.match(DANGLING_REGEX);
+
+  if (match) {
+    const tailWord = match[1];
+    const rawContext = `${context?.content || ''} ${context?.what || ''} ${context?.takeaway || ''} ${context?.why || ''}`.trim();
+
+    // 2.1 若为数值/点位/幅度悬挂词（如“至/报/达/创/收于/位于/处于/跌至/涨至/升至/降至/突破”），优先提取后续数值
+    if (/(?:至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至|突破)/.test(tailWord)) {
+      const numMatch = rawContext.match(new RegExp('(?:' + tailWord + ')\\s*([0-9.,]+(?:\\s*(?:亿|万|千|百)?(?:点|基点|%|％|美元|桶|元|人|户|倍|吨|克|股|份|条|个|次|家|关口|大关))?|历史新高|新高|历史低位|新低|大关|关口)'));
+      if (numMatch && numMatch[1] && numMatch[1].length >= 1) {
+        return `${title}${numMatch[1]}`.trim();
+      }
+    }
+
+    // 2.2 通用动词/及物谓语：从正文提取后置实质主谓宾补语（如“AMD斥资” -> “49亿美元收购ZT Systems”，“规模突破” -> “6亿人”）
+    // 取标题末尾 2~8 个字符作为正文检索锚点
+    const anchor = title.slice(Math.max(0, title.length - 8)).replace(/^[，,、\s]+/, '').trim();
+    if (anchor.length >= 2 && rawContext.includes(anchor)) {
+      const escapedAnchor = anchor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const continuationMatch = rawContext.match(new RegExp(escapedAnchor + '([^。！？；\n]{2,30})'));
+      if (continuationMatch && continuationMatch[1]) {
+        let continuation = continuationMatch[1].trim();
+        const puncIdx = continuation.search(/[，,、\s]/);
+        if (puncIdx >= 3 && puncIdx <= 20) {
+          continuation = continuation.slice(0, puncIdx);
+        } else if (continuation.length > 20) {
+          continuation = continuation.slice(0, 20);
+        }
+        continuation = continuation.replace(/(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|面临|斥资|突破|收于|跌至|涨至|升至|降至|拟动用|拟以)+$/, '').trim();
+        if (continuation.length >= 2) {
+          const candidate = `${title}${continuation}`.trim();
+          if (candidate.length <= 42) {
+            return candidate;
+          }
+        }
+      }
+    }
+
+    // 2.3 若上下文无法提取有效宾语补全，安全回退：
+    // 若带逗号从句且逗号前主干完整（>= 12 字），剥离未闭合的残缺从句
+    const commaClauseMatch = title.match(/([，,]\s*[^，,]{1,12}(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|面临|斥资|突破|收于|跌至|涨至|升至|降至|拟动用|拟以|须|面临须))$/);
+    if (commaClauseMatch) {
+      const safePrefix = title.slice(0, title.length - commaClauseMatch[0].length).trim();
+      if (safePrefix.length >= 12) {
+        return safePrefix;
+      }
+    }
+
+    // 无逗号或逗号前太短：剥离末尾悬挂词本身
+    const stripped = title.replace(/(?:[，,、；;：:\s]*(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|收于|跌至|涨至|升至|降至|突破|面临|斥资|拟动用|拟以|须|面临须))+$/, '').trim();
+    if (stripped.length >= 12) {
+      return stripped;
+    }
+
+    // 若剥离后过短（如“美国芯片公司AMD”），尝试回退至 context.what 或 context.takeaway
+    if (context?.what && context.what.length >= 12 && !DANGLING_REGEX.test(context.what)) {
+      return context.what.replace(/^[【\[][^】\]]+[】\]]\s*/, '').slice(0, 48).trim();
+    }
+    if (context?.takeaway && context.takeaway.length >= 12) {
+      return context.takeaway.replace(/^[【\[][^】\]]+[】\]]\s*[:：]?\s*/, '').slice(0, 48).trim();
+    }
+
+    return stripped || title;
+  }
+
+  return title;
+}
+
+/**
  * 1. 标题脱水、去杂与结构化自动纠偏 (Title Auto-Healing)
  */
 export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string; what?: string; content?: string }): string {
@@ -157,6 +243,9 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
   }
 
   let title = rawTitle.trim();
+
+  // 先行剔除结巴复读与断尾悬挂词
+  title = healDanglingClause(title, context);
 
   // 0-0. 空壳与乱码索引标题拦截（如 "1-, 1—, : 1—"、"①②③"、纯数字破折号索引等无实质汉字标题）
   const validCharsCount = (title.match(/[\u4e00-\u9fa5a-zA-Z]/g) || []).length;
@@ -230,6 +319,11 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
     title = '泰国投资委员会：目标到2050年吸引800亿美元半导体投资';
   }
 
+  // 0-E. 专项自愈：Anthropic滥用报告与模型蒸馏超长标题提炼
+  if (/anthropic.*(?:滥用报告|模型蒸馏)|通过虚假账户.*claude交互/i.test(title)) {
+    title = 'Anthropic发布滥用报告 点名多机构利用Claude进行模型蒸馏';
+  }
+
   // 清洗记者问答引导残片（如“，问 美东时间”、“有记者问：”等）
   title = title.replace(/[，,\s]*(?:有记者问|记者问|问|答)[：:\s]*(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
   title = title.replace(/^(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间[0-9月日\s]+[，,]?)?/, '').trim();
@@ -239,8 +333,9 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
   title = title.replace(/^(?:能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/, '').trim();
   title = title.replace(/^[｜|·\-\/:：\s]+/, '').trim();
 
-  // A1. 消除标题结巴自重复错误（如“能源内参｜，能源内参｜”或“某标题，某标题”）
-  title = title.replace(/^(.{2,20})[，,\s|｜]+(?:\1)[｜|]?$/, '$1').trim();
+  // A1. 消除标题结巴自重复错误（如“能源内参｜，能源内参｜”或“某标题，某标题”或“长鑫科技拟动用， 长鑫科技拟动用”）
+  title = title.replace(/([^，,；;\s]{3,25})[，,\s]+\1/g, '$1');
+  title = title.replace(/^(.{2,30}?)[，,\s|｜]+(?:\1)(.*)$/, '$1$2').trim();
 
   // A2. 核心守卫：修复财经快讯对美联储降息周期 "Rate Cut" 的灾难性机翻颠倒（加息/上调 -> 降息/下调）
   title = sanitizeFedRatePolicyWording(title);
@@ -375,38 +470,8 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
     }
   }
 
-  // 关键自愈：智能补齐以“至/报/达/创/收于/位于/处于”等悬挂词结尾的残缺标题（例如“波罗的海干散货指数涨1.25%，至”）
-  const danglingTailMatch = title.match(/(?:[，,、\s]+)(?:至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至)$/);
-  if (danglingTailMatch) {
-    const rawContext = `${context?.content || ''} ${context?.what || ''} ${context?.takeaway || ''}`;
-    // 从上下文中提取该悬挂词后面紧跟的数值/点位/幅度（例如“至3473点”、“报4.9961%”）
-    const followMatch = rawContext.match(/(?:至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至)\s*([0-9.,]+(?:\s*(?:点|基点|%|美元|桶|元|万|亿))?)/);
-    if (followMatch && followMatch[1] && followMatch[1].length >= 1) {
-      title = `${title}${followMatch[1]}`;
-    } else {
-      // 若上下文无明确后续数值，直接彻底切除末尾逗号及悬挂介词/连词，还原为干净完整的主谓句
-      title = title.replace(/(?:[，,、；;：:\s]+(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|收于|跌至|涨至|升至|降至))+$/, '').trim();
-    }
-  }
-
-  // 通用从句断裂自愈守卫 (如“...，布伦特原油在”、“...，将美国进口煤炭纳入”)
-  const brokenClauseMatch = title.match(/[，,]\s*([^，,]{2,10}(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|拟|考虑|计划|预计|有望|迎来|发生|遭遇|面临|进入|启动|加速|推进|深化|落实|保持|呈现|呈现出|录得|出现|处于|成为|陷入|纳入|列入|涵盖))+$/);
-  if (brokenClauseMatch) {
-    const brokenClause = brokenClauseMatch[0];
-    const clauseKeyword = brokenClauseMatch[1].trim();
-    const rawContext = `${context?.content || ''} ${context?.what || ''} ${context?.takeaway || ''}`;
-    const escapedKeyword = clauseKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const contentMatch = rawContext.match(new RegExp(escapedKeyword + '([^。！？；\n]{3,28})'));
-    if (contentMatch && contentMatch[1]) {
-      title = title + contentMatch[1].trim();
-    } else {
-      // 若正文无有效补语，安全剥离未闭合的残缺从句，保留主干完整句
-      const safeTruncated = title.slice(0, title.length - brokenClause.length).trim();
-      if (safeTruncated.length >= 12) {
-        title = safeTruncated;
-      }
-    }
-  }
+  // 关键自愈：调用统一的断尾与无标点悬挂词自愈引擎（支持无逗号直接悬挂动词/介词及带逗号从句）
+  title = healDanglingClause(title, context);
 
   // 专项恢复：波罗的海干散货指数残破自愈
   if (/波罗的海.*指数/.test(title) && /(?:，|,)?\s*至$/.test(title)) {
@@ -423,8 +488,7 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
   title = title.replace(/(?:[，,、；;：:\s及与和等并]|为了|保证|以实现|以确保|正在全力)+$/, '').trim();
 
   // 严禁以介词、连词、半截动词断裂结尾（杜绝“...在”、“...于”、“...向”、“...举行”等腰斩断裂）
-  title = title.replace(/(?:[，,、；;：:\s]+(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|举行|进行|召开|主办|会见|会谈|商讨|协商|签署|达成|发布|宣布|表示|称|透露|指出|通过|经由|通过香港|收于|跌至|涨至|升至|降至))+$/, '').trim();
-  title = title.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|举行|进行|召开|主办|会见|会谈|商讨|协商|签署|达成|发布|宣布|表示|称|透露|指出)+$/, '').trim();
+  title = title.replace(/(?:[，,、；;：:\s]*(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|举行|进行|召开|主办|会见|会谈|商讨|协商|签署|达成|发布|宣布|表示|称|透露|指出|通过|经由|通过香港|收于|跌至|涨至|升至|降至|突破|面临|斥资|拟动用|拟以|面临须))+$/, '').trim();
 
   // 专项恢复：OPEC 原油断裂标题
   if (/opec/i.test(title) && /原油|布伦特|减产/.test(title)) {
@@ -560,6 +624,14 @@ export function autoCorrectTrack(
   if (/美方将《|格雷厄姆.*(?:制裁|法案)|制裁俄罗斯和伊朗法案/.test(text)) {
     if (currentTrack === 'us_macro' || currentTrack === 'china_domestic') {
       return { track: 'china_policy', wasCorrected: true, reason: '涉外制裁法案转轨至涉华博弈赛道' };
+    }
+  }
+
+  // 纠偏 0-CENTRAL-BANK：海外及全球主要央行利率决议与货币政策一票定轨宏观，严禁留在 war_conflict 或 china_domestic
+  const isGlobalCentralBank = /(?:澳洲联储|澳大利亚储备银行|rba|欧洲央行|欧央行|ecb|日本央行|日银|boj|英国央行|boe|加拿大央行|瑞士央行|政策利率|基准利率|现金利率|利率决议)/i.test(title);
+  if (isGlobalCentralBank && !isExplicitChinaPolicy) {
+    if (currentTrack === 'war_conflict' || currentTrack === 'china_domestic') {
+      return { track: 'us_macro', wasCorrected: true, reason: '海外央行利率决议严禁落入战局冲突，转轨至宏观赛道' };
     }
   }
 
@@ -808,6 +880,38 @@ export function autoCorrectInterestTransmission(
   if (/美联储.*降息|降息25基点|利率互换.*降息|交易员预计.*降息/.test(titleLower)) {
     if (!text || text.includes('加息') || text.includes('短端国债收益率上行') || text.includes('商业借贷与货币市场融资成本') || text.includes('信源仅陈述单一动作') || text.length < 25) {
       text = '① 利率互换市场将9月FOMC降息25bps概率推升至约90% ➔ ② 激进降息50bps的宽松溢价被完全剔除，短端美债收益率温和筑底 ➔ ③ 跨资产策略锁定渐进式降息节奏，美股大盘贴现率获得高确定性支撑。';
+      wasCorrected = true;
+    }
+  }
+
+  // 农业农村、生猪供求与关键民生保供专属传导（坚决杜绝误套用土地算力投资）
+  if (/生猪|农产品|夏粮|早稻|秋粮|粮食供需|粮食产量|农业农村|种粮|菜篮子|大食物观/.test(titleLower)) {
+    if (!text || text.includes('土地投资') || text.includes('算力机房') || text.includes('信源仅陈述单一动作') || text.length < 25) {
+      text = '① 农业农村与关键民生农产品支持政策精准发力 ➔ ② 种植养殖主体稳定生产预期并优化供需调节机制 ➔ ③ 基础民生食品供给韧性与物价稳定底盘持续巩固。';
+      wasCorrected = true;
+    }
+  }
+
+  // 网络餐饮与食品安全监管专属传导（坚决杜绝误套用医保集采）
+  if (/网络餐饮|外卖|食品安全|假劣肉|餐饮治理/.test(titleLower)) {
+    if (!text || text.includes('医保集采') || text.includes('药品降价') || text.includes('信源仅陈述单一动作') || text.length < 25) {
+      text = '① 网络餐饮与食品安全全链条专项治理直接压实平台与餐饮主体合规责任 ➔ ② 违规经营与隐患作坊加速整改出清 ➔ ③ 公众食品安全得到严密守护，守法合规餐饮品牌获得健康发展空间。';
+      wasCorrected = true;
+    }
+  }
+
+  // 澳洲联储与非美主权债利率决议专属传导（坚决杜绝误套用美债收益率）
+  if (/澳洲联储|澳大利亚储备银行|rba|澳洲.*加息|澳洲.*降息/.test(titleLower)) {
+    if (!text || text.includes('美债') || text.includes('信源仅陈述单一动作') || text.length < 25) {
+      text = '① 澳洲联储基于本土通胀韧性与就业市场审慎校准现金利率 ➔ ② 商业银行抵押贷款与企业借贷利率动态重定价 ➔ ③ 澳元资产利差与主权债券收益率曲线完成阶段性平衡。';
+      wasCorrected = true;
+    }
+  }
+
+  // 中美经贸与对等降税清单专属传导（坚决杜绝误判为AI算力模型架构）
+  if (/中美.*(?:降税|对等降税|关税|经贸磋商|经贸会谈|经贸对话)|300亿对300亿|对等降税商品清单/.test(titleLower)) {
+    if (!text || text.includes('AI算力架构') || text.includes('大模型') || text.includes('信源仅陈述单一动作') || text.length < 25) {
+      text = '① 中美达成对等降税与常态化沟通机制共识直接降低双边进出口关税成本 ➔ ② 涉案进出口外贸企业锁定供应链物流与采购订单确定性 ➔ ③ 缓和全球供应链贸易摩擦预期，提振双向跨境经贸往来活力。';
       wasCorrected = true;
     }
   }
@@ -1190,7 +1294,7 @@ export function autoCorrectTakeaway(
   const isEcho = isHeadlineEcho(text, cleanTitle);
   const isMisattributedLiquidity = text.includes('宏观流动性再平衡') && !/利率|借贷|美债|收益率|加息|降息|国债|流动性|通胀|cpi|ppi|pce/.test(cleanTitleLower);
   const isGenericCorporateCliché =
-    /标的主体推进核心业务调整|涉事主体推进核心战略部署|根据市场信号与制度合规框架重构|资产负债表与现金流分化|高利率环境对依赖外部信贷|具备充沛自由现金流的头部科技龙头|高负债企业构成估值压制|向高确定性标的集聚|多空资金正对宏观贴现率与微观资产溢价实施日内动态调仓/.test(text);
+    /标的主体推进核心业务调整|涉事主体推进核心战略部署|根据市场信号与制度合规框架重构|资产负债表与现金流分化|高利率环境对依赖外部信贷|具备充沛自由现金流|高负债企业构成估值压制|向高确定性标的集聚|多空资金正对宏观贴现率与微观资产溢价实施日内动态调仓|保障主权财政盈亏平衡|先进制程晶圆代工产能紧平衡/.test(text);
   const isBrokenGrammar = /造成的困境|如果.*?那么除了|并避免越陷越深|造成困境/.test(text);
   const isEventProvisionsMismatch =
     (/格雷厄姆|制裁俄罗斯和伊朗/.test(cleanTitleLower) && !text.includes('制裁') && !text.includes('长臂管辖')) ||
@@ -1266,9 +1370,9 @@ export function autoCorrectTakeaway(
 
   // OPEC与大宗原油专属定性纠偏（优先级高于美股科技股，彻底消除资产负债表与现金流分化误套）
   if (/opec|原油|布伦特|wti|自愿减产|延长减产|顺延减产/.test(cleanTitleLower)) {
-    if (isBroken || /资产负债表|高负债企业|科技龙头|以军|黎巴嫩/.test(text)) {
+    if (isBroken || /资产负债表|高负债企业|科技龙头|以军|黎巴嫩|保障主权财政盈亏平衡/.test(text)) {
       return {
-        takeaway: '【供给侧自律平衡财政预算】：OPEC+计划顺延每日220万桶自愿减产协议；核心产油国通过供给调节锚定国际油价中枢，保障主权财政盈亏平衡。',
+        takeaway: '【产油国供应协同与市场平衡】：OPEC+主要成员国计划将每日220万桶自愿减产协议顺延至年底，通过调节原油实物供应量平衡国际供需格局。',
         wasCorrected: true,
       };
     }
@@ -1422,17 +1526,20 @@ export function autoCorrectTakeaway(
   } else if (/利润|营收|反超|财报|业绩|超预期|净利润|毛利率/.test(cleanTitleLower)) {
     if (/芯片|半导体|存储|长鑫|中芯|海力士|三星|台积电/.test(cleanTitleLower)) {
       tag = '半导体周期回暖与毛利修复';
-      core = '存储器与先进制程晶圆需求稳步复苏，行业龙头凭借产品结构升级与高附加值产品出货实现盈利能力跨越。';
+      core = '存储器与晶圆制造龙头披露最新财务业绩，核心产品出货与盈利能力反映行业复苏节奏。';
     } else {
       tag = '行业盈利格局重塑';
-      core = '细分赛道龙头在成本管控、技术溢价与市场份额维度展现分化优势，机构资金向具备确定性现金流韧性的标的集中。';
+      core = '细分赛道龙头企业公布最新财务数据，核心财务指标反映出上下游供求与经营性现金流现状。';
     }
   } else if (/泰国.*(?:投资委员会|半导体)|东南亚.*(?:半导体|招商)/.test(cleanTitleLower)) {
     tag = '新兴市场半导体制造与跨国招商';
     core = '泰国投资委员会推出重大税收优惠与产业支持举措，积极吸引全球半导体封测与制造产能转移，构筑东盟芯片产业链区域制造枢纽。';
   } else if (/台积电|2nm|先进制程|晶圆|光刻|代工|hbm/.test(cleanTitleLower)) {
     tag = '先进制程供需动态';
-    core = '先进制程晶圆代工产能紧平衡支撑核心制造方定价权，前沿芯片设计商全额锁定首批晶圆配额以保障硬件交付。';
+    core = '晶圆代工厂商加速推进特色工艺与先进制程产线部署，满足关键芯片设计厂商的首批晶圆配额交付需求。';
+  } else if (/中美.*(?:降税|对等降税|关税|经贸磋商|经贸会谈|经贸对话)|300亿对300亿|对等降税商品清单/.test(cleanTitleLower)) {
+    tag = '经贸博弈与涉外对等反制';
+    core = '中美达成阶段性经贸关税与对话共识框架，双边以对等降税清单与多领域沟通机制推进经贸关系再平衡，降低外贸供应链外部不确定性。';
   } else if (/模型|算力|推理|大模型|ai|算法|openai|agent/.test(cleanTitleLower)) {
     tag = 'AI算力架构演进';
     core = '前沿大模型加速向长思考思维链与高吞吐推理架构迁移，底层算力设施向异构智算集群与高效互联拓扑演进。';
@@ -1442,10 +1549,13 @@ export function autoCorrectTakeaway(
   } else if (/被查|立案审查|纪律审查|监察调查|落马|双开|受贿|一审宣判|反腐|涉嫌严重违纪违法/.test(cleanTitleLower)) {
     tag = '穿透治理与反腐纪检威慑';
     core = '纪检监察机关依法依规严肃查处违纪违法行为，坚决铲除腐败滋生土壤并巩固公权力廉洁规范行使。';
+  } else if (/澳洲联储.*(?:加息|降息|利率|国债|债券|收益率)|澳大利亚.*(?:加息|降息|利率|国债|收益率)/.test(cleanTitleLower)) {
+    tag = '澳洲联储货币政策与利率预期';
+    core = '澳洲联储紧盯通胀粘性与内需压力审慎校准政策利率路径，本土主权债券收益率曲线动态反映市场加息定价与利差预期。';
   } else if (/美联储.*降息|降息25基点|利率互换.*降息|交易员预计.*降息/.test(cleanTitleLower)) {
     tag = '美联储利率路径与降息定价';
     core = '核心通胀读数巩固9月FOMC降息25个基点基准路径，掉期市场出清激进降息溢价，货币政策稳步迈入渐进式降息宽松周期。';
-  } else if (/(?:国债|美债|债券).*收益率.*(?:刷新|突破|涨|跌|高位|创|至|报)|(?:10年期|两年期|2年期|5年期|30年期).*收益率/.test(cleanTitleLower) || (/(?:收益率|国债)/.test(cleanTitleLower) && /(?:5\.\d+%|4\.\d+%|基点|bps)/.test(cleanTitleLower))) {
+  } else if (/(?:美债|10年期美债|两年期美债|美联储.*收益率)/.test(cleanTitleLower) || ((/(?:国债|债券).*收益率.*(?:刷新|突破|涨|跌|高位|创|至|报)|(?:10年期|两年期|2年期|5年期|30年期).*收益率/.test(cleanTitleLower) || (/(?:收益率|国债)/.test(cleanTitleLower) && /(?:5\.\d+%|4\.\d+%|基点|bps)/.test(cleanTitleLower))) && !/澳洲|澳大利亚|日债|德债|英债|中国国债|特别国债|地方债|专项债/.test(cleanTitleLower))) {
     const rateMatch = cleanTitle.match(/(\d+\.\d+[%％])/);
     const rateStr = rateMatch ? `突破${rateMatch[1]}` : '阶段性走高';
     tag = '基准美债重定价与贴现率冲击';
@@ -1463,8 +1573,8 @@ export function autoCorrectTakeaway(
     tag = '不良资产出清与破产重整';
     core = '涉案高杠杆企业在破产重整法定框架下推进资产清查与战投招募，重构债务结构并阻断关联风险跨机构蔓延。';
   } else if (/opec|原油|布伦特|wti|自愿减产|延长减产|顺延减产/.test(cleanTitleLower)) {
-    tag = '供给侧自律平衡财政预算';
-    core = 'OPEC+计划顺延每日220万桶自愿减产协议；核心产油国通过供给调节锚定国际油价中枢，保障主权财政盈亏平衡。';
+    tag = '产油国供给调节与市场平衡';
+    core = 'OPEC+核心成员国计划将每日220万桶自愿减产协议顺延至年底，通过调节原油实物供应量平衡国际供需格局。';
   } else if (/金正恩|朝鲜.*(?:武器|试验|导弹|战备|发射|试射)|新型武器试验|火星炮/.test(cleanTitleLower)) {
     tag = '半岛战备反制与战略威慑';
     core = '朝鲜最高领导人现场观摩新型战术武器试验，强化常规与战略打击反制能力，半岛地缘遏制态势进入高频攻防博弈。';

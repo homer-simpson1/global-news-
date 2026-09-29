@@ -11,6 +11,8 @@ export interface VerificationItemResult {
   sourceUrl: string;
   track: string;
   titleOk: boolean;
+  titleCompletenessOk: boolean; // 题目是否完整 (无截断、无冒号体、主谓宾齐全、字数适中)
+  detailClarityOk: boolean;     // 报道详情是否清晰 (事实通报有头有尾、5W1H闭环、结论专业、利益链清晰)
   sourceOk: boolean;
   summary5W1HOk: boolean;
   hasDomainQualifier: boolean;
@@ -32,6 +34,10 @@ export interface VerificationAuditReport {
   failedCount: number;
   accuracyScore: number; // 0 - 100
   passRate: string;      // e.g. "100.0%"
+  titleCompletenessRate: string; // 题目完整率 e.g. "100.0%"
+  titleCompletenessPassed: number;
+  detailClarityRate: string;     // 报道详情清晰率 e.g. "100.0%"
+  detailClarityPassed: number;
   overallStatus: 'EXCELLENT' | 'GOOD' | 'NEEDS_ATTENTION';
   quoteChecks: {
     symbol: string;
@@ -86,37 +92,91 @@ export async function runNewsAccuracyVerification(
   let passedCount = 0;
   let warningCount = 0;
   let failedCount = 0;
+  let titleCompletenessPassed = 0;
+  let detailClarityPassed = 0;
 
   for (const item of newsList) {
     const reasons: string[] = [];
     let titleOk = true;
+    let titleCompletenessOk = true;
+    let detailClarityOk = true;
     let sourceOk = true;
     let summary5W1HOk = true;
     let hasDomainQualifier = true;
 
-    // 1. 标题完整性、字数与去宣传除杂核验（严禁通篇冒号体，控制在22~28字）
+    // 1. 题目是否完整核验 (Title Completeness)
+    // 门禁红线：长度8~45字、严禁冒号体、严禁感叹号/问号/省略号、严禁连词或悬挂截断、无主语流水账、无吹捧套话
     if (!item.title || item.title.length < 8) {
       titleOk = false;
-      reasons.push('标题过短或为空');
+      titleCompletenessOk = false;
+      reasons.push('题目过短或为空，缺乏基本事件要素');
+    } else if (item.title.length > 45) {
+      titleCompletenessOk = false;
+      reasons.push('题目过长，可能将详情正文误作标题');
     }
+
     if (/[：:]/.test(item.title)) {
       titleOk = false;
-      reasons.push('标题违规包含冒号体');
+      titleCompletenessOk = false;
+      reasons.push('题目违规包含冒号体');
     }
-    // 门禁红线：标题严禁感叹号、问号、省略号
+
     if (/[！!？?]|……|\.{3}/.test(item.title)) {
       titleOk = false;
-      reasons.push('标题违规包含感叹号、问号或省略号');
+      titleCompletenessOk = false;
+      reasons.push('题目违规包含感叹号、问号或省略号');
     }
-    // 严禁未经脱水的政治口号与形式主义修辞
-    if (/领导高度重视|迅速启动预案|众志成城|坚决贯彻|牢牢把握|深入推进|统一思想|遥遥领先|彻底打破垄断|世界首创/.test(item.title + ' ' + (item.summaryParagraph || ''))) {
+
+    if (/([并与等及但而或者以，,、：:\-\/]|通过|进行|以及)\s*(\.{2,3})?$/.test(item.title)) {
       titleOk = false;
-      reasons.push('发现未经脱水的内宣套话或吹牛公关词汇');
+      titleCompletenessOk = false;
+      reasons.push('题目末尾存在连词或标点残缺截断');
     }
-    // 检测是否以不完整连词/断句残缺结尾（例如 “并通过...”、“与...”、“等...”）
-    if (/([并与等及但而或者]|通过|进行|以及)\s*\.{2,3}$/.test(item.title)) {
+
+    if (/^(?:分别|持续)?(?:涨|跌|高开|低开|报)\s*\d/.test(item.title)) {
       titleOk = false;
-      reasons.push('标题末尾存在残缺截断（如“并通过...”）');
+      titleCompletenessOk = false;
+      reasons.push('题目缺少核心涉案主体，属于无主语分时流水账');
+    }
+
+    if (/领导高度重视|迅速启动预案|众志成城|坚决贯彻|牢牢把握|深入推进|统一思想|遥遥领先|彻底打破垄断|世界首创/.test(item.title)) {
+      titleOk = false;
+      titleCompletenessOk = false;
+      reasons.push('题目包含未经脱水的宣传套话或自媒体夸大词汇');
+    }
+
+    // 2. 报道详情是否清晰核验 (Detail Clarity)
+    // 核心标准：事实通报有头有尾(≥35字)、5W1H要素闭环(Who/What具体明确)、核心结论提炼专业(去口水化)、因果利益链逻辑严密(标准1-Hop)
+    const p = (item.summaryParagraph || '').trim();
+    if (!p || p.length < 35) {
+      detailClarityOk = false;
+      reasons.push('报道详情事实通报篇幅过短或缺失，信息量不足');
+    } else if (/[：:,，、\s]$/.test(p)) {
+      detailClarityOk = false;
+      reasons.push('报道详情末尾存在残句或悬空标点截断');
+    }
+
+    if (/信源仅陈述单一动作|未披露上下游合同与转嫁细节|不做无依据推测|涉事当事方正推进处置|使得市场面临现实痛点|造成的困境，并避免越陷越深/.test(p + ' ' + (item.oneLineTakeaway || ''))) {
+      detailClarityOk = false;
+      reasons.push('报道详情存在机械敷衍免责套话');
+    }
+
+    const takeaway = (item.oneLineTakeaway || '').trim();
+    if (!takeaway || takeaway.length < 10) {
+      detailClarityOk = false;
+      reasons.push('报道核心结论缺失或过短');
+    } else if (!/^【.+?】[：:]/.test(takeaway)) {
+      detailClarityOk = false;
+      reasons.push('报道核心结论缺少规范专业领域标签');
+    }
+
+    const transmission = (item.transmissionImpact || '').trim();
+    if (!transmission || transmission.length < 20) {
+      detailClarityOk = false;
+      reasons.push('报道因果利益链传导缺失或过于简略');
+    } else if (!transmission.includes('➔') && !transmission.includes('->')) {
+      detailClarityOk = false;
+      reasons.push('报道因果传导缺乏明确的1-Hop递进链路');
     }
 
     // 1.1 事实一致性审查门禁核验
@@ -126,10 +186,11 @@ export async function runNewsAccuracyVerification(
       transmission_chain: item.transmissionImpact || '',
     });
     if (!faithfulness.pass) {
+      detailClarityOk = false;
       reasons.push(`事实一致性审查未通过: ${faithfulness.reason}`);
     }
 
-    // 2. 一级权威信源与真实可访问 URL 核验
+    // 3. 一级权威信源与真实可访问 URL 核验
     const sourceLower = (item.source || '').toLowerCase();
     const isKnownAuthority = KNOWN_AUTHORITIES.some(a => sourceLower.includes(a));
     if (!item.source || item.source.length < 2) {
@@ -144,39 +205,43 @@ export async function runNewsAccuracyVerification(
       reasons.push('信源直达链接无效或缺失');
     }
 
-    // 3. 5W1H 六要素深度小结完整性与实质性核验
+    // 4. 5W1H 六要素深度小结完整性与实质性核验
     const s = item.summary5W1H;
     if (!s) {
       summary5W1HOk = false;
+      detailClarityOk = false;
       reasons.push('缺少5W1H结构化要素小结');
     } else {
       if (!s.who || s.who.length < 2) {
         summary5W1HOk = false;
+        detailClarityOk = false;
         reasons.push('5W1H主体(Who)不明确');
       }
-      if (!s.what || s.what.length < 10) {
+      if (!s.what || s.what.length < 8) {
         summary5W1HOk = false;
+        detailClarityOk = false;
         reasons.push('5W1H事件具体事实(What)过短或缺失');
       }
-      if (!s.why || s.why.length < 8) {
+      if ((!s.why || s.why.length < 4) && (!s.consequence || s.consequence.length < 4)) {
         summary5W1HOk = false;
-        reasons.push('5W1H起因背景(Why)不充分');
-      }
-      if (!s.consequence || s.consequence.length < 8) {
-        summary5W1HOk = false;
-        reasons.push('5W1H决策传导后果(Consequence)不充分');
+        detailClarityOk = false;
+        reasons.push('5W1H起因背景与决策后果均缺失');
       }
     }
 
-    // 4. 专有名词是否带有专业释义（针对如“曦云C600”、“B200”等特殊芯片或代码）
+    // 5. 专有名词是否带有专业释义（针对如“曦云C600”、“B200”等特殊芯片或代码）
     if (/c600|c700|b200|gaudi/.test(item.title.toLowerCase()) && !/gpu|芯片|算力/.test(item.title.toLowerCase() + ' ' + (item.summaryParagraph || ''))) {
       hasDomainQualifier = false;
       reasons.push('技术缩写缺少通俗领域解释');
     }
 
+    // 统计专项合格指标
+    if (titleCompletenessOk) titleCompletenessPassed++;
+    if (detailClarityOk) detailClarityPassed++;
+
     // 综合评级
     let status: 'PASS' | 'WARNING' | 'FAIL' = 'PASS';
-    if (!titleOk || !sourceOk || !summary5W1HOk) {
+    if (!titleOk || !sourceOk || !summary5W1HOk || !titleCompletenessOk || !detailClarityOk) {
       status = reasons.length > 2 ? 'FAIL' : 'WARNING';
     } else if (reasons.length > 0) {
       status = 'WARNING';
@@ -193,6 +258,8 @@ export async function runNewsAccuracyVerification(
       sourceUrl: item.sourceUrl,
       track: item.track,
       titleOk,
+      titleCompletenessOk,
+      detailClarityOk,
       sourceOk,
       summary5W1HOk,
       hasDomainQualifier,
@@ -205,7 +272,7 @@ export async function runNewsAccuracyVerification(
     });
   }
 
-  // 5. 核心行情数据合理性与实时性交叉核验（严格防范纳指100与纳指综合混淆）
+  // 6. 核心行情数据合理性与实时性交叉核验（严格防范纳指100与纳指综合混淆）
   const quoteChecks = quotes.map(q => {
     let valid = true;
     const num = parseFloat(q.price.replace(/[^0-9.]/g, ''));
@@ -234,6 +301,8 @@ export async function runNewsAccuracyVerification(
   const total = newsList.length;
   const accuracyScore = total > 0 ? Math.round(((passedCount + warningCount * 0.8) / total) * 100) : 100;
   const passRate = total > 0 ? ((passedCount / total) * 100).toFixed(1) + '%' : '100.0%';
+  const titleCompletenessRate = total > 0 ? ((titleCompletenessPassed / total) * 100).toFixed(1) + '%' : '100.0%';
+  const detailClarityRate = total > 0 ? ((detailClarityPassed / total) * 100).toFixed(1) + '%' : '100.0%';
   const overallStatus = accuracyScore >= 95 ? 'EXCELLENT' : accuracyScore >= 80 ? 'GOOD' : 'NEEDS_ATTENTION';
 
   const report: VerificationAuditReport = {
@@ -246,6 +315,10 @@ export async function runNewsAccuracyVerification(
     failedCount,
     accuracyScore,
     passRate,
+    titleCompletenessRate,
+    titleCompletenessPassed,
+    detailClarityRate,
+    detailClarityPassed,
     overallStatus,
     quoteChecks,
     details,

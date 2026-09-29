@@ -8,6 +8,7 @@
     "build": "next build",
     "pages:build": "npx @cloudflare/next-on-pages",
     "start": "next start",
+    "steward": "node scripts/site_steward.js",
     "lint": "next lint"
   },
   "dependencies": {

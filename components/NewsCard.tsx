@@ -9,7 +9,7 @@ import DisasterTrackerView from './DisasterTrackerView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
 import { isWithin24Hours, calculateTrackedDays } from '@/lib/timeUtils';
 import { getCompanyProfileForNews, CompanyProfile } from '@/lib/companyProfiles';
-import { isHeadlineEcho, autoCorrectWatchlist, autoCorrectTitle } from '@/lib/selfHealingEngine';
+import { isHeadlineEcho, autoCorrectWatchlist, autoCorrectTitle, autoCorrectTakeaway } from '@/lib/selfHealingEngine';
 import {
   getMacroInflationBreakdown,
   isMacroInflationNews,
@@ -232,112 +232,17 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
     return sanitizeFedRatePolicyWording(text);
   }, [item.summaryParagraph, item.summary5W1H, item.bulletPoints, cleanTitle, item.publishedAt, item.source, companyProfile, macroBreakdown]);
 
-  // 2. 核心结论安全容灾（坚决铲除标题机械复读与八股破损，杜绝实体张冠李戴与背离）
+  // 2. 核心结论：直接调用统一的 autoCorrectTakeaway，叙述事情前因后果与来龙去脉，0私设主观模板！
   const displayTakeaway = React.useMemo(() => {
-    let t = (item.oneLineTakeaway || '').trim();
-    const cleanT = cleanTitle.toLowerCase();
-    const isEcho = isHeadlineEcho(t, cleanTitle);
-
-    // 实体交叉互斥校验：一票否决跨赛道张冠李戴
-    const isCommodityMismatch =
-      /opec|原油|布伦特|wti|自愿减产|延长减产|顺延减产|大宗商品/.test(cleanT) &&
-      (/资产负债表与现金流分化|头部科技龙头|高负债企业|以军|以色列|黎巴嫩|加沙|空袭/.test(t));
-    const isNorthKoreaMismatch =
-      /金正恩|朝鲜|平壤|半岛|新型武器试验/.test(cleanT) &&
-      (/以军|以色列|黎巴嫩|加沙|真主党|胡塞|中东|乌克兰|俄军/.test(t));
-    const isMiddleEastMismatch =
-      /(?:以军|以色列|黎巴嫩|真主党|加沙|胡塞|中东交火)/.test(cleanT) &&
-      (/金正恩|朝鲜|平壤|资产负债表与现金流分化|头部科技龙头/.test(t));
-
-    if (isCommodityMismatch || (/opec|原油|布伦特|wti|自愿减产|延长减产|顺延减产/.test(cleanT) && /高负债企业|科技龙头/.test(t))) {
-      return '【供给侧自律平衡财政预算】：OPEC+计划顺延每日220万桶自愿减产协议；核心产油国通过供给调节锚定国际油价中枢，保障主权财政盈亏平衡。';
-    }
-    if (isNorthKoreaMismatch || (/金正恩|朝鲜.*(?:武器|试验|导弹|战备|发射|试射)|新型武器试验|火星炮/.test(cleanT) && /以军|以色列|黎巴嫩|加沙/.test(t))) {
-      return '【半岛战备反制与战略威慑】：朝鲜最高领导人现场观摩新型战术武器试验，强化常规与战略打击反制能力，半岛地缘遏制态势进入高频攻防博弈。';
-    }
-    if (isMiddleEastMismatch) {
-      return '【中东地缘交火风险溢价走阔】：以军与黎巴嫩真主党沿边境交火密集度上升，停火协议关键条款分歧难消，推升区域航运与能源风险溢价。';
-    }
-
-    // 泰国投资委员会 / 东南亚半导体招商引资专项
-    if (/泰国.*(?:投资委员会|半导体)|东南亚.*(?:半导体|招商)/.test(cleanT)) {
-      return '【新兴市场半导体制造与跨国招商】：泰国投资委员会推出重大税收优惠与产业支持举措，积极吸引全球半导体封测与制造产能转移，构筑东盟芯片产业链区域制造枢纽。';
-    }
-
-    // 基准美债 5.13% 收益率专项（严禁套用宏观物价中枢与货币政策校准）
-    if (/(?:5\.13%|4\.\d+%|基点|bps)/.test(cleanT) && /(?:国债|美债|债券).*收益率|刷新.*最高位/.test(cleanT)) {
-      return '【基准美债重定价与贴现率冲击】：长短端美债收益率快速拉升并刷新最高位至5.13%上方，直接推高跨资产无风险贴现率中枢，对权益市场估值中枢与跨国借贷流动性形成约束。';
-    }
-
-    if (
-      !t ||
-      t.length < 12 ||
-      isEcho ||
-      /涉事主体推进核心战略部署|根据市场信号与制度合规框架重构/.test(t) ||
-      t.includes('使得市场面临现实痛点') ||
-      /【.*?】[：:]*\s*$/.test(t) ||
-      /【.*?】[：:]*[，,、。.\s]+$/.test(t) ||
-      /：[，,、\s]*。?$/.test(t) ||
-      t === '【重大治理现实透视】。' ||
-      t === '【商业现实透视】。' ||
-      t === '【AI算力架构演进】。'
-    ) {
-      if (/opec|原油|布伦特|wti|自愿减产|延长减产|顺延减产/.test(cleanT)) {
-        return '【供给侧自律平衡财政预算】：OPEC+计划顺延每日220万桶自愿减产协议；核心产油国通过供给调节锚定国际油价中枢，保障主权财政盈亏平衡。';
-      }
-      if (/金正恩|朝鲜.*(?:武器|试验|导弹|战备|发射|试射)|新型武器试验|火星炮/.test(cleanT)) {
-        return '【半岛战备反制与战略威慑】：朝鲜最高领导人现场观摩新型战术武器试验，强化常规与战略打击反制能力，半岛地缘遏制态势进入高频攻防博弈。';
-      }
-      if (/(?:以军|以色列|黎巴嫩|加沙|真主党|胡塞|中东交火)/.test(cleanT)) {
-        return '【中东地缘交火风险溢价走阔】：以军与黎巴嫩真主党沿边境交火密集度上升，停火协议关键条款分歧难消，推升区域航运与能源风险溢价。';
-      }
-      if (/美联储.*降息|降息25基点|利率互换.*降息|交易员预计.*降息/.test(cleanT)) {
-        return '【美联储利率路径与降息定价】：核心通胀读数巩固9月FOMC降息25个基点基准路径，掉期市场出清激进降息溢价，货币政策稳步迈入渐进式降息宽松周期。';
-      }
-      if (/港股策略|a股策略|仓位灵活性|仓位配置|策略研报|券商.*研报|券商.*策略/.test(cleanT) || /华泰证券|中信证券|中金公司|招商证券|国泰君安/.test(cleanT)) {
-        return `【机构权益策略与仓位校准】：${cleanTitle}。研报立足估值性价比与流动性窗口，引导机构资金审慎优化权益资产配置。`;
-      }
-      if ((isMacroInflationNews(cleanT) || /cpi|通胀|ppi|pce/.test(cleanT)) && !/港股|a股|研报|策略|仓位|券商|华泰/.test(cleanT)) {
-        return getMacroInflationTakeaway(cleanTitle, factParagraph);
-      }
-      if (/(?:期指|美股期货|股指期货|美股三大股指|标普500期指|纳斯达克.*期货|纳指期货|道指期货)/.test(cleanT)) {
-        return '【股指衍生品与盘前情绪锚定】：指数期货涨跌反映跨市场资金对宏观利率与微观业绩预期的最新定价，为现货开盘提供流动性指引。';
-      }
-      if (/(?:首次公开发行|\bipo\b|敲钟上市|正式挂牌|首日上市|登陆科创板|登陆港交所)/i.test(cleanT) && !/(?:期货|期指|期权|标普|道指|纳斯达克.*期货|纳指.*走高|指数|涨跌幅|走高|下挫)/.test(cleanT)) {
-        const sector = (companyProfile?.sector || '').toLowerCase();
-        if (/存储|dram|nand|长鑫|长存|海力士|美光|兆易/.test(cleanT) || /存储|dram|nand/.test(sector)) {
-          return '【存储芯片资本重估与扩产】：自主先进制程存储芯片获资本市场流动性赋能，加速高密度DRAM/3D NAND与高带宽内存产线扩产与终端客户导入。';
-        }
-        if (/晶圆|代工|中芯|华虹|台积电/.test(cleanT) || /晶圆代工/.test(sector)) {
-          return '【晶圆代工产能重构与资本支持】：纯晶圆制造龙头依托二级市场融资扩充先进制程与特色工艺晶圆产能，筑牢半导体全产业链硬件制造底座。';
-        }
-        if (/设备|刻蚀|薄膜|清洗|北方华创|中微|拓荆|盛美|光刻|asml/.test(cleanT) || /设备|装备/.test(sector)) {
-          return '【半导体关键设备国产化加速】：核心半导体设备与关键零组件龙头资本化提速，攻坚前道制程卡脖子环节并推动客户产线全流程验证交付。';
-        }
-        if (/芯片|算力|gpu|半导体|燧原|沐曦|摩尔线程|壁仞|寒武纪|天数智芯|昆仑芯|地平线/.test(cleanT) || /算力|gpu|ai芯片/.test(sector)) {
-          return '【国产算力资本化重估】：国产云端AI芯片迎来资本市场高溢价定价，资金高度聚焦自主全栈大模型集群算力底座，加速先进制程流片与商业化交付。';
-        }
-        if (/新能源|锂电|电池|储能|光伏|宁德时代|比亚迪/.test(cleanT) || /新能源|电池/.test(sector)) {
-          return '【绿色能源资本重估】：先进电池与储能龙头登陆资本市场获取高流动性支持，助推产业规模效应释放与全球化出海交付。';
-        }
-        return '【资本市场定价与流动性溢价】：标的企业完成上市并获二级市场流动性重估，募集资金直接扩充资本实力并加速核心业务扩张交付。';
-      }
-      if (/利润|营收|反超|财报|业绩|超预期|净利润|毛利率/.test(cleanT)) {
-        return '【行业盈利格局重塑】：细分赛道龙头在成本管控、技术溢价与市场份额维度展现分化优势，机构资金向具备确定性现金流韧性的标的集中。';
-      }
-      if (/信威|宁算|破产重整|重整倒计时|破产清算|债务违约/.test(cleanT)) {
-        return '【不良资产出清与破产重整】：涉案高杠杆企业在破产重整法定框架下推进资产清查与战投招募，重构债务结构并阻断关联风险跨机构蔓延。';
-      }
-      if (/美方将《|格雷厄姆.*(?:制裁|法案)|制裁俄罗斯和伊朗法案/.test(cleanT)) {
-        return '【涉外长臂管辖与二级制裁升级】：法案将涉俄伊能源‘幽灵船队’与跨国金融清算纳入连带制裁，强化OFAC穿透式执法，加剧全球大宗海运合规摩擦与结算链条重构。';
-      }
-      if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
-        return `【监管合规与强制退市出清】：监管部门对重大财务造假零容忍常态化执行，劣质标的依法加速出清，全面夯实法治监管基石。`;
-      }
-      return `【产业格局深度透视】：标的主体推进核心业务调整，产业链上下游关联方根据市场供求信号重构资产估值中枢。`;
-    }
-    return t;
-  }, [item.oneLineTakeaway, cleanTitle, companyProfile, factParagraph]);
+    const rawTakeaway = (item.oneLineTakeaway || '').trim();
+    const result = autoCorrectTakeaway(
+      rawTakeaway,
+      cleanTitle,
+      item.summary5W1H,
+      item.track || 'us_macro'
+    );
+    return result.takeaway;
+  }, [item.oneLineTakeaway, cleanTitle, item.summary5W1H, item.track]);
 
   // 3. 利益链传导安全容灾（坚决铲除机械式敷衍免责套话与张冠李戴）
   const displayTransmission = React.useMemo(() => {

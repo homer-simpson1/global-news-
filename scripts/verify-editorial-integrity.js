@@ -8,6 +8,29 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
+
+// 注册 TypeScript 即时编译扩展与 @/ 模块别名解析，确保在 Node 18/20/22 等任何 CI 环境下均可无缝 require .ts 文件
+const ts = require('typescript');
+const Module = require('module');
+const origResolve = Module._resolveFilename;
+Module._resolveFilename = function (req, p, m, o) {
+  if (req.startsWith('@/')) req = path.join(ROOT, req.slice(2));
+  return origResolve.call(this, req, p, m, o);
+};
+if (!require.extensions['.ts']) {
+  require.extensions['.ts'] = function (module, filename) {
+    const content = fs.readFileSync(filename, 'utf8');
+    const compiled = ts.transpileModule(content, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+        esModuleInterop: true,
+      },
+    });
+    module._compile(compiled.outputText, filename);
+  };
+}
+
 let errors = [];
 
 function check(title, fn) {
@@ -837,25 +860,6 @@ check('Gate 19: 标题断裂自愈与核心结论跨实体防张冠李戴审校'
 // 彻底消灭静态门禁“掩耳盗铃”，对真实网络采编全链路实施端到端运行时断言
 // -------------------------------------------------------------
 check('Gate 20: 动态端到端采编流质量与全链路防踩踏实测门禁', () => {
-  const ts = require('typescript');
-  const Module = require('module');
-  const origResolve = Module._resolveFilename;
-  Module._resolveFilename = function (req, p, m, o) {
-    if (req.startsWith('@/')) req = path.join(ROOT, req.slice(2));
-    return origResolve.call(this, req, p, m, o);
-  };
-  require.extensions['.ts'] = function (module, filename) {
-    const content = fs.readFileSync(filename, 'utf8');
-    const compiled = ts.transpileModule(content, {
-      compilerOptions: {
-        module: ts.ModuleKind.CommonJS,
-        target: ts.ScriptTarget.ES2022,
-        esModuleInterop: true,
-      },
-    });
-    module._compile(compiled.outputText, filename);
-  };
-
   const { detectPrimarySource, cleanWireHeadline, isCalendarOrDigestSpam, enrichHeadline } = require('../lib/rssFetcher.ts');
   const { getCompanyProfileForNews } = require('../lib/companyProfiles.ts');
   const { autoCorrectTrack, autoCorrectTakeaway, autoCorrectInterestTransmission, autoCorrectTitle } = require('../lib/selfHealingEngine.ts');
@@ -986,7 +990,7 @@ check('Gate 22: 严禁“刷新/创下”无主语病句与美债套用泛化物
 // -------------------------------------------------------------
 check('Gate 23: 严禁“，至”等悬挂介词腰斩断尾与波罗的海干散货自愈门禁', () => {
   const { enrichHeadline } = require('../lib/rssFetcher.ts');
-  const { autoCorrectTitle } = require('../lib/selfHealingEngine.ts');
+  const { autoCorrectTitle, autoCorrectTakeaway } = require('../lib/selfHealingEngine.ts');
 
   // 23.1 测试 autoCorrectTitle 遇到上下文有点位时，自动结合上下文智能补齐
   const danglingTitle1 = '波罗的海干散货指数涨1.25%，至';
@@ -1014,6 +1018,48 @@ check('Gate 23: 严禁“，至”等悬挂介词腰斩断尾与波罗的海干�
   const enrichedRes = enrichHeadline('美联储隔夜逆回购规模跌破3000亿，报', '隔夜逆回购规模跌破3000亿美元，报2950亿美元。', 'us_macro');
   if (enrichedRes.endsWith('报') || enrichedRes.endsWith('，')) {
     throw new Error(`enrichHeadline 未能修复悬挂动词/介词："${enrichedRes}"`);
+  }
+
+  // 23.4 测试无逗号悬挂词自愈（“MSCI亚太指数下跌1%至”、“中国台湾证交所加权股价指数收低0.8%报”）
+  const msciHealed = autoCorrectTitle('MSCI亚太指数下跌1%至');
+  if (msciHealed.endsWith('至') || msciHealed.endsWith('，') || msciHealed !== 'MSCI亚太指数下跌1%') {
+    throw new Error(`无逗号末尾悬挂介词修复失败："${msciHealed}"`);
+  }
+  const twHealed = autoCorrectTitle('中国台湾证交所加权股价指数收低0.8%报');
+  if (twHealed.endsWith('报') || twHealed.endsWith('，') || twHealed !== '中国台湾证交所加权股价指数收低0.8%') {
+    throw new Error(`无逗号末尾悬挂动词修复失败："${twHealed}"`);
+  }
+
+  // 23.5 测试无逗号动词上下文补全自愈（“我国生成式人工智能用户规模突破”、“美国芯片公司AMD斥资”）
+  const aiScaleHealed = autoCorrectTitle('我国生成式人工智能用户规模突破', { content: '我国生成式人工智能用户规模突破6亿人，产业生态加速完善。' });
+  if (aiScaleHealed.endsWith('突破') || !aiScaleHealed.includes('6亿人')) {
+    throw new Error(`动词上下文补全自愈失败："${aiScaleHealed}"`);
+  }
+  const amdHealed = autoCorrectTitle('美国芯片公司AMD斥资', { content: '美国芯片公司AMD斥资49亿美元收购云服务商ZT Systems以加速算力布局。' });
+  if (amdHealed.endsWith('斥资') || !amdHealed.includes('49亿美元')) {
+    throw new Error(`企业收购动词上下文补全自愈失败："${amdHealed}"`);
+  }
+
+  // 23.6 测试镜像复读与结巴重复清洗（“长鑫科技拟动用， 长鑫科技拟动用”）
+  const stutterHealed = autoCorrectTitle('长鑫科技拟动用， 长鑫科技拟动用', { content: '长鑫科技拟动用500亿元扩建DRAM先进制程产线。' });
+  if (stutterHealed.includes('长鑫科技拟动用， 长鑫科技拟动用') || stutterHealed.endsWith('拟动用') || !stutterHealed.includes('500亿元')) {
+    throw new Error(`镜像复读与结巴自愈失败："${stutterHealed}"`);
+  }
+
+  // 23.7 测试长标题多从句贪心拼接，绝不机械腰斩丢弃首个逗号后的关键主谓宾
+  const opecHeadline = enrichHeadline(
+    'OPEC+主要成员国探讨顺延自愿减产，布伦特原油在90美元上方筑底并企稳',
+    'OPEC+主要成员国正密集磋商顺延减产协议，布伦特原油现货在90美元上方筑底企稳。',
+    'commodities_shipping'
+  );
+  if (opecHeadline.endsWith('在') || !opecHeadline.includes('布伦特原油')) {
+    throw new Error(`标题从句拼接被机械腰斩："${opecHeadline}"`);
+  }
+
+  // 23.8 核心结论纯客观事实测试：严禁出现主观投研与宏观定性二极管套话（保障主权财政盈亏平衡等）
+  const opecTakeaway = autoCorrectTakeaway('【供给侧自律平衡财政预算】：OPEC+计划顺延每日220万桶自愿减产协议；核心产油国通过供给调节锚定国际油价中枢，保障主权财政盈亏平衡。', 'OPEC+主要成员国探讨顺延自愿减产');
+  if (opecTakeaway.takeaway.includes('保障主权财政盈亏平衡')) {
+    throw new Error(`核心结论依然包含主观投研模板“保障主权财政盈亏平衡”："${opecTakeaway.takeaway}"`);
   }
 });
 

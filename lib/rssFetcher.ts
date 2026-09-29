@@ -1261,6 +1261,13 @@ export function classifyTrack(item: RawLiveItem): TrackId {
     return 'global_cognition';
   }
 
+  // 海外及主要央行货币政策一票定轨宏观，严禁因正文提及地缘背景而落入 war_conflict
+  if (/澳洲联储|澳大利亚储备银行|欧洲央行|日本央行|英国央行|美联储|加拿大央行|瑞士央行|政策利率|基准利率|现金利率|加息|降息|利率决议|rba|ecb|boj|boe/.test(item.title)) {
+    if (/涉华|对华|中美/.test(item.title)) return 'china_policy';
+    if (/中国央行|人民银行|人行|pboc/.test(item.title)) return 'china_macro';
+    return 'us_macro';
+  }
+
   // 【地缘政治、战局防务与中东冲突优先拦截】（优先级高于美国普通实体，美伊交涉会谈、也门、俄乌冲突绝对优先归入 war_conflict）：
   if (FOREIGN_ENTITIES.WAR_DEFENSE.test(t) || /伊朗|以色列|哈马斯|真主党|加沙|乌克兰|俄军|乌军|红海|也门|卡塔尔/.test(t)) {
     if (!/涉华|对华|中美经贸|中伊经贸/.test(item.title)) {
@@ -1763,10 +1770,16 @@ export function inferTransmission(track: TrackId, title: string, content: string
 
   // 国内重大治理赛道根据具体事件细分行业传导，彻底告别全部雷同
   if (track === 'china_domestic') {
+    if (/生猪|农产品|夏粮|早稻|秋粮|粮食供需|粮食产量|农业农村|种粮|菜篮子|大食物观/.test(t)) {
+      return '① 农业农村与关键民生农产品支持政策精准发力 ➔ ② 种植养殖主体稳定生产预期并优化供需调节机制 ➔ ③ 基础民生食品供给韧性与物价稳定底盘持续巩固。';
+    }
+    if (/网络餐饮|外卖|食品安全|假劣肉|餐饮治理/.test(t)) {
+      return '① 网络餐饮与食品安全全链条专项治理直接压实平台与餐饮主体合规责任 ➔ ② 违规经营与隐患作坊加速整改出清 ➔ ③ 公众食品安全得到严密守护，守法合规餐饮品牌获得健康发展空间。';
+    }
     if (/特高压|核电|电网|电力|送出工程|变电/.test(t)) {
       return '① 重大特高压与跨区电网工程投产直接扩充清洁能源跨省跨区外送能力 ➔ ② 电力设备制造与主网装备龙头企业在手核心订单加速确认为业绩 ➔ ③ 负荷中心迎峰度夏/度冬保供韧性与清洁能源消纳水平双向提升。';
     }
-    if (/买地|拿地|土地出让|规划|总部基地/.test(t)) {
+    if (/(?:土地出让|产业拿地|商住用地|买地|土地拍卖|总部基地)/.test(t)) {
       return '① 核心企业大宗土地投资直接落地并转化为主力研发总部或算力机房固定资产 ➔ ② 属地政府获得产业土地出让收益并带动周边高新产业上下游集聚 ➔ ③ 龙头科技主体在中长期产能供给与战略纵深上构筑实体资产护城河。';
     }
     if (/个贷|融资成本|贷款业务|明白纸|明示/.test(t)) {
@@ -1997,6 +2010,10 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
   title = title.replace(/[！!？?]/g, '，').replace(/……|\.{2,}/g, '');
   title = title.replace(/^[，,\s]+|[，,\s]+$/g, '');
 
+  // 消除结巴自重复与镜像复读（如“长鑫科技拟动用， 长鑫科技拟动用”或“主体，主体”）
+  title = title.replace(/([^，,；;\s]{3,25})[，,\s]+\1/g, '$1');
+  title = title.replace(/^(.{2,30}?)[，,\s|｜]+(?:\1)(.*)$/, '$1$2').trim();
+
   // 5. 严格控制字数上限在 42 汉字以内，优先在自然标点/空格处安全截断，绝不硬切单字！
   if (title.length > 40) {
     const isHeadlessClause = (c: string) =>
@@ -2004,25 +2021,37 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
       /^(?:刷新|创下?|创出|突破|跌破|升破|逼近|触及|报|涨|跌|回落|走高|走低|拉升|下挫|飙升|暴跌|大涨|大跌)\b/.test(c) ||
       /^[^a-zA-Z\u4e00-\u9fa5]+$/.test(c);
 
-    // 1. 优先尝试按中文逗号/分号/空格分割完整从句
+    const isDanglingTail = (c: string) =>
+      /(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|面临|斥资|突破|收于|跌至|涨至|升至|降至|拟动用|拟以)$/.test(c.trim());
+
+    // 1. 优先尝试按中文逗号/分号/空格分割完整从句，贪心拼接多从句，绝不随意丢弃首个逗号后的关键主谓宾
     const clauses = title.split(/[，,；;\s]/).map((s) => s.trim()).filter(Boolean);
     if (clauses.length >= 2) {
-      if (clauses[0].length >= 14 && clauses[0].length <= 40 && !isHeadlessClause(clauses[0])) {
+      let combined = '';
+      for (const clause of clauses) {
+        const candidate = combined ? `${combined}，${clause}` : clause;
+        if (candidate.length <= 40) {
+          combined = candidate;
+        } else {
+          break;
+        }
+      }
+
+      // 如果拼接后的从句末尾有半截动词/介词，必须回退到前一个完整标点或剥离悬挂
+      while (combined && isDanglingTail(combined)) {
+        const lastComma = combined.lastIndexOf('，');
+        if (lastComma >= 12) {
+          combined = combined.slice(0, lastComma).trim();
+        } else {
+          combined = combined.replace(/(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|面临|斥资|突破|收于|跌至|涨至|升至|降至|拟动用|拟以)+$/, '').trim();
+          break;
+        }
+      }
+
+      if (combined.length >= 12 && !isHeadlessClause(combined) && !isDanglingTail(combined)) {
+        title = combined;
+      } else if (clauses[0].length >= 10 && !isHeadlessClause(clauses[0]) && !isDanglingTail(clauses[0])) {
         title = clauses[0];
-      } else {
-        let combined = '';
-        for (const clause of clauses) {
-          if ((combined + '，' + clause).length <= 40) {
-            combined = combined ? `${combined}，${clause}` : clause;
-          } else {
-            break;
-          }
-        }
-        if (combined.length >= 14 && !isHeadlessClause(combined)) {
-          title = combined;
-        } else if (clauses[0].length >= 8 && !isHeadlessClause(clauses[0])) {
-          title = clauses[0];
-        }
       }
     }
 
@@ -2033,21 +2062,28 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
       if (lastPunc >= 18) {
         title = sub.slice(0, lastPunc);
       } else {
-        // 保持主谓宾完整，去除尾部残留的连接词或半截词
-        title = sub.replace(/[为在与及和以向对使得创报跌涨]+$/, '');
+        title = sub;
       }
+      title = title.replace(/(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|面临|斥资|突破|收于|跌至|涨至|升至|降至|拟动用|拟以)+$/, '').trim();
     }
   }
 
-  // 关键自愈：智能补齐以“至/报/达/创/收于/位于/处于”等悬挂词结尾的残缺标题（例如“波罗的海干散货指数涨1.25%，至”）
-  const danglingTailMatch = title.match(/(?:[，,、\s]+)(?:至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至)$/);
+  // 关键自愈：智能补齐以“至/报/达/创/收于/位于/处于/突破/面临/斥资/拟动用”等悬挂词结尾的残缺标题（支持带逗号与无逗号两种情况）
+  const danglingTailMatch = title.match(/(?:[，,、\s]*)(至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至|突破|面临|斥资|拟动用|拟以|须|面临须)$/);
   if (danglingTailMatch) {
+    const tailWord = danglingTailMatch[1];
     const rawContext = `${rawContent || ''}`;
-    const followMatch = rawContext.match(/(?:至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至)\s*([0-9.,]+(?:\s*(?:点|基点|%|美元|桶|元|万|亿))?)/);
+    // 优先从上下文中提取该悬挂词后面紧跟的数值/点位/幅度或直接宾语
+    const followMatch = rawContext.match(new RegExp('(?:' + tailWord + ')\\s*([0-9.,]+(?:\\s*(?:亿|万|千|百)?(?:点|基点|%|％|美元|桶|元|人|户|倍|吨|克|股|份|条|个|次|家|关口|大关))?|[^，,。！？；\\n]{2,20})'));
     if (followMatch && followMatch[1] && followMatch[1].length >= 1) {
-      title = `${title}${followMatch[1]}`;
+      const candidate = `${title}${followMatch[1]}`.trim();
+      if (candidate.length <= 45) {
+        title = candidate;
+      } else {
+        title = title.replace(/(?:[，,、；;：:\s]*(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|收于|跌至|涨至|升至|降至|突破|面临|斥资|拟动用|拟以|面临须))+$/, '').trim();
+      }
     } else {
-      title = title.replace(/(?:[，,、；;：:\s]+(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|收于|跌至|涨至|升至|降至))+$/, '').trim();
+      title = title.replace(/(?:[，,、；;：:\s]*(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|收于|跌至|涨至|升至|降至|突破|面临|斥资|拟动用|拟以|面临须))+$/, '').trim();
     }
   }
 
@@ -2066,8 +2102,7 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
   title = title.replace(/(?:[，,、；;：:\s及与和等并]|为了|保证|以实现|以确保|正在全力)+$/, '').trim();
 
   // 严禁以介词、连词、半截动词及悬挂及物动词断裂结尾（杜绝“...举行”、“...在”、“...于”、“...向”等没头没尾断头标题）
-  title = title.replace(/(?:[，,、；;：:\s]+(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|举行|进行|召开|主办|会见|会谈|商讨|协商|签署|达成|发布|宣布|表示|称|透露|指出|通过|经由|通过香港|收于|跌至|涨至|升至|降至))+$/, '').trim();
-  title = title.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|举行|进行|召开|主办|会见|会谈|商讨|协商|签署|达成|发布|宣布|表示|称|透露|指出)+$/, '').trim();
+  title = title.replace(/(?:[，,、；;：:\s]*(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|举行|进行|召开|主办|会见|会谈|商讨|协商|签署|达成|发布|宣布|表示|称|透露|指出|通过|经由|通过香港|收于|跌至|涨至|升至|降至|突破|面临|斥资|拟动用|拟以|面临须))+$/, '').trim();
 
   // 终极安全脱水：再次剔除所有自媒体口水词与非法标点，并严禁未闭合书名号与问答引导残片
   title = title.replace(/[，,\s]*(?:有记者问|记者问|问|答)[：:\s]*(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
