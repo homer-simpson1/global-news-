@@ -127,10 +127,12 @@ export async function runNewsAccuracyVerification(
       reasons.push('题目违规包含感叹号、问号或省略号');
     }
 
-    if (/([并与等及但而或者以，,、：:\-\/]|通过|进行|以及)\s*(\.{2,3})?$/.test(item.title)) {
+    // 门禁：题目末尾严禁存在悬挂使役/及物动词或残缺连词（如“迫使”、“导致”、“使得”、“拟”、“至”等缺少宾语）
+    const DANGLING_TAIL_REGEX = /(?:迫使|致使|造成|促使|导致|使得|逼迫|驱使|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|计划|拟|考虑|面临|面临须|斥资|拟动用|拟以|突破|至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至|纳入|列入|涵盖|引发|推动|加速|推进|进入|启动|成为|陷入|正在|或将|将|须|在|于|向|从|对|并|与|等|及|但|而|或者|以及)\s*(\.{2,3})?$/;
+    if (DANGLING_TAIL_REGEX.test(item.title)) {
       titleOk = false;
       titleCompletenessOk = false;
-      reasons.push('题目末尾存在连词或标点残缺截断');
+      reasons.push('题目末尾存在悬挂使役/及物动词或虚词截断，缺少宾语');
     }
 
     if (/^(?:分别|持续)?(?:涨|跌|高开|低开|报)\s*\d/.test(item.title)) {
@@ -146,7 +148,7 @@ export async function runNewsAccuracyVerification(
     }
 
     // 2. 报道详情是否清晰核验 (Detail Clarity)
-    // 核心标准：事实通报有头有尾(≥35字)、5W1H要素闭环(Who/What具体明确)、核心结论提炼专业(去口水化)、因果利益链逻辑严密(标准1-Hop)
+    // 核心标准：事实通报有头有尾(≥35字)、5W1H要素闭环(Who/What具体明确)、核心结论提炼专业(去口水化)、因果利益链逻辑严密(标准1-Hop)、语义拒绝张冠李戴
     const p = (item.summaryParagraph || '').trim();
     if (!p || p.length < 35) {
       detailClarityOk = false;
@@ -188,6 +190,33 @@ export async function runNewsAccuracyVerification(
     if (!faithfulness.pass) {
       detailClarityOk = false;
       reasons.push(`事实一致性审查未通过: ${faithfulness.reason}`);
+    }
+
+    // 1.2 语义防串味与事实张冠李戴严格核验 (Anti-Hallucination Semantic Cross-Check)
+    const titleLower = item.title.toLowerCase();
+    const takeawayLower = (item.oneLineTakeaway || '').toLowerCase();
+    const isLaborEmploymentNews = /就业|转行|失业|劳动力|岗位替代|裁员|用工|雇佣|技能再培训|白领|劳动者|员工/.test(titleLower) || (/麦肯锡/.test(titleLower) && /迫使|转行|就业/.test(titleLower));
+    if (isLaborEmploymentNews && /算力架构|智算集群|互联拓扑|长思考思维链|芯片代工|晶圆/.test(takeawayLower)) {
+      detailClarityOk = false;
+      reasons.push('报道核心结论与标题议题存在张冠李戴（将就业转行议题误套用AI算力架构模板）');
+    }
+
+    const isFoodSafetyNews = /餐饮|外卖|食品安全|外卖封签|餐饮店|后厨/.test(titleLower);
+    if (isFoodSafetyNews && /医保|集采|药品集采|公立医院|医保局/.test(takeawayLower)) {
+      detailClarityOk = false;
+      reasons.push('报道核心结论与标题议题存在张冠李戴（将餐饮食品安全议题误套用医保集采模板）');
+    }
+
+    const isTariffTradeNews = /中美.*(?:降税|关税|清单|经贸磋商)|关税|对等降税/.test(titleLower);
+    if (isTariffTradeNews && /算力架构|智算集群|芯片代工/.test(takeawayLower)) {
+      detailClarityOk = false;
+      reasons.push('报道核心结论与标题议题存在张冠李戴（将关税经贸议题误套用算力架构模板）');
+    }
+
+    const isDefenseWarNews = /空袭|导弹|防务|以军|俄乌|拦截|战区/.test(titleLower) && !/澳洲|央行|加息|降息/.test(titleLower);
+    if (isDefenseWarNews && /澳洲联储|货币政策|降息预期|基准利率/.test(takeawayLower)) {
+      detailClarityOk = false;
+      reasons.push('报道核心结论与标题议题存在张冠李戴（将战局防务议题误套用澳洲央行利率模板）');
     }
 
     // 3. 一级权威信源与真实可访问 URL 核验
@@ -272,6 +301,82 @@ export async function runNewsAccuracyVerification(
     });
   }
 
+  // 1.3 今日决策速递 (Flash Briefs) 题目完整度与详情清晰度同步严格核验
+  for (const flash of flashList) {
+    const reasons: string[] = [];
+    let titleOk = true;
+    let titleCompletenessOk = true;
+    let detailClarityOk = true;
+    const titleText = (flash.content || '').trim();
+
+    if (!titleText || titleText.length < 8) {
+      titleOk = false;
+      titleCompletenessOk = false;
+      reasons.push('速递题目过短或为空');
+    } else if (titleText.length > 50) {
+      titleCompletenessOk = false;
+      reasons.push('速递题目过长');
+    }
+
+    const DANGLING_TAIL_REGEX = /(?:迫使|致使|造成|促使|导致|使得|逼迫|驱使|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|计划|拟|考虑|面临|面临须|斥资|拟动用|拟以|突破|至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至|纳入|列入|涵盖|引发|推动|加速|推进|进入|启动|成为|陷入|正在|或将|将|须|在|于|向|从|对|并|与|等|及|但|而|或者|以及)\s*(\.{2,3})?$/;
+    if (DANGLING_TAIL_REGEX.test(titleText)) {
+      titleOk = false;
+      titleCompletenessOk = false;
+      reasons.push('速递题目末尾存在悬挂使役/及物动词或虚词截断，缺少宾语');
+    }
+
+    const takeaway = (flash.oneLineTakeaway || '').trim();
+    if (takeaway && !/^【.+?】[：:]/.test(takeaway)) {
+      detailClarityOk = false;
+      reasons.push('速递核心结论缺少规范专业领域标签');
+    }
+
+    const flashTitleLower = titleText.toLowerCase();
+    const flashTakeawayLower = takeaway.toLowerCase();
+    if (
+      (/就业|转行|失业|劳动力|岗位替代|裁员|用工|雇佣|技能再培训|白领|劳动者|员工/.test(flashTitleLower) ||
+        (/麦肯锡/.test(flashTitleLower) && /迫使|转行|就业/.test(flashTitleLower))) &&
+      /算力架构|智算集群|互联拓扑|长思考思维链|芯片代工|晶圆/.test(flashTakeawayLower)
+    ) {
+      detailClarityOk = false;
+      reasons.push('速递核心结论与标题议题存在张冠李戴（将就业转行议题误套用AI算力架构模板）');
+    }
+
+    if (titleCompletenessOk) titleCompletenessPassed++;
+    if (detailClarityOk) detailClarityPassed++;
+
+    let status: 'PASS' | 'WARNING' | 'FAIL' = 'PASS';
+    if (!titleOk || !titleCompletenessOk || !detailClarityOk) {
+      status = reasons.length > 1 ? 'FAIL' : 'WARNING';
+    } else if (reasons.length > 0) {
+      status = 'WARNING';
+    }
+
+    if (status === 'PASS') passedCount++;
+    else if (status === 'WARNING') warningCount++;
+    else failedCount++;
+
+    details.push({
+      id: flash.id,
+      title: `[速递] ${titleText}`,
+      source: flash.source,
+      sourceUrl: flash.sourceUrl || '',
+      track: flash.track,
+      titleOk,
+      titleCompletenessOk,
+      detailClarityOk,
+      sourceOk: true,
+      summary5W1HOk: true,
+      hasDomainQualifier: true,
+      status,
+      reasons,
+      oneLineTakeaway: flash.oneLineTakeaway,
+      summaryParagraph: flash.summaryParagraph,
+      summary5W1H: flash.summary5W1H,
+      transmissionImpact: flash.transmission,
+    });
+  }
+
   // 6. 核心行情数据合理性与实时性交叉核验（严格防范纳指100与纳指综合混淆）
   const quoteChecks = quotes.map(q => {
     let valid = true;
@@ -298,7 +403,7 @@ export async function runNewsAccuracyVerification(
     };
   });
 
-  const total = newsList.length;
+  const total = newsList.length + flashList.length;
   const accuracyScore = total > 0 ? Math.round(((passedCount + warningCount * 0.8) / total) * 100) : 100;
   const passRate = total > 0 ? ((passedCount / total) * 100).toFixed(1) + '%' : '100.0%';
   const titleCompletenessRate = total > 0 ? ((titleCompletenessPassed / total) * 100).toFixed(1) + '%' : '100.0%';
@@ -308,7 +413,7 @@ export async function runNewsAccuracyVerification(
   const report: VerificationAuditReport = {
     verifiedAt: new Date().toISOString(),
     verifiedAtLocal: new Date().toLocaleString('zh-CN', { hour12: false }),
-    totalNewsChecked: total,
+    totalNewsChecked: newsList.length,
     totalFlashChecked: flashList.length,
     passedCount,
     warningCount,

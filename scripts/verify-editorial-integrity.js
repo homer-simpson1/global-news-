@@ -1040,6 +1040,12 @@ check('Gate 23: 严禁“，至”等悬挂介词腰斩断尾与波罗的海干�
     throw new Error(`企业收购动词上下文补全自愈失败："${amdHealed}"`);
   }
 
+  // 23.5b 测试带有残缺尾字的动词上下文补全自愈（“AI行业面临须”）
+  const aiMustHealed = autoCorrectTitle('AI行业面临须', { content: 'AI行业面临诸多监管挑战与算力短缺压力。' });
+  if (aiMustHealed.endsWith('须') || !aiMustHealed.includes('诸多监管挑战')) {
+    throw new Error(`带挂字从句自愈补全失败："${aiMustHealed}"`);
+  }
+
   // 23.6 测试镜像复读与结巴重复清洗（“长鑫科技拟动用， 长鑫科技拟动用”）
   const stutterHealed = autoCorrectTitle('长鑫科技拟动用， 长鑫科技拟动用', { content: '长鑫科技拟动用500亿元扩建DRAM先进制程产线。' });
   if (stutterHealed.includes('长鑫科技拟动用， 长鑫科技拟动用') || stutterHealed.endsWith('拟动用') || !stutterHealed.includes('500亿元')) {
@@ -1060,6 +1066,24 @@ check('Gate 23: 严禁“，至”等悬挂介词腰斩断尾与波罗的海干�
   const opecTakeaway = autoCorrectTakeaway('【供给侧自律平衡财政预算】：OPEC+计划顺延每日220万桶自愿减产协议；核心产油国通过供给调节锚定国际油价中枢，保障主权财政盈亏平衡。', 'OPEC+主要成员国探讨顺延自愿减产');
   if (opecTakeaway.takeaway.includes('保障主权财政盈亏平衡')) {
     throw new Error(`核心结论依然包含主观投研模板“保障主权财政盈亏平衡”："${opecTakeaway.takeaway}"`);
+  }
+
+  // 23.9 核心结论 5W1H 纯客观叙事断言：优先整合起因背景、核心事实与实质结果，严禁主观二极管套话
+  const fact5W1HTakeaway = autoCorrectTakeaway(
+    '【供给侧自律平衡财政预算】：涉事主体推进核心战略部署，根据市场信号与制度合规框架重构。',
+    '特斯拉上海超级工厂扩产第三代储能系统',
+    {
+      who: '特斯拉',
+      what: '特斯拉上海储能超级工厂正式开工并加速产能爬坡',
+      when: '2026年',
+      where: '上海临港',
+      why: '全球可再生能源并网储能需求激增',
+      consequence: '推动商用储能电池规模化量产交付与海外出口'
+    },
+    'apac_tech'
+  );
+  if (fact5W1HTakeaway.takeaway.includes('涉事主体') || fact5W1HTakeaway.takeaway.includes('制度合规框架重构') || !fact5W1HTakeaway.takeaway.includes('储能需求激增')) {
+    throw new Error(`5W1H核心事实叙事未正确覆盖主观套话："${fact5W1HTakeaway.takeaway}"`);
   }
 });
 

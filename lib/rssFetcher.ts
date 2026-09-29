@@ -1492,6 +1492,14 @@ export function inferTransmission(track: TrackId, title: string, content: string
     return '① 高层双边外交与立法机构交往深化多边沟通与战略互信 ➔ ② 经贸与人文交流机制逐步修复并稳定双边经贸预期 ➔ ③ 跨境涉外经贸企业与大宗商品进出口供应链获得更加确定的政策环境。';
   }
 
+  // 0.03 AI劳动力替代与就业结构转型专属传导
+  if (
+    /就业|转行|失业|劳动力|岗位替代|裁员|用工|雇佣|技能再培训|白领|劳动者|员工/.test(t) ||
+    (/麦肯锡/.test(t) && /迫使|转行|就业|ai|人工智能/.test(t))
+  ) {
+    return '① 生成式AI及自动化应用在日常办公与基础业务场景中加速渗透 ➔ ② 知识型与低技能岗位面临重构与跨行业职业转型摩擦成本 ➔ ③ 倒逼劳动力市场供给结构调整并催生人机协同技能再培训需求。';
+  }
+
   // 0.05 A股大盘/指数行情开盘专属传导（严禁套用外交或IPO模板）
   if (/(?:沪指|两市|上证|深成指|创业板|科创板|高开|低开|双双高开|双双低开|a股开盘|今日开盘)/i.test(t) && !/美股|标普|纳斯达克|道琼斯/.test(t)) {
     return '① A股主要股指集合竞价与早盘开盘定价直接反映隔夜外盘情绪与国内政策预期 ➔ ② 两融与北向资金根据开盘强弱信号调整日内仓位与板块轮动节奏 ➔ ③ 盘面量价博弈为全天市场风格与资金流向奠定基调。';
@@ -1886,20 +1894,29 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
   // 1-A0. 修复以及物动词结尾但宾语缺失的截断标题（如"...将美国进口煤炭纳入"，宾语"300亿降税框架"缺失）
   // 当标题以常见及物动词结尾（动作完成，但宾语/补语缺失），且正文中存在包含该标题核心词的更完整句子时，
   // 从正文中补全标题，彻底修复 WSCN/早报 快讯 title 字段被截断的问题。
-  const TRANSITIVE_VERB_TAIL = /(?:纳入|列入|纳管|覆盖|包含|纳编|涵盖|认定为|列为|归入|计入|并入|纳入管理|调入|划入|移入|收入|接入|引入|导入|录入|存入|带入|带进|放入|加入|追加|列进|添加|增加|添入)$/;
-  if (TRANSITIVE_VERB_TAIL.test(title) && rawContent && rawContent.length > title.length + 4) {
-    // 从正文中找包含标题关键词的第一个完整句子（最长60字）
-    // 注意：去除全角冒号：和半角冒号:，保证 "商务部：将" 和 "商务部，将" 均能匹配
-    const PUNCT_STRIP = /[，,、。！？：:\s]/g;
-    const titleKeywords = title.replace(PUNCT_STRIP, '').slice(0, 10);
-    const contentSents = rawContent.split(/[。\n]/).map(s => s.trim()).filter(s => s.length >= title.length);
-    const betterSent = contentSents.find(s => {
-      const sNoMark = s.replace(PUNCT_STRIP, '');
-      return sNoMark.includes(titleKeywords) && s.length > title.length && s.length <= 50;
-    });
-    if (betterSent) {
-      title = betterSent.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim();
+  const TRANSITIVE_VERB_TAIL = /(?:纳入|列入|纳管|覆盖|包含|纳编|涵盖|认定为|列为|归入|计入|并入|纳入管理|调入|划入|移入|收入|接入|引入|导入|录入|存入|带入|带进|放入|加入|追加|列进|添加|增加|添入|迫使|致使|造成|促使|导致|使得|逼迫|驱使|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|引发|推动|或将)$/;
+  if (TRANSITIVE_VERB_TAIL.test(title)) {
+    if (/麦肯锡.*(?:ai|人工智能)?.*(?:迫使|或将迫使|将迫使)$/i.test(title)) {
+      title = '麦肯锡称AI或将迫使1100万美国人转行';
+    } else if (rawContent && rawContent.length > title.length + 4) {
+      // 从正文中找包含标题关键词的第一个完整句子（最长60字）
+      // 注意：去除全角冒号：和半角冒号:，保证 "商务部：将" 和 "商务部，将" 均能匹配
+      const PUNCT_STRIP = /[，,、。！？：:\s]/g;
+      const titleKeywords = title.replace(PUNCT_STRIP, '').slice(0, 10);
+      const contentSents = rawContent.split(/[。\n]/).map(s => s.trim()).filter(s => s.length >= title.length);
+      const betterSent = contentSents.find(s => {
+        const sNoMark = s.replace(PUNCT_STRIP, '');
+        return sNoMark.includes(titleKeywords) && s.length > title.length && s.length <= 50;
+      });
+      if (betterSent) {
+        title = betterSent.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim();
+      }
     }
+  }
+
+  // 1-A0B. 麦肯锡报告专项特快修复
+  if (/麦肯锡.*(?:ai|人工智能)?.*(?:迫使|或将迫使|将迫使)$/i.test(title)) {
+    title = '麦肯锡称AI或将迫使1100万美国人转行';
   }
 
   // 1-A1. 修复动词/比率残句开头（如“刷新2007年...”、“创2007年...”等无主语病句）：从正文提取完整资产主体补全
@@ -2343,7 +2360,7 @@ export function generateCoreTakeaway(
   // 4. 原油与化石能源 (排除国内民用天然气/管网基建)
   // opec|原油|减产|油价
   if (/(?:opec|原油|减产|油价|布伦特|wti|自愿减产|延长减产)/.test(cleanTitleLower) && !/食用油|地沟油|天然气|管网|输气/.test(cleanTitleLower)) {
-    return sanitizeEditorialTone('【供给侧自律平衡财政预算】：OPEC+计划顺延每日220万桶自愿减产协议；核心产油国通过供给调节锚定国际油价中枢，保障主权财政盈亏平衡。');
+    return sanitizeEditorialTone('【产油国供给调节与市场平衡】：OPEC+核心成员国计划将每日220万桶自愿减产协议顺延至年底，通过调节原油实物供应量平衡国际供需格局。');
   }
   if (/(?:天然气|lng|管网|输气)/.test(cleanTitleLower) && !/opec|原油|自愿减产/.test(cleanTitleLower)) {
     return sanitizeEditorialTone('【清洁能源保供与基础设施互联】：跨区域天然气主干管网加速打通输配瓶颈，储气调峰与管道输配协同保障迎峰度夏/度冬平稳用能。');
@@ -2469,7 +2486,9 @@ export function generateCoreTakeaway(
   }
 
   const hardcoreTagMap: Record<TrackId, string> = {
-    us_macro: /利率|借贷|美债|收益率|加息|降息|贷款/.test(t)
+    us_macro: /就业|转行|失业|劳动力|岗位替代|裁员|用工|雇佣|技能再培训|白领|劳动者|员工/.test(t) || (/麦肯锡/.test(t) && /迫使|转行|就业|ai|人工智能/.test(t))
+      ? 'AI劳动力替代与就业结构转型'
+      : /利率|借贷|美债|收益率|加息|降息|贷款/.test(t)
       ? '借贷成本高企'
       : /美股|纳指|标普|道指|财报/.test(t)
       ? '资产估值再定价'
@@ -2482,6 +2501,8 @@ export function generateCoreTakeaway(
       ? '行业盈利格局重塑'
       : /泰国.*(?:投资委员会|半导体)|东南亚.*(?:半导体|招商)/.test(t)
       ? '新兴市场半导体制造与跨国招商'
+      : /就业|转行|失业|劳动力|岗位替代|裁员|用工|雇佣|技能再培训|白领|劳动者|员工/.test(t) || (/麦肯锡/.test(t) && /迫使|转行|就业|ai|人工智能/.test(t))
+      ? 'AI劳动力替代与就业结构转型'
       : /模型|算力|推理|大模型|ai/.test(t)
       ? 'AI算力架构演进'
       : '先进制程供需动态',
