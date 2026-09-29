@@ -61,8 +61,12 @@ export function enforceCountryEntityGuardrails(
   let isInterceptionTriggered = false;
   let interceptionReason = '';
 
-  // 严正红线：若标题/首句属于 A股/国内宏观/国内政策，绝对不允许被篡改为日经亚洲等海外信源
-  const isChineseMacroOrEquities = /(?:A股|沪指|上证|深成指|创业板|科创板|三大指数|两市|国内|港股|恒生)/i.test(leadText);
+  // 严正红线：若属于中国宏观/A股/国内政策赛道或标题/首句涉及国内宏观市场与机构，绝对不允许被篡改为日经亚洲等海外信源
+  const isChineseMacroOrEquities =
+    currentTrack === 'china_macro' ||
+    currentTrack === 'china_domestic' ||
+    currentTrack === 'china_policy' ||
+    /(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘|国债|央行|人行|中国|我国|国内|港股|恒生|宏观|通胀|CPI|PPI|PMI|社融|信贷|LPR|逆回购|MLF|降准|降息|财政部|发改委|统计局|国家统计局|工信部|商务部|证监会|中纪委|国务院|地方债|专项债|超长期国债)/i.test(leadText);
 
   // 赛道分类已由 classifyTrack() 唯一权威执行，此处只做信源标签纠偏：
   // 外国实体报道不能挂中国官方信源标签（且严禁通读正文漫游错杀国内宏观/A股！）

@@ -1809,6 +1809,20 @@ export function autoCorrectSummaryParagraph(
       .replace(/，{2,}/g, '，')
       .replace(/。{2,}/g, '。')
       .trim();
+
+    // 核心守卫：清除 A股/国内宏观与科技主体错配或李代桃僵的涉事主体说明
+    const isMacroOrAStock = /(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘|国债|央行|人行|中国|我国|国内|港股|恒生|宏观|通胀|CPI|PPI|PMI|社融|信贷|LPR|逆回购|MLF|降准|降息|财政部|发改委|统计局|国家统计局|工信部|商务部|证监会|中纪委|国务院|地方债|专项债|超长期国债|大宗|商品|期货|外汇|汇率|人民币)/i.test(cleanTitle);
+    const profileMatch = cleaned.match(/\s*涉事主体([^（(]+)[（(]([^）)]+)[）)](?:：|:)[^。]+。?/);
+    if (profileMatch) {
+      const compName = profileMatch[1].trim();
+      const compSector = profileMatch[2].trim();
+      const isTech = /AI|算力|GPU|CPU|芯片|半导体|大模型|前沿模型|人工智能|晶圆|代工|光刻|存储|闪存|SoC|ASIC|光模块|EDA/i.test(compSector);
+      const inTitle = cleanTitle.includes(compName);
+      if ((isMacroOrAStock && isTech) || !inTitle) {
+        cleaned = cleaned.replace(profileMatch[0], '').trim();
+      }
+    }
+
     if (cleaned.length >= 18) {
       if (isMacroInflationNews(cleanTitle.toLowerCase())) {
         if (!cleaned.includes('环比') || !cleaned.includes('分项') || (!cleaned.includes('能源') && !cleaned.includes('食品'))) {
@@ -1817,7 +1831,15 @@ export function autoCorrectSummaryParagraph(
         }
       }
       const profile = getCompanyProfileForNews(cleanTitle, cleaned);
-      if (profile && !cleaned.includes(profile.sector) && !cleaned.includes(profile.description.slice(0, 10))) {
+      const inTitle = profile ? (profile.aliases.some((a) => cleanTitle.includes(a)) || cleanTitle.includes(profile.name)) : false;
+      const isTechProfile = Boolean(profile && /AI|算力|GPU|CPU|芯片|半导体|大模型|前沿模型|人工智能|晶圆|代工|光刻|存储|闪存|SoC|ASIC|光模块|EDA/i.test(profile.sector));
+      if (
+        profile &&
+        inTitle &&
+        !(isMacroOrAStock && isTechProfile) &&
+        !cleaned.includes(profile.sector) &&
+        !cleaned.includes(profile.description.slice(0, 10))
+      ) {
         cleaned += ` 涉事主体${profile.name}（${profile.sector}）：${profile.description}`;
         return { paragraph: sanitizeEditorialTone(sanitizeFedRatePolicyWording(cleaned)), wasCorrected: true };
       }
@@ -1842,6 +1864,9 @@ export function autoCorrectSummaryParagraph(
 
   // 涉事主体知识库检索与无缝融入（解答“为什么不简单介绍这家公司”）
   const profile = getCompanyProfileForNews(cleanTitle, what);
+  const isMacroOrAStockRebuild = /(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘|国债|央行|人行|中国|我国|国内|港股|恒生|宏观|通胀|CPI|PPI|PMI|社融|信贷|LPR|逆回购|MLF|降准|降息|财政部|发改委|统计局|国家统计局|工信部|商务部|证监会|中纪委|国务院|地方债|专项债|超长期国债|大宗|商品|期货|外汇|汇率|人民币)/i.test(cleanTitle);
+  const inTitleRebuild = profile ? (profile.aliases.some((a) => cleanTitle.includes(a)) || cleanTitle.includes(profile.name)) : false;
+  const isTechProfileRebuild = Boolean(profile && /AI|算力|GPU|CPU|芯片|半导体|大模型|前沿模型|人工智能|晶圆|代工|光刻|存储|闪存|SoC|ASIC|光模块|EDA/i.test(profile.sector));
 
   // 检查 what 是否与 cleanTitle 完全一致或高度重合
   const isWhatEcho = what === cleanTitle || cleanTitle.includes(what) || what.includes(cleanTitle);
@@ -1862,9 +1887,9 @@ export function autoCorrectSummaryParagraph(
   }
 
   // 拼接企业或主体业务速览（让读者知道是谁）
-  if (profile && !res.includes(profile.name)) {
+  if (profile && inTitleRebuild && !(isMacroOrAStockRebuild && isTechProfileRebuild) && !res.includes(profile.name)) {
     res += ` 涉事主体${profile.name}（${profile.sector}）：${profile.description}`;
-  } else if (profile && !res.includes(profile.description.slice(0, 10))) {
+  } else if (profile && inTitleRebuild && !(isMacroOrAStockRebuild && isTechProfileRebuild) && !res.includes(profile.description.slice(0, 10))) {
     res += ` 核心业务概况方面，${profile.description}`;
   }
 
@@ -2013,8 +2038,8 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   // 涉事主体档案检索与挂载
   let detectedProfile: CompanyProfile | undefined = item.companyProfile || (getCompanyProfileForNews(cleanTitle, item.summaryParagraph || item.bulletPoints?.join(' ')) || undefined);
   if (detectedProfile) {
-    const isMacroOrAStock = /(?:A股|沪指|上证|深成指|创业板|科创板|三大指数|两市|大盘|国债|央行|宏观|通胀|财政部|发改委|LPR)/i.test(cleanTitle);
-    const isTech = /AI|算力|GPU|芯片|半导体|大模型/i.test(detectedProfile.sector);
+    const isMacroOrAStock = /(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘|国债|央行|人行|中国|我国|国内|港股|恒生|宏观|通胀|CPI|PPI|PMI|社融|信贷|LPR|逆回购|MLF|降准|降息|财政部|发改委|统计局|国家统计局|工信部|商务部|证监会|中纪委|国务院|地方债|专项债|超长期国债|大宗|商品|期货|外汇|汇率|人民币)/i.test(cleanTitle);
+    const isTech = /AI|算力|GPU|CPU|芯片|半导体|大模型|前沿模型|人工智能|晶圆|代工|光刻|存储|闪存|SoC|ASIC|光模块|EDA/i.test(detectedProfile.sector);
     const inTitle = detectedProfile.aliases.some((a) => cleanTitle.includes(a)) || cleanTitle.includes(detectedProfile.name);
     if ((isMacroOrAStock && isTech) || !inTitle) {
       detectedProfile = undefined;
@@ -2148,8 +2173,8 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
   }
   if (detectedProfile) {
     const leadSent = cleanContent.split(/[。\n]/)[0].slice(0, 80);
-    const isMacroOrAStock = /(?:A股|沪指|上证|深成指|创业板|科创板|三大指数|两市|大盘|国债|央行|宏观|通胀|财政部|发改委|LPR)/i.test(leadSent);
-    const isTech = /AI|算力|GPU|芯片|半导体|大模型/i.test(detectedProfile.sector);
+    const isMacroOrAStock = /(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘|国债|央行|人行|中国|我国|国内|港股|恒生|宏观|通胀|CPI|PPI|PMI|社融|信贷|LPR|逆回购|MLF|降准|降息|财政部|发改委|统计局|国家统计局|工信部|商务部|证监会|中纪委|国务院|地方债|专项债|超长期国债|大宗|商品|期货|外汇|汇率|人民币)/i.test(leadSent);
+    const isTech = /AI|算力|GPU|CPU|芯片|半导体|大模型|前沿模型|人工智能|晶圆|代工|光刻|存储|闪存|SoC|ASIC|光模块|EDA/i.test(detectedProfile.sector);
     const inLead = detectedProfile.aliases.some((a) => leadSent.includes(a)) || leadSent.includes(detectedProfile.name);
     if ((isMacroOrAStock && isTech) || !inLead) {
       detectedProfile = undefined;

@@ -410,7 +410,7 @@ export function cleanWireHeadline(raw: string): string {
   h = h.replace(/^【[^】]+】\s*/, '').trim();
   // 剥离媒体栏目分类前缀（如“T早报｜”、“财新周刊｜”、“特稿 |”）
   h = h.replace(
-    /^(?:T早报|能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/,
+    /^(?:T早报|早报|晨报|晚报|早间要闻汇总|要闻汇总|盘前必读|午间要闻汇总|环球财经|能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/,
     ''
   ).trim();
   h = h.replace(/^[｜|·\-\/:：\s]+/, '').trim();
@@ -1246,8 +1246,8 @@ export function classifyTrack(item: RawLiveItem): TrackId {
     return 'china_macro';
   }
 
-  // 严正红线：属于 A股/国内宏观的新闻，严禁在正文后续漫游被篡改为外国实体或海外赛道！
-  const isChineseMacroOrIndex = /(?:A股|沪指|上证|深成指|创业板|科创板|三大指数|两市|国内|港股|恒生)/i.test(leadText);
+  // 严正红线：属于 A股/国内宏观/国内政策的新闻，严禁在正文后续漫游被篡改为外国实体或海外赛道！
+  const isChineseMacroOrIndex = /(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘|国债|央行|人行|中国|我国|国内|港股|恒生|宏观|通胀|CPI|PPI|PMI|社融|信贷|LPR|逆回购|MLF|降准|降息|财政部|发改委|统计局|国家统计局|工信部|商务部|证监会|中纪委|国务院|地方债|专项债|超长期国债)/i.test(leadText);
 
   // 【美联储日程与官员密集表态拦截门禁】：
   if (!isChineseMacroOrIndex && /(?:美联储|联储主席|芝加哥联储|纽约联储|圣路易斯联储|里士满联储|亚特兰大联储|达拉斯联储|克利夫兰联储|旧金山联储|波士顿联储|费城联储|堪萨斯联储|沃什|鲍威尔|fomc)/i.test(leadText)) {
@@ -1311,14 +1311,16 @@ export function classifyTrack(item: RawLiveItem): TrackId {
   }
 
   // 1. 算力硬件与前沿模型 (融合芯片硬件与OpenAI、Google、大模型突破及自主半导体产业链，严格优先于普通美国主权词)
-  const techSearchScope = isChineseMacroOrIndex ? leadText : t;
-  if (
-    /openai|gpt|claude|anthropic|deepmind|大模型|llm|agent|多模态|生成式ai|端侧模型|算力|芯片|半导体|先进制程|台积电|联电|日月光|三星|海力士|sk海力士|铠侠|阿斯麦|asml|光刻|东京电子|爱德万|ai芯片|英伟达|高通|博通|超威|arm|数据中心|hbm|cowos|先进封装|长鑫|长存|长江存储|中芯|华虹|北方华创|中微|拓荆|盛美|燧原|沐曦|摩尔线程|壁仞|寒武纪|地平线|昆仑芯|存储芯片|晶圆代工|dram|nand/.test(
-      techSearchScope
-    )
-  ) {
-    if (!/涉华|对华|中美经贸|中美博弈/.test(item.title)) {
-      return 'apac_tech';
+  // 核心守卫：必须严格限定在 leadText（标题及首句80字内），国内宏观/A股绝对禁止被后文提及的芯片/算力篡夺！
+  if (!isChineseMacroOrIndex) {
+    if (
+      /openai|gpt|claude|anthropic|deepmind|大模型|llm|agent|多模态|生成式ai|端侧模型|算力|芯片|半导体|先进制程|台积电|联电|日月光|三星|海力士|sk海力士|铠侠|阿斯麦|asml|光刻|东京电子|爱德万|ai芯片|英伟达|高通|博通|超威|arm|数据中心|hbm|cowos|先进封装|长鑫|长存|长江存储|中芯|华虹|北方华创|中微|拓荆|盛美|燧原|沐曦|摩尔线程|壁仞|寒武纪|地平线|昆仑芯|存储芯片|晶圆代工|dram|nand/.test(
+        leadText
+      )
+    ) {
+      if (!/涉华|对华|中美经贸|中美博弈/.test(item.title)) {
+        return 'apac_tech';
+      }
     }
   }
 
@@ -1353,12 +1355,8 @@ export function classifyTrack(item: RawLiveItem): TrackId {
     return 'china_policy';
   }
 
-  // 3. 算力硬件与前沿模型 (融合芯片硬件与OpenAI、Google、大模型突破及自主半导体产业链)
-  if (
-    /openai|gpt|claude|anthropic|deepmind|大模型|llm|agent|多模态|生成式ai|端侧模型|算力|芯片|半导体|先进制程|台积电|联电|日月光|三星|海力士|sk海力士|铠侠|阿斯麦|asml|光刻|东京电子|爱德万|日经|东证|ai芯片|英伟达|高通|博通|超威|arm|数据中心|hbm|cowos|先进封装|matx|coatue|长鑫|长存|长江存储|中芯|华虹|北方华创|中微|拓荆|盛美|燧原|沐曦|摩尔线程|壁仞|寒武纪|地平线|昆仑芯|存储芯片|晶圆代工|dram|nand/.test(
-      t
-    )
-  ) {
+  // 3. 算力硬件与前沿模型（兜底防漏）：仅当非国内宏观新闻且标题明确出现硬核芯片企业/术语时放行，严禁通读全文漫游
+  if (!isChineseMacroOrIndex && /openai|gpt|claude|anthropic|deepmind|大模型|算力|芯片|半导体|先进制程|台积电|阿斯麦|asml|光刻|ai芯片|英伟达|高通|博通|超威|arm|hbm|先进封装/.test(item.title.toLowerCase())) {
     return 'apac_tech';
   }
 
@@ -1885,7 +1883,7 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
 
   // 1. 彻底去除媒体栏目分类前缀、机械时间前缀、尾盘流水账前缀与多余括号
   title = title
-    .replace(/^(?:T早报|能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/, '')
+    .replace(/^(?:T早报|早报|晨报|晚报|早间要闻汇总|要闻汇总|盘前必读|午间要闻汇总|环球财经|能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/, '')
     .replace(/^[｜|·\-\/:：\s]+/, '')
     .replace(/^(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间[0-9月日\s]+[，,]?)?/, '')
     .replace(/^(?:当地时间)?(?:周[一二三四五六日]|本周[一二三四五六日])?[（(]?\d{1,2}月\d{1,2}日[)）]?\s*(?:纽约尾盘|欧市尾盘|早盘|收盘|电讯)?\s*[，,：:]?\s*/, '')
@@ -2653,17 +2651,22 @@ function generateSentiment(title: string, content: string, track: TrackId): 'BUL
 
 // 后续观察哨（关键时间窗口 / 待验证指标）
 function generateNextWatchlist(title: string, content: string, track: TrackId): string {
+  const firstSent = (content || '').split(/[。\n]/)[0].trim().slice(0, 80);
+  const leadText = (title + ' ' + firstSent).toLowerCase();
+  const isChineseTrack = track === 'china_macro' || track === 'china_domestic' || track === 'china_policy';
+  const isChineseMacro = /(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘|国债|央行|人行|中国|我国|国内|港股|恒生|宏观|通胀|CPI|PPI|PMI|社融|信贷|LPR|逆回购|MLF|降准|降息|财政部|发改委|统计局|国家统计局|工信部|商务部|证监会|中纪委|国务院|地方债|专项债|超长期国债)/i.test(leadText);
   const t = (title + ' ' + content).toLowerCase();
-  if (FOREIGN_ENTITIES.JAPAN.test(t)) {
+
+  if (!isChineseTrack && !isChineseMacro && FOREIGN_ENTITIES.JAPAN.test(leadText)) {
     return '【后续观察哨】：锁定在 日本央行货币政策委员会委员最新表态与日本财务省外汇干预临界点。';
   }
-  if (FOREIGN_ENTITIES.AUSTRALIA.test(t)) {
+  if (!isChineseTrack && !isChineseMacro && FOREIGN_ENTITIES.AUSTRALIA.test(leadText)) {
     return '【后续观察哨】：锁定在 澳洲联储（RBA）下一次货币政策利率决议与澳大利亚三季度核心 CPI 物价变动趋势。';
   }
-  if (FOREIGN_ENTITIES.EUROPE_ECB.test(t)) {
+  if (!isChineseTrack && !isChineseMacro && FOREIGN_ENTITIES.EUROPE_ECB.test(leadText)) {
     return '【后续观察哨】：锁定在 欧洲央行管理委员会（ECB）最新利率决议与欧元区主要成员国调和 CPI 通胀终值。';
   }
-  if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
+  if (!isChineseTrack && !isChineseMacro && FOREIGN_ENTITIES.UK_BOE.test(leadText)) {
     return '【后续观察哨】：锁定在 英国央行货币政策委员会（MPC）议息纪要与英国核心通胀及薪资增长数据。';
   }
   if (/港股|a股|港股策略|a股策略|仓位|华泰证券|中信证券|中金公司.*研报|券商研报|券商策略/.test(title + ' ' + content)) {
@@ -2672,13 +2675,13 @@ function generateNextWatchlist(title: string, content: string, track: TrackId): 
   if ((isMacroInflationNews(t) || /cpi|通胀/.test(t)) && !/港股|a股|研报|策略|仓位|券商|华泰/.test(title)) {
     return getMacroInflationNextWatchlist(title, content);
   }
-  if (/美联储|降息|加息|非农|美债|收益率/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(t)) {
+  if (/美联储|降息|加息|非农|美债|收益率/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(leadText)) {
     return '【后续观察哨】：锁定在 下一次 FOMC 议息决议声明、最新季度利率点阵图及美联储主席新闻发布会。';
   }
   if (/泰国.*(?:投资委员会|半导体)|东南亚.*(?:半导体|招商)/.test(t)) {
     return '【后续观察哨】：锁定在 泰国东部经济走廊半导体产业招商政策落地、跨国芯片封测投资意向签署及税收优惠细则公布。';
   }
-  if (/台积电|先进制程|2nm|晶圆|芯片|半导体|英伟达|算力|asml/.test(t)) {
+  if (!isChineseTrack && !isChineseMacro && /台积电|先进制程|2nm|晶圆|芯片|半导体|英伟达|算力|asml/.test(leadText)) {
     return '【后续观察哨】：锁定在 下周英伟达全球开发者峰会及台积电投资人法说会资本开支指引。';
   }
   if (/openai|gpt|claude|anthropic|大模型|llm|agent/.test(t)) {
@@ -2940,25 +2943,15 @@ export function build5W1HSummary(
     .map((s) => s.trim())
     .filter((s) => s.length > 8);
 
-  if (!who && sents.length > 0) {
-    const leadEntityMatch = sents[0].match(KNOWN_ENTITIES_REGEX);
+  const isAStockOrMacroWho = /(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘|国债|央行|人行|中国|我国|国内|港股|恒生|宏观|通胀|CPI|PPI|PMI|社融|信贷|LPR|逆回购|MLF|降准|降息|财政部|发改委|统计局|国家统计局|工信部|商务部|证监会|中纪委|国务院|地方债|专项债|超长期国债|大宗|商品|期货|外汇|汇率|人民币)/i.test(
+    `${cleanTitle} ${sents[0] || ''}`
+  );
+
+  // 1.5 从正文首句识别知名实体（严格限定在首句前80字内，严禁通读正文漫游次句或后文无关大厂！）
+  if (!who && !isAStockOrMacroWho && sents.length > 0) {
+    const leadEntityMatch = sents[0].slice(0, 80).match(KNOWN_ENTITIES_REGEX);
     if (leadEntityMatch) {
       let cand = leadEntityMatch[1];
-      if (cand === '长鑫') cand = '长鑫存储';
-      else if (cand === '三星') cand = '三星电子';
-      else if (cand === '胡塞武装') cand = '也门胡塞武装';
-      who = cand;
-    }
-  }
-
-  // 1.6 兜底知名实体匹配：严禁通读全文漫游！
-  // 若 cleanTitle 或首句属于 A股指数/宏观经济/政策，绝对严禁全文漫游匹配知名实体（如英伟达、苹果等）
-  const isAStockOrMacroWho = /(?:A股|沪指|上证|深成指|创业板|科创板|三大指数|两市|大盘|国债|央行|宏观|通胀|财政部|发改委|LPR)/i.test(cleanTitle);
-  if (!who && !isAStockOrMacroWho && sents.length > 1) {
-    // 仅在紧随其后的次句前50字内探测，严禁通读全文漫游
-    const nextSentMatch = sents[1].slice(0, 50).match(KNOWN_ENTITIES_REGEX);
-    if (nextSentMatch) {
-      let cand = nextSentMatch[1];
       if (cand === '长鑫') cand = '长鑫存储';
       else if (cand === '三星') cand = '三星电子';
       else if (cand === '胡塞武装') cand = '也门胡塞武装';
@@ -3161,10 +3154,10 @@ export function build5W1HParagraph(
     )
   );
 
-  const isMacroOrDomestic = /(?:A股|沪指|上证|深成指|创业板|科创板|三大指数|两市|大盘|国债|央行|宏观|通胀|财政部|发改委|LPR)/i.test(
+  const isMacroOrDomestic = /(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘|国债|央行|人行|中国|我国|国内|港股|恒生|宏观|通胀|CPI|PPI|PMI|社融|信贷|LPR|逆回购|MLF|降准|降息|财政部|发改委|统计局|国家统计局|工信部|商务部|证监会|中纪委|国务院|地方债|专项债|超长期国债|大宗|商品|期货|外汇|汇率|人民币)/i.test(
     `${title} ${firstFactSent}`
   );
-  const isTechProfile = Boolean(profile && /AI|算力|GPU|芯片|半导体|大模型/i.test(profile.sector));
+  const isTechProfile = Boolean(profile && /AI|算力|GPU|CPU|芯片|半导体|大模型|前沿模型|人工智能|晶圆|代工|光刻|存储|闪存|SoC|ASIC|光模块|EDA/i.test(profile.sector));
 
   let profileSentence = '';
   if (
@@ -3276,13 +3269,7 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
     return null;
   }
 
-  // 0. 快速拦截：政界私人花边、自掏腰包送礼打赏与非市场杂音或早报/要闻汇总垃圾（关键词快速路径）
-  if (isNonMarketTrivia(raw.title, raw.content) || isCalendarOrDigestSpam(raw.title, raw.content)) {
-    console.warn(`[TRIVIA FILTER] 物理丢弃非资本市场私人花边或汇总垃圾: "${raw.title}"`);
-    return null;
-  }
-
-  // 0-A. 早报复合简讯头（T早报｜、早报｜、晨报｜、早间要闻汇总等）按分号拆解，只保留第一条独立新闻的正文闭环，严禁跨事件因果串味
+  // 0. 早报复合简讯头（T早报｜、早报｜、晨报｜、早间要闻汇总等）按分号拆解，只保留第一条独立新闻的正文闭环，严禁跨事件因果串味
   let effectiveRawTitle = raw.title;
   let effectiveRawContent = raw.content;
   if (/^(?:【?(?:T早报|早报|晨报|晚报|环球财经|宏观晨报|每日内参|早间要闻汇总|要闻汇总|盘前必读|午间要闻汇总)】?)\s*[｜|·\-\/:：]?/.test(effectiveRawTitle)) {
@@ -3298,6 +3285,12 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
       // 纯空壳汇总标题且无后续分段独立标题
       return null;
     }
+  }
+
+  // 0-A. 快速拦截：政界私人花边、自掏腰包送礼打赏与非市场杂音或早报/要闻汇总垃圾（关键词快速路径）
+  if (isNonMarketTrivia(effectiveRawTitle, effectiveRawContent) || isCalendarOrDigestSpam(effectiveRawTitle, effectiveRawContent)) {
+    console.warn(`[TRIVIA FILTER] 物理丢弃非资本市场私人花边或汇总垃圾: "${effectiveRawTitle}"`);
+    return null;
   }
 
   // 1. 变量零污染硬性要求：每次进入单篇处理前，全新初始化所有分析变量，严禁复用全局/上一轮循环对象！
@@ -3440,10 +3433,10 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
       companyProfile.aliases.some((a) => enrichedTitle.includes(a) || firstSent.includes(a) || (summary5W1H?.who && summary5W1H.who.includes(a))) ||
       enrichedTitle.includes(companyProfile.name) ||
       (summary5W1H?.who && summary5W1H.who.includes(companyProfile.name));
-    const isMacroOrDomestic = /(?:A股|沪指|上证|深成指|创业板|科创板|三大指数|两市|大盘|国债|央行|宏观|通胀|财政部|发改委|LPR)/i.test(
+    const isMacroOrDomestic = /(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘|国债|央行|人行|中国|我国|国内|港股|恒生|宏观|通胀|CPI|PPI|PMI|社融|信贷|LPR|逆回购|MLF|降准|降息|财政部|发改委|统计局|国家统计局|工信部|商务部|证监会|中纪委|国务院|地方债|专项债|超长期国债|大宗|商品|期货|外汇|汇率|人民币)/i.test(
       `${enrichedTitle} ${firstSent}`
     );
-    const isTechProfile = /AI|算力|GPU|芯片|半导体|大模型/i.test(companyProfile.sector);
+    const isTechProfile = /AI|算力|GPU|CPU|芯片|半导体|大模型|前沿模型|人工智能|晶圆|代工|光刻|存储|闪存|SoC|ASIC|光模块|EDA/i.test(companyProfile.sector);
     if (!isProfileInTitleOrLead || (isMacroOrDomestic && isTechProfile)) {
       companyProfile = null;
     }

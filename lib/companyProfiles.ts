@@ -566,8 +566,10 @@ export function getCompanyProfileForNews(title: string, content?: string): Compa
   // 严正红线：如果标题与首句是 A股指数/大盘行情、宏观经济或国内政策（非企业自身IPO辅导），坚决不得绑定任何科技企业画像
   const isAStockIndexOrMacro =
     !isIpoOrSponsorshipNews &&
-    (/(?:三大指数|三大股指|沪指|上证|深成指|创业板|科创板|两市|大盘|国债|央行|宏观|通胀|CPI|PPI|GDP|财政部|发改委|LPR|贷款市场报价利率)/i.test(titleToCheck) ||
+    (/(?:三大指数|三大股指|沪指|两市|上证|深成指|创业板|科创板|大盘|国债|央行|人行|中国|我国|宏观|通胀|CPI|PPI|GDP|PMI|社融|信贷|财政部|发改委|统计局|国家统计局|工信部|商务部|证监会|中纪委|国务院|地方债|专项债|超长期国债|LPR|贷款市场报价利率)/i.test(titleToCheck) ||
      (/(?:A股)/i.test(titleToCheck) && !/(?:A股上市|A股辅导|A股IPO|冲刺A股|登陆A股)/i.test(titleToCheck)));
+
+  const TECH_SECTOR_REGEX = /AI|算力|GPU|CPU|芯片|半导体|大模型|前沿模型|人工智能|晶圆|代工|光刻|存储|闪存|SoC|ASIC|光模块|EDA/i;
 
   // 1.1 优先在标题中匹配非券商类的实体企业
   for (const profile of CURATED_COMPANY_PROFILES) {
@@ -576,7 +578,11 @@ export function getCompanyProfileForNews(title: string, content?: string): Compa
       continue; // 遇到上市辅导类新闻，跳过券商，优先寻找实业/科技主角
     }
     // 若标题属于 A股指数/宏观经济/政策，严禁绑定科技企业画像（防止正文偶发提及科技大厂导致张冠李戴）
-    if (isAStockIndexOrMacro && /AI|算力|GPU|芯片|半导体|大模型/i.test(profile.sector)) {
+    if (isAStockIndexOrMacro && TECH_SECTOR_REGEX.test(profile.sector)) {
+      continue;
+    }
+    // 排除农产品苹果期货/生猪/红枣等农产品商品误判为苹果公司
+    if (profile.name === '苹果' && /(?:苹果期货|苹果现货|生猪.*苹果|红枣.*苹果|苹果.*(?:主力合约|合约|期价|走货|套袋|冷库|产区|收购价|开秤))/i.test(titleToCheck)) {
       continue;
     }
     if (profile.aliases.some((alias) => titleToCheck.includes(alias))) {
@@ -595,7 +601,10 @@ export function getCompanyProfileForNews(title: string, content?: string): Compa
   // 1.3 若非上市辅导类新闻，且标题确实明确以券商自身为主体（如“华泰证券发布策略研报”、“中金公司拟吸收合并...”）
   if (!isIpoOrSponsorshipNews) {
     for (const profile of CURATED_COMPANY_PROFILES) {
-      if (isAStockIndexOrMacro && /AI|算力|GPU|芯片|半导体|大模型/i.test(profile.sector)) {
+      if (isAStockIndexOrMacro && TECH_SECTOR_REGEX.test(profile.sector)) {
+        continue;
+      }
+      if (profile.name === '苹果' && /(?:苹果期货|苹果现货|生猪.*苹果|红枣.*苹果|苹果.*(?:主力合约|合约|期价|走货|套袋|冷库|产区|收购价|开秤))/i.test(titleToCheck)) {
         continue;
       }
       if (profile.aliases.some((alias) => titleToCheck.includes(alias))) {

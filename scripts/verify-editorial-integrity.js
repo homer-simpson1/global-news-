@@ -1163,8 +1163,89 @@ check('Gate 24: A股指数严禁匹配英伟达/海外科技画像，外国实�
   if (singleItem.source.includes('日经') || singleItem.source.includes('Nikkei')) {
     throw new Error(`processSingleItemIsolated 信源被篡改为日经亚洲：${singleItem.source}`);
   }
-  if (singleItem.summaryParagraph.includes('涉事主体英伟达') || singleItem.summaryParagraph.includes('英伟达')) {
-    throw new Error(`processSingleItemIsolated 正文事实段落混入了英伟达画像："${singleItem.summaryParagraph}"`);
+  // 24.6 复合要闻简讯（早间要闻汇总/早报｜）分号拆解有效条目保真（严禁误杀可拆分的真实新闻第一段）
+  const compositeItem = processSingleItemIsolated(
+    {
+      id: 'test_composite_brief',
+      title: '早间要闻汇总：A股三大指数冲高走强，沪指微涨0.3%；恒生指数高开低走',
+      content: 'A股三大指数冲高走强，沪指微涨0.3%。恒生指数早盘冲高后回落。日本国债微跌。英伟达股价上涨。',
+      source: '中国宏观与金融数据专电',
+      time: '09:40',
+    },
+    []
+  );
+  if (!compositeItem) {
+    throw new Error('processSingleItemIsolated 错误拦截了包含分号有效子条目的早间要闻汇总');
+  }
+  if (!compositeItem.title.includes('A股三大指数冲高走强')) {
+    throw new Error(`processSingleItemIsolated 拆解复合要闻标题失败，得到："${compositeItem.title}"`);
+  }
+  if (compositeItem.companyProfile) {
+    throw new Error(`processSingleItemIsolated 拆解后依然错配了企业画像：${compositeItem.companyProfile.name}`);
+  }
+
+  // 24.7 发改委/国内部委新闻正文提及英伟达/算力，严禁被夺舍为 apac_tech
+  const ndrcTrack = classifyTrack({
+    id: 'test_ndrc',
+    title: '发改委：加快重大基础设施项目建设，统筹推进新型城镇化',
+    content: '国家发改委今日举行新闻发布会。各地区重大工程加速落地。另外，在数据中心建设方面，某地引进了英伟达与算力集群。',
+    source: '中国宏观与金融数据专电',
+    time: '09:30',
+  });
+  if (ndrcTrack === 'apac_tech') {
+    throw new Error(`classifyTrack 将发改委基建新闻错误篡改为 apac_tech！当前分类: ${ndrcTrack}`);
+  }
+
+  // 24.8 中国制造业PMI官方数据正文提及日经/英伟达，严禁篡改为 apac_tech 或日经信源
+  const pmiTrack = classifyTrack({
+    id: 'test_pmi',
+    title: '中国制造业PMI回升至50.2%，重回景气扩张区间',
+    content: '国家统计局公布最新数据，我国制造业采购经理指数回升至50.2%。今日亚太市场上，日经225指数小幅上涨，英伟达等AI半导体供应链股走高。',
+    source: '中国宏观与金融数据专电',
+    time: '09:30',
+  });
+  if (pmiTrack === 'apac_tech') {
+    throw new Error(`classifyTrack 将中国制造业PMI数据错误分类为 apac_tech`);
+  }
+
+  // 24.9 自愈引擎 autoCorrectSummaryParagraph 与 autoCorrectNewsItem 必须彻底洗净残存错配的“涉事主体英伟达”语句
+  const { autoCorrectNewsItem } = require('../lib/selfHealingEngine.ts');
+  const corruptHealItem = autoCorrectNewsItem({
+    id: 'corrupt_test',
+    title: 'A股三大指数小幅上涨，沪指涨0.2%',
+    source: '财联社',
+    sourceUrl: 'https://cls.cn',
+    publishedAt: '2026-09-29 09:35',
+    impactLevel: 1,
+    oneLineTakeaway: 'A股三大指数早盘集体小幅冲高。',
+    track: 'china_macro',
+    summaryParagraph: '据09:35（财联社）电讯，A股三大指数小幅上涨，沪指涨0.2%。 涉事主体英伟达（AI计算平台 / GPU垄断巨头）：全球GPU与AI加速计算领跑垄断巨头，主导CUDA异构计算生态。',
+    bulletPoints: ['A股三大指数小幅上涨'],
+  });
+  if (corruptHealItem.summaryParagraph.includes('涉事主体英伟达') || corruptHealItem.summaryParagraph.includes('英伟达')) {
+    throw new Error(`autoCorrectNewsItem 未能清洗 summaryParagraph 中残存的涉事主体英伟达语句："${corruptHealItem.summaryParagraph}"`);
+  }
+  if (corruptHealItem.companyProfile) {
+    throw new Error(`autoCorrectNewsItem 未能清空 A股新闻上的科技画像：${corruptHealItem.companyProfile.name}`);
+  }
+
+  // 24.10 大宗商品/期货新闻次句提及英伟达，严禁 5W1H 主语漫游为英伟达
+  const { build5W1HSummary } = require('../lib/rssFetcher.ts');
+  const commSummary = build5W1HSummary(
+    '国内大宗商品期货全线飘红，铁矿石主力合约大涨4%',
+    '今日国内期货市场多品种飘红，铁矿石主力合约大幅冲高。英伟达与台积电在AI算力大会上宣布深化先进封装合作。此外原油小幅震荡。',
+    '09:30',
+    '国内大宗专讯',
+    'commodities_shipping'
+  );
+  if (commSummary.who === '英伟达' || commSummary.who.includes('英伟达')) {
+    throw new Error(`build5W1HSummary 将大宗商品新闻的 who 主体错误漫游识别为：${commSummary.who}`);
+  }
+
+  // 24.11 农产品水果苹果期货，严禁被误判绑定为苹果公司 (Apple Inc.)
+  const appleFruitProfile = getCompanyProfileForNews('农产品期货盘中异动，生猪、红枣、苹果主力合约上涨');
+  if (appleFruitProfile !== null) {
+    throw new Error(`农产品水果苹果期货被错误绑定为苹果公司画像：${appleFruitProfile.name}（${appleFruitProfile.sector}）`);
   }
 });
 

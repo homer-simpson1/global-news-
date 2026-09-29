@@ -147,8 +147,8 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       item.companyProfile ||
       getCompanyProfileForNews(cleanTitle, item.summaryParagraph || (item.bulletPoints && item.bulletPoints.join(' ')));
     if (p) {
-      const isMacroOrAStock = /(?:A股|沪指|上证|深成指|创业板|科创板|三大指数|两市|大盘|国债|央行|宏观|通胀|财政部|发改委|LPR)/i.test(cleanTitle);
-      const isTech = /AI|算力|GPU|芯片|半导体|大模型/i.test(p.sector);
+      const isMacroOrAStock = /(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘|国债|央行|人行|中国|我国|国内|港股|恒生|宏观|通胀|CPI|PPI|PMI|社融|信贷|LPR|逆回购|MLF|降准|降息|财政部|发改委|统计局|国家统计局|工信部|商务部|证监会|中纪委|国务院|地方债|专项债|超长期国债|大宗|商品|期货|外汇|汇率|人民币)/i.test(cleanTitle);
+      const isTech = /AI|算力|GPU|CPU|芯片|半导体|大模型|前沿模型|人工智能|晶圆|代工|光刻|存储|闪存|SoC|ASIC|光模块|EDA/i.test(p.sector);
       const inTitle = p.aliases.some((a) => cleanTitle.includes(a)) || cleanTitle.includes(p.name);
       if ((isMacroOrAStock && isTech) || !inTitle) {
         return null;
