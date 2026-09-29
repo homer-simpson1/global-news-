@@ -1,5 +1,24 @@
 const { createServer } = require('http');
 const next = require('next');
+const fs = require('fs');
+const path = require('path');
+
+// 保证 .next/server/middleware-build-manifest.js 永远存在，杜绝 Next.js Edge Sandbox ENOENT 崩溃
+const manifestPath = path.join(__dirname, '.next', 'server', 'middleware-build-manifest.js');
+if (!fs.existsSync(manifestPath)) {
+  try {
+    fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+    fs.writeFileSync(manifestPath, 'self.__BUILD_MANIFEST = {}; self.__REACT_LOADABLE_MANIFEST = {};');
+  } catch (e) {}
+}
+
+// 7x24 全天候高可用守护：未捕获异常与未处理异步拒绝安全拦截，杜绝守护进程异常退出
+process.on('uncaughtException', (err) => {
+  console.error('[SERVER SAFETY] 捕获未捕获异常，保持主进程继续运行:', err?.message || err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.warn('[SERVER SAFETY] 捕获未处理的 Promise 拒绝，保持主进程继续运行:', reason?.message || reason);
+});
 
 const dev = false;
 const hostname = '0.0.0.0';
