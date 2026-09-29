@@ -557,8 +557,17 @@ export function getCompanyProfileForNews(title: string, content?: string): Compa
   const cleanTitle = (title || '').replace(/^[【\[][^】\]]+[】\]]/, '').trim();
   if (!cleanTitle) return null;
 
+  // 严格限定在 title 或首句（前 80 字以内），严禁将整篇长文作为 title 传入时向后漫游匹配！
+  const titleToCheck = cleanTitle.split(/[。\n]/)[0].slice(0, 80).trim();
+
   // 1. 若标题涉及上市辅导/保荐（如“沐曦集成电路开启A股上市辅导”），优先提取真正被辅导的企业，严禁被保荐券商（海通/中金/中信等）劫持！
-  const isIpoOrSponsorshipNews = /上市辅导|a股辅导|ipo辅导|上市备案|接受辅导|保荐/i.test(cleanTitle);
+  const isIpoOrSponsorshipNews = /上市辅导|a股辅导|ipo辅导|上市备案|接受辅导|保荐/i.test(titleToCheck);
+
+  // 严正红线：如果标题与首句是 A股指数/大盘行情、宏观经济或国内政策（非企业自身IPO辅导），坚决不得绑定任何科技企业画像
+  const isAStockIndexOrMacro =
+    !isIpoOrSponsorshipNews &&
+    (/(?:三大指数|三大股指|沪指|上证|深成指|创业板|科创板|两市|大盘|国债|央行|宏观|通胀|CPI|PPI|GDP|财政部|发改委|LPR|贷款市场报价利率)/i.test(titleToCheck) ||
+     (/(?:A股)/i.test(titleToCheck) && !/(?:A股上市|A股辅导|A股IPO|冲刺A股|登陆A股)/i.test(titleToCheck)));
 
   // 1.1 优先在标题中匹配非券商类的实体企业
   for (const profile of CURATED_COMPANY_PROFILES) {
@@ -566,21 +575,30 @@ export function getCompanyProfileForNews(title: string, content?: string): Compa
     if (isIpoOrSponsorshipNews && isBrokerage) {
       continue; // 遇到上市辅导类新闻，跳过券商，优先寻找实业/科技主角
     }
-    if (profile.aliases.some((alias) => cleanTitle.includes(alias))) {
+    // 若标题属于 A股指数/宏观经济/政策，严禁绑定科技企业画像（防止正文偶发提及科技大厂导致张冠李戴）
+    if (isAStockIndexOrMacro && /AI|算力|GPU|芯片|半导体|大模型/i.test(profile.sector)) {
+      continue;
+    }
+    if (profile.aliases.some((alias) => titleToCheck.includes(alias))) {
       return profile;
     }
   }
 
   // 1.2 针对未收录的科技/半导体/上市主体进行智能探测（优先于券商兜底）
-  const detected = detectUncuratedCompany(cleanTitle, `${cleanTitle} ${content || ''}`);
-  if (detected) {
-    return detected;
+  if (!isAStockIndexOrMacro) {
+    const detected = detectUncuratedCompany(titleToCheck, `${titleToCheck} ${content || ''}`);
+    if (detected) {
+      return detected;
+    }
   }
 
   // 1.3 若非上市辅导类新闻，且标题确实明确以券商自身为主体（如“华泰证券发布策略研报”、“中金公司拟吸收合并...”）
   if (!isIpoOrSponsorshipNews) {
     for (const profile of CURATED_COMPANY_PROFILES) {
-      if (profile.aliases.some((alias) => cleanTitle.includes(alias))) {
+      if (isAStockIndexOrMacro && /AI|算力|GPU|芯片|半导体|大模型/i.test(profile.sector)) {
+        continue;
+      }
+      if (profile.aliases.some((alias) => titleToCheck.includes(alias))) {
         return profile;
       }
     }

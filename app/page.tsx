@@ -213,7 +213,12 @@ function TerminalApp() {
               (/泰国.*投资委员会|目标到/.test(title) && /先进制程供需动态/.test(takeaway)) ||
               (/泰国.*投资委员会|目标到/.test(title) && /英伟达全球开发者峰会/.test(watchlist)) ||
               (/德黑兰|航班|航线/.test(title) && /涉外长臂管辖与二级制裁升级/.test(takeaway)) ||
-              (/德黑兰|航班|航线/.test(title) && item.track === 'us_macro')
+              (/德黑兰|航班|航线/.test(title) && item.track === 'us_macro') ||
+              // 关键门禁：A股/三大指数严禁错配英伟达、日经亚洲信源或亚太科技赛道
+              (/(?:A股|沪指|上证|深成指|创业板|科创板|三大指数)/.test(title) &&
+                (/(?:英伟达|NVIDIA|日经亚洲)/.test(title + ' ' + para + ' ' + (item.source || '') + ' ' + (item.companyProfile?.name || '')) ||
+                 item.track === 'apac_tech' || item.companyProfile?.name === '英伟达')) ||
+              /早间要闻汇总|午间要闻汇总/.test(title)
             );
           };
           const hasCorruptNews = parsedN.some(isCorruptItem);
@@ -232,6 +237,14 @@ function TerminalApp() {
       if (!Array.isArray(parsedB) || parsedB.length === 0) parsedB = SEED_FLASH_BRIEFS;
 
       const healed = autoCorrectAllNews(parsedN, parsedB);
+      // 客户端展示前再次过滤任何偶发的 A股+英伟达等荒谬错配条目
+      healed.news = healed.news.filter((item) => {
+        const isMismatched =
+          /(?:A股|沪指|上证|深成指|创业板|科创板|三大指数)/.test(item.title) &&
+          (/(?:英伟达|NVIDIA|日经亚洲)/.test(item.title + ' ' + item.summaryParagraph + ' ' + item.source + ' ' + (item.companyProfile?.name || '')) ||
+           item.track === 'apac_tech' || item.companyProfile?.name === '英伟达');
+        return !isMismatched && !/早间要闻汇总|午间要闻汇总/.test(item.title);
+      });
       setNews(healed.news);
       setFlashBriefs(healed.flashBriefs);
       try {

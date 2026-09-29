@@ -1088,6 +1088,87 @@ check('Gate 23: 严禁“，至”等悬挂介词腰斩断尾与波罗的海干�
 });
 
 // -------------------------------------------------------------
+// 门禁 24: A股三大指数通报与国内宏观严禁错配英伟达画像及日经亚洲信源硬门禁
+// -------------------------------------------------------------
+check('Gate 24: A股指数严禁匹配英伟达/海外科技画像，外国实体严禁漫游篡改信源', () => {
+  const { getCompanyProfileForNews } = require('../lib/companyProfiles.ts');
+  const { classifyTrack, processSingleItemIsolated, isCalendarOrDigestSpam } = require('../lib/rssFetcher.ts');
+  const { enforceCountryEntityGuardrails } = require('../lib/guardrails.ts');
+
+  // 24.1 早间要闻汇总与空洞早晚报汇总拦截
+  if (!isCalendarOrDigestSpam('早间要闻汇总', '8条异构段落')) {
+    throw new Error('isCalendarOrDigestSpam 未能拦截“早间要闻汇总”');
+  }
+  if (!isCalendarOrDigestSpam('【早间要闻汇总】', '8条异构段落')) {
+    throw new Error('isCalendarOrDigestSpam 未能拦截“【早间要闻汇总】”');
+  }
+  if (!isCalendarOrDigestSpam('午间要闻汇总')) {
+    throw new Error('isCalendarOrDigestSpam 未能拦截“午间要闻汇总”');
+  }
+
+  // 24.2 A股大盘/指数严禁绑定英伟达等任何科技企业画像
+  const mixedArticleTitle = 'A股三大指数小幅上涨，沪指涨0.2%';
+  const mixedArticleBody = 'A股三大指数早盘集体小幅冲高，沪深京三市超3200只个股上涨。港股恒生指数低开高走。日本国债收益率微跌1个基点。韩国企划财政部发布宏观经济展望。黄仁勋在英伟达AI开发者大会午餐会上表示算力需求持续翻倍。Anthropic向美国SEC提交招股书初稿。';
+
+  const profile = getCompanyProfileForNews(mixedArticleTitle, mixedArticleBody);
+  if (profile !== null) {
+    throw new Error(`A股三大指数新闻被错误绑定了企业画像：${profile.name}（${profile.sector}）`);
+  }
+
+  // 24.3 外国实体判定严禁正文漫游篡改信源
+  const fakeJapaneseResult = enforceCountryEntityGuardrails(
+    mixedArticleTitle,
+    mixedArticleBody,
+    'china_macro',
+    { source: '中国宏观与金融数据专电', sourceUrl: 'https://finance.caixin.com' },
+    '全球宏观专线'
+  );
+  if (fakeJapaneseResult.correctedSource.source.includes('日经') || fakeJapaneseResult.correctedSource.source.includes('Nikkei')) {
+    throw new Error(`enforceCountryEntityGuardrails 因正文后续提及“日本国债”而把中国A股新闻信源篡改为：${fakeJapaneseResult.correctedSource.source}`);
+  }
+
+  // 24.4 classifyTrack 严禁因正文后续段落提到“日本国债”或“人工智能”而把 A股指数误划入 apac_tech
+  const track = classifyTrack({
+    id: 'test_astock_item',
+    title: mixedArticleTitle,
+    content: mixedArticleBody,
+    source: '全球宏观专线',
+    time: '2026-09-29 09:35',
+  });
+  if (track !== 'china_macro') {
+    throw new Error(`classifyTrack 将A股三大指数新闻错误分类为 ${track}（期望为 china_macro）`);
+  }
+
+  // 24.5 单篇独立处理流水线 processSingleItemIsolated 全链路端到端闭环验证
+  const singleItem = processSingleItemIsolated(
+    {
+      id: 'test_wire_3171906',
+      title: 'A股三大指数小幅上涨，沪指涨0.2%',
+      content: mixedArticleBody,
+      source: '中国宏观与金融数据专电',
+      time: '09:35',
+    },
+    []
+  );
+
+  if (!singleItem) {
+    throw new Error('processSingleItemIsolated 处理 A股三大指数新闻失败返回 null');
+  }
+  if (singleItem.track !== 'china_macro') {
+    throw new Error(`processSingleItemIsolated 赛道归类错误：${singleItem.track}（必须为 china_macro）`);
+  }
+  if (singleItem.companyProfile) {
+    throw new Error(`processSingleItemIsolated 错误绑定了企业画像：${singleItem.companyProfile.name}`);
+  }
+  if (singleItem.source.includes('日经') || singleItem.source.includes('Nikkei')) {
+    throw new Error(`processSingleItemIsolated 信源被篡改为日经亚洲：${singleItem.source}`);
+  }
+  if (singleItem.summaryParagraph.includes('涉事主体英伟达') || singleItem.summaryParagraph.includes('英伟达')) {
+    throw new Error(`processSingleItemIsolated 正文事实段落混入了英伟达画像："${singleItem.summaryParagraph}"`);
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {

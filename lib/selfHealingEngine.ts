@@ -2011,7 +2011,15 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   );
 
   // 涉事主体档案检索与挂载
-  const detectedProfile = item.companyProfile || getCompanyProfileForNews(cleanTitle, item.summaryParagraph || item.bulletPoints?.join(' '));
+  let detectedProfile: CompanyProfile | undefined = item.companyProfile || (getCompanyProfileForNews(cleanTitle, item.summaryParagraph || item.bulletPoints?.join(' ')) || undefined);
+  if (detectedProfile) {
+    const isMacroOrAStock = /(?:A股|沪指|上证|深成指|创业板|科创板|三大指数|两市|大盘|国债|央行|宏观|通胀|财政部|发改委|LPR)/i.test(cleanTitle);
+    const isTech = /AI|算力|GPU|芯片|半导体|大模型/i.test(detectedProfile.sector);
+    const inTitle = detectedProfile.aliases.some((a) => cleanTitle.includes(a)) || cleanTitle.includes(detectedProfile.name);
+    if ((isMacroOrAStock && isTech) || !inTitle) {
+      detectedProfile = undefined;
+    }
+  }
 
   // 重大事件/法案/谈判核心条款与具体要务穿透挂载
   const detectedProvisions = item.eventKeyProvisions || getEventKeyProvisions(cleanTitle, cleanParagraph || item.summaryParagraph || item.bulletPoints?.join(' '));
@@ -2133,7 +2141,20 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
     correctedTime
   );
 
-  const detectedProfile = flash.companyProfile || getCompanyProfileForNews(cleanContent, flash.summaryParagraph);
+  let detectedProfile = flash.companyProfile;
+  if (!detectedProfile) {
+    const leadSent = cleanContent.split(/[。\n]/)[0].slice(0, 80);
+    detectedProfile = getCompanyProfileForNews(leadSent, flash.summaryParagraph) || undefined;
+  }
+  if (detectedProfile) {
+    const leadSent = cleanContent.split(/[。\n]/)[0].slice(0, 80);
+    const isMacroOrAStock = /(?:A股|沪指|上证|深成指|创业板|科创板|三大指数|两市|大盘|国债|央行|宏观|通胀|财政部|发改委|LPR)/i.test(leadSent);
+    const isTech = /AI|算力|GPU|芯片|半导体|大模型/i.test(detectedProfile.sector);
+    const inLead = detectedProfile.aliases.some((a) => leadSent.includes(a)) || leadSent.includes(detectedProfile.name);
+    if ((isMacroOrAStock && isTech) || !inLead) {
+      detectedProfile = undefined;
+    }
+  }
   const detectedProvisions = flash.eventKeyProvisions || getEventKeyProvisions(cleanContent, cleanParagraph || flash.summaryParagraph);
 
   let detectedMacro: MacroInflationBreakdown | null | undefined = flash.macroInflationBreakdown;

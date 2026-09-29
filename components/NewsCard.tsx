@@ -143,10 +143,18 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
 
   // 涉事主体/企业背景速览检索 (解答“为什么不简单介绍这家公司”)
   const companyProfile: CompanyProfile | null = React.useMemo(() => {
-    return (
+    let p =
       item.companyProfile ||
-      getCompanyProfileForNews(cleanTitle, item.summaryParagraph || (item.bulletPoints && item.bulletPoints.join(' ')))
-    );
+      getCompanyProfileForNews(cleanTitle, item.summaryParagraph || (item.bulletPoints && item.bulletPoints.join(' ')));
+    if (p) {
+      const isMacroOrAStock = /(?:A股|沪指|上证|深成指|创业板|科创板|三大指数|两市|大盘|国债|央行|宏观|通胀|财政部|发改委|LPR)/i.test(cleanTitle);
+      const isTech = /AI|算力|GPU|芯片|半导体|大模型/i.test(p.sector);
+      const inTitle = p.aliases.some((a) => cleanTitle.includes(a)) || cleanTitle.includes(p.name);
+      if ((isMacroOrAStock && isTech) || !inTitle) {
+        return null;
+      }
+    }
+    return p;
   }, [item.companyProfile, cleanTitle, item.summaryParagraph, item.bulletPoints]);
 
   // 宏观通胀关键分项矩阵穿透检索 (解决“环比不说、核心/服务/食品分项不说”)

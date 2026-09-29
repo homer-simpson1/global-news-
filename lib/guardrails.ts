@@ -53,16 +53,21 @@ export function enforceCountryEntityGuardrails(
   currentSource: { source: string; sourceUrl: string },
   inheritedRawSource?: string
 ): GuardrailPreCheckResult {
-  const text = (title + ' ' + content).toLowerCase();
+  // 核心守卫：国家实体判定严禁通读全文漫游！必须且仅能检测 title 或 cleanWhat/首句（前 80 字以内）
+  const firstSent = (content || '').split(/[。\n]/)[0].trim().slice(0, 80);
+  const leadText = (title + ' ' + firstSent).toLowerCase();
 
   let correctedSource = { ...currentSource };
   let isInterceptionTriggered = false;
   let interceptionReason = '';
 
-  // 赛道分类已由 classifyTrack() 唯一权威执行，此处只做信源标签纠偏：
-  // 外国实体报道不能挂中国官方信源标签
+  // 严正红线：若标题/首句属于 A股/国内宏观/国内政策，绝对不允许被篡改为日经亚洲等海外信源
+  const isChineseMacroOrEquities = /(?:A股|沪指|上证|深成指|创业板|科创板|三大指数|两市|国内|港股|恒生)/i.test(leadText);
 
-  if (FOREIGN_ENTITIES.JAPAN.test(text)) {
+  // 赛道分类已由 classifyTrack() 唯一权威执行，此处只做信源标签纠偏：
+  // 外国实体报道不能挂中国官方信源标签（且严禁通读正文漫游错杀国内宏观/A股！）
+
+  if (!isChineseMacroOrEquities && FOREIGN_ENTITIES.JAPAN.test(leadText)) {
     if (CHINESE_OFFICIAL_SOURCE_REGEX.test(correctedSource.source) || correctedSource.source.includes('中国')) {
       correctedSource = {
         source: inheritedRawSource && !CHINESE_OFFICIAL_SOURCE_REGEX.test(inheritedRawSource) ? inheritedRawSource : '日经亚洲 Nikkei Asia',
@@ -72,8 +77,9 @@ export function enforceCountryEntityGuardrails(
       interceptionReason = '物理剥离虚假中国官方信源，拨正为日经亚洲/海外电讯';
     }
   } else if (
-    (FOREIGN_ENTITIES.US_ALL.test(text) || FOREIGN_ENTITIES.US_MACRO.test(text)) &&
-    !/涉华|对华|中美博弈|港股|a股|券商|研报|策略|华泰证券|中信证券/.test(text)
+    !isChineseMacroOrEquities &&
+    (FOREIGN_ENTITIES.US_ALL.test(leadText) || FOREIGN_ENTITIES.US_MACRO.test(leadText)) &&
+    !/涉华|对华|中美博弈|港股|a股|券商|研报|策略|华泰证券|中信证券/.test(leadText)
   ) {
     if (CHINESE_OFFICIAL_SOURCE_REGEX.test(correctedSource.source) || correctedSource.source.includes('中国专线') || correctedSource.source.includes('中国电讯')) {
       correctedSource = {
@@ -83,7 +89,7 @@ export function enforceCountryEntityGuardrails(
       isInterceptionTriggered = true;
       interceptionReason = '物理剥离虚假中国专线/中国官方信源，拨正为路透全球财经';
     }
-  } else if (FOREIGN_ENTITIES.WAR_DEFENSE.test(text)) {
+  } else if (FOREIGN_ENTITIES.WAR_DEFENSE.test(leadText) && !isChineseMacroOrEquities) {
     if (CHINESE_OFFICIAL_SOURCE_REGEX.test(correctedSource.source)) {
       correctedSource = {
         source: '路透社防务专电 Reuters Defense',
@@ -92,7 +98,7 @@ export function enforceCountryEntityGuardrails(
       isInterceptionTriggered = true;
       interceptionReason = '物理剥离虚假中国官方信源，拨正为路透社防务';
     }
-  } else if (FOREIGN_ENTITIES.AFRICA_GLOBAL.test(text) && !/涉华|对华|中国援非/.test(text)) {
+  } else if (FOREIGN_ENTITIES.AFRICA_GLOBAL.test(leadText) && !/涉华|对华|中国援非/.test(leadText)) {
     if (CHINESE_OFFICIAL_SOURCE_REGEX.test(correctedSource.source) || correctedSource.source.includes('中国')) {
       correctedSource = {
         source: '世界卫生组织 WHO 官方通报',
@@ -104,7 +110,7 @@ export function enforceCountryEntityGuardrails(
   }
 
   // LPR 必须归入中国宏观与央行信源
-  if (/lpr|贷款市场报价利率/i.test(text)) {
+  if (/lpr|贷款市场报价利率/i.test(leadText)) {
     if (currentTrack !== 'china_macro') {
       currentTrack = 'china_macro';
       isInterceptionTriggered = true;
