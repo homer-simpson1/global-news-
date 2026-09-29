@@ -56,8 +56,45 @@ function createDiscordFormData(imgPath) {
   return formData;
 }
 
-async function sendMorningPaperToDiscord() {
+// 每日幂等锁文件路径 (记录最后成功推送的日期 YYYY-MM-DD)
+const SENT_LOCK_FILE = path.resolve(__dirname, '../data/morning_paper_last_sent.json');
+
+function checkAlreadySentToday(force = false) {
+  if (force) return false;
+  try {
+    if (!fs.existsSync(SENT_LOCK_FILE)) return false;
+    const content = JSON.parse(fs.readFileSync(SENT_LOCK_FILE, 'utf8'));
+    const today = new Date().toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
+    return content.lastSentDate === today;
+  } catch (e) {
+    return false;
+  }
+}
+
+function recordSentSuccess() {
+  try {
+    const dataDir = path.resolve(__dirname, '../data');
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    const today = new Date().toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
+    fs.writeFileSync(SENT_LOCK_FILE, JSON.stringify({
+      lastSentDate: today,
+      lastSentTimestamp: Date.now(),
+      sentAtLocal: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
+    }, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+async function sendMorningPaperToDiscord(options = {}) {
+  const isForce = options.force || process.argv.includes('--force');
+
   console.log('=== 全球决策晨报 · Discord 发送调度器 ===');
+
+  // 0. 每日唯一推送幂等锁：彻底杜绝 Windows 计划任务与 server.js 同时触发产生两次重复推送
+  if (!isForce && checkAlreadySentToday(isForce)) {
+    const today = new Date().toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
+    console.log(`ℹ️ [幂等拦截] 今日 (${today}) 晨报已成功推送至 Discord，安全跳过重复发送以防刷屏。`);
+    return { success: true, skipped: true, reason: 'already_sent_today' };
+  }
 
   // 1. 生成最新高清晨报长图
   console.log('1. 正在抓取实时数据并生成高清晨报长图...');
@@ -98,6 +135,7 @@ async function sendMorningPaperToDiscord() {
 
       if (res.ok || res.status === 204) {
         console.log('✅ [成功] 晨报长图已成功推送到 Discord 频道！');
+        recordSentSuccess();
         return { success: true, imgPath };
       } else if (res.status === 429) {
         const body = await res.json().catch(() => ({}));

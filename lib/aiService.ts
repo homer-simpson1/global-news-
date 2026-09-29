@@ -167,7 +167,7 @@ export async function executeAiExtractionIfConfigured(
     "consequence": "原文披露的直接后果（若未提及请填空字符串）"
   },
   "bulletPoints": ["核心事实句1", "核心事实句2", "核心事实句3"],
-  "oneLineTakeaway": "【专业研判标签】：深度客观定性（结合具体数据）",
+  "oneLineTakeaway": "【事件核心定性】：必须把事情的来龙去脉写清楚（起因背景+核心事实动作+直接实质结果，客观陈述事实全貌，严禁任何空泛独家看法与宏观套话，25-50字）",
   "transmissionImpact": "① 直接物理/合同影响 ➔ ② 产业链与上下游传导 ➔ ③ 市场重定价或格局变化"
 }`;
 

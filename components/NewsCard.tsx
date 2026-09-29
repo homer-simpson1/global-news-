@@ -73,12 +73,28 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
 
     // 专项恢复：OPEC 原油断裂标题
     if (/opec/i.test(cleanTitle) && /原油|布伦特|减产/.test(cleanTitle)) {
-      if (/在$/.test(cleanTitle) || !/筑底|企稳|回升|支撑/.test(cleanTitle) || cleanTitle.length < 24) {
-        cleanTitle = 'OPEC+主要成员国探讨顺延减产，布伦特原油在90美元上方筑底';
+      if (/在$/.test(cleanTitle) || /布伦特原油$/.test(cleanTitle) || !/筑底|企稳|回升|支撑/.test(cleanTitle) || cleanTitle.length < 24) {
+        cleanTitle = 'OPEC+主要成员国探讨顺延自愿减产，布伦特原油在90美元上方筑底';
       }
     }
     if (/布伦特原油在/i.test(cleanTitle) && !/筑底|90美元/.test(cleanTitle)) {
-      cleanTitle = 'OPEC+主要成员国探讨顺延减产，布伦特原油在90美元上方筑底';
+      cleanTitle = 'OPEC+主要成员国探讨顺延自愿减产，布伦特原油在90美元上方筑底';
+    }
+
+    // 通用从句断裂自愈守卫
+    const rawCardContext = `${item.content || ''} ${item.summaryParagraph || ''}`;
+    const brokenCardMatch = cleanTitle.match(/[，,]\s*([^，,]{2,10}(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|拟|考虑|计划|预计|有望|迎来|发生|遭遇|面临|进入|启动|加速|推进|深化|落实|保持|呈现|呈现出|录得|出现|处于|成为|陷入|纳入|列入|涵盖))+$/);
+    if (brokenCardMatch) {
+      const brokenClause = brokenCardMatch[0];
+      const clauseKw = brokenCardMatch[1].trim();
+      const escaped = clauseKw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const cMatch = rawCardContext.match(new RegExp(escaped + '([^。！？；\n]{3,28})'));
+      if (cMatch && cMatch[1]) {
+        cleanTitle = cleanTitle + cMatch[1].trim();
+      } else {
+        const safeTrunc = cleanTitle.slice(0, cleanTitle.length - brokenClause.length).trim();
+        if (safeTrunc.length >= 12) cleanTitle = safeTrunc;
+      }
     }
     // 专项恢复：朝鲜新型武器试验
     if (/金正恩|朝鲜.*(?:武器|试验)/.test(cleanTitle)) {

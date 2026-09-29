@@ -76,7 +76,11 @@ app.prepare().then(() => {
       try {
         const { sendMorningPaperToDiscord } = require('./scripts/send_discord_morning_paper');
         sendMorningPaperToDiscord().then(res => {
-          console.log('[早间 08:00 晨报调度] 执行结果:', res?.success ? '推送成功' : '完成 (等待 Webhook 填入)');
+          if (res?.skipped) {
+            console.log('[早间 08:00 晨报调度] 今日已推送过，已由幂等锁安全跳过，保持每日仅推送1次。');
+          } else {
+            console.log('[早间 08:00 晨报调度] 执行结果:', res?.success ? '推送成功' : '完成 (等待 Webhook 填入)');
+          }
         }).catch(err => {
           console.error('[早间 08:00 晨报调度] 执行异常:', err.message);
         });

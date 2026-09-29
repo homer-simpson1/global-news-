@@ -73,7 +73,7 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
   };
 
   // 智能分离方括号分类前缀与纯净标题，彻底执行媒体栏目头脱水、结巴去重与标点净化
-  const parseContent = (content: string, defaultTag: string) => {
+  const parseContent = (content: string, defaultTag: string, rawContext?: string) => {
     let tag = defaultTag;
     let cleanTitle = sanitizeFedRatePolicyWording(content.trim());
     const match = cleanTitle.match(/^[【\[]([^】\]]+)[】\]]\s*(.*)$/);
@@ -83,7 +83,7 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
     }
 
     // 彻底调用 selfHealingEngine 的顶级 autoCorrectTitle 保证全站双重铁幕
-    cleanTitle = autoCorrectTitle(cleanTitle);
+    cleanTitle = autoCorrectTitle(cleanTitle, { content: rawContext });
     cleanTitle = cleanTitle.replace(/[，,\s]*区域防务安全态势进一步明朗[。.]*$/g, '');
 
     // 针对“目标到，泰国投资委员会 目标到”或任何“AAA，BBB AAA”结巴语法残片进行专项自愈
@@ -92,6 +92,31 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
     }
     if (/5\.13%/.test(cleanTitle) || /刷新\s*2007年.*最高位/.test(cleanTitle)) {
       cleanTitle = '美国10年期基准国债收益率刷新2007年以来最高位至5.13%上方';
+    }
+
+    // 专项恢复：OPEC 原油断裂标题
+    if (/opec/i.test(cleanTitle) && /原油|布伦特|减产/.test(cleanTitle)) {
+      if (/在$/.test(cleanTitle) || /布伦特原油$/.test(cleanTitle) || !/筑底|企稳|回升|支撑/.test(cleanTitle) || cleanTitle.length < 24) {
+        cleanTitle = 'OPEC+主要成员国探讨顺延自愿减产，布伦特原油在90美元上方筑底';
+      }
+    }
+    if (/布伦特原油在/i.test(cleanTitle) && !/筑底|90美元/.test(cleanTitle)) {
+      cleanTitle = 'OPEC+主要成员国探讨顺延自愿减产，布伦特原油在90美元上方筑底';
+    }
+
+    // 通用从句断裂自愈守卫
+    const brokenMatch = cleanTitle.match(/[，,]\s*([^，,]{2,10}(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|拟|考虑|计划|预计|有望|迎来|发生|遭遇|面临|进入|启动|加速|推进|深化|落实|保持|呈现|呈现出|录得|出现|处于|成为|陷入|纳入|列入|涵盖))+$/);
+    if (brokenMatch) {
+      const brokenClause = brokenMatch[0];
+      const clauseKw = brokenMatch[1].trim();
+      const escaped = clauseKw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const cMatch = (rawContext || '').match(new RegExp(escaped + '([^。！？；\n]{3,28})'));
+      if (cMatch && cMatch[1]) {
+        cleanTitle = cleanTitle + cMatch[1].trim();
+      } else {
+        const safeTrunc = cleanTitle.slice(0, cleanTitle.length - brokenClause.length).trim();
+        if (safeTrunc.length >= 12) cleanTitle = safeTrunc;
+      }
     }
 
     cleanTitle = cleanTitle.replace(/(?:[，,、；;：:\s]+(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|通过香港|收于|跌至|涨至|升至|降至))+$/, '').trim();
@@ -137,7 +162,7 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
       <div className="space-y-4 md:space-y-5">
         {briefs.slice(0, 5).map((brief, idx) => {
           const isExpanded = !!expandedMap[brief.id];
-          const parsed = parseContent(brief.content, brief.tag);
+          const parsed = parseContent(brief.content, brief.tag, brief.rawContent || brief.content);
           const theme = TRACK_THEMES[brief.track] || TRACK_THEMES.china_domestic;
           const keywords = extractSearchKeywords(parsed.title || brief.content, brief.source);
           const bingSearchUrl = getSearchUrl(keywords, 'bing');

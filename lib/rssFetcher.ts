@@ -1854,6 +1854,41 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
     }
   }
 
+  // 1-A-SHELL. 检测空壳/无效标题：如果标题几乎不含汉字或英文字母（如 "1-, 1—, : 1—"、"①②③"、
+  // 纯数字破折号/冒号组合等），则判定为 WSCN 数据通报的索引式 title，从正文中提取有效首句替换
+  {
+    const chineseCount = (title.match(/[\u4e00-\u9fa5]/g) || []).length;
+    const latinCount = (title.match(/[a-zA-Z]/g) || []).length;
+    const isShellTitle = (chineseCount + latinCount) < 3 && title.length >= 2;
+    if (isShellTitle && rawContent && rawContent.length >= 8) {
+      // 从正文中找第一个有实质内容（≥8字，含汉字）的句子
+      const sents = rawContent.split(/[。\n]/).map(s => s.trim()).filter(s => s.length >= 8);
+      const validSent = sents.find(s => (s.match(/[\u4e00-\u9fa5]/g) || []).length >= 4);
+      if (validSent) {
+        title = validSent.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim();
+      }
+    }
+  }
+
+  // 1-A0. 修复以及物动词结尾但宾语缺失的截断标题（如"...将美国进口煤炭纳入"，宾语"300亿降税框架"缺失）
+  // 当标题以常见及物动词结尾（动作完成，但宾语/补语缺失），且正文中存在包含该标题核心词的更完整句子时，
+  // 从正文中补全标题，彻底修复 WSCN/早报 快讯 title 字段被截断的问题。
+  const TRANSITIVE_VERB_TAIL = /(?:纳入|列入|纳管|覆盖|包含|纳编|涵盖|认定为|列为|归入|计入|并入|纳入管理|调入|划入|移入|收入|接入|引入|导入|录入|存入|带入|带进|放入|加入|追加|列进|添加|增加|添入)$/;
+  if (TRANSITIVE_VERB_TAIL.test(title) && rawContent && rawContent.length > title.length + 4) {
+    // 从正文中找包含标题关键词的第一个完整句子（最长60字）
+    // 注意：去除全角冒号：和半角冒号:，保证 "商务部：将" 和 "商务部，将" 均能匹配
+    const PUNCT_STRIP = /[，,、。！？：:\s]/g;
+    const titleKeywords = title.replace(PUNCT_STRIP, '').slice(0, 10);
+    const contentSents = rawContent.split(/[。\n]/).map(s => s.trim()).filter(s => s.length >= title.length);
+    const betterSent = contentSents.find(s => {
+      const sNoMark = s.replace(PUNCT_STRIP, '');
+      return sNoMark.includes(titleKeywords) && s.length > title.length && s.length <= 50;
+    });
+    if (betterSent) {
+      title = betterSent.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim();
+    }
+  }
+
   // 1-A1. 修复动词/比率残句开头（如“刷新2007年...”、“创2007年...”等无主语病句）：从正文提取完整资产主体补全
   if (/^(?:刷新|创下?|创出|突破|跌破|升破|逼近|触及|攀升至|涨超|跌超|报|大涨|大跌)\b/.test(title)) {
     const firstSent = (rawContent || '').split(/[。\n]/)[0].replace(/^[【\[][^】\]]+[】\]]/, '').trim();
@@ -2497,34 +2532,14 @@ export function generateCoreTakeaway(
       }
     }
     const cleanT = cleanTitle.replace(/^[【\[][^】\]]+[】\]]/, '').replace(/[。！!.]+$/, '').trim();
-    if (factDesc === cleanT || (factDesc.includes(cleanT) && factDesc.length <= cleanT.length + 5)) {
-      if (/航班|航线|民航|通航|客运|降落|起飞/.test(t)) {
-        view = '民航主管部门与外交机构依法依规统筹国际客运航线运营，确保国际人员正常往来与口岸秩序稳定。';
-      } else if (/芯片|算力|半导体|晶圆|先进制程/.test(t)) {
-        view = '关键硬件制程与系统级协同成为核心壁垒，资金向具备自主研发与量产交付能力的龙头厂商加速集聚。';
-      } else if (/模型|ai|算法|推理/.test(t)) {
-        view = '底层智算硬件与前沿大模型算法加速协同演进，以自主算力底盘构筑全栈工程化交付壁垒。';
-      } else if (/利润|营收|反超|财报|业绩/.test(t)) {
-        view = '细分赛道龙头在成本管控、技术溢价与市场份额维度展现分化优势，机构资金向具备确定性现金流韧性的标的集中。';
-      } else if (/被查|立案审查|纪律审查|监察调查|落马|双开|受贿|一审宣判|反腐|涉嫌严重违纪违法/.test(t)) {
-        view = '纪检监察机关依法依规严肃查处违纪违法行为，坚决铲除腐败滋生土壤并巩固公权力廉洁规范行使。';
-      } else if (/汇率|联系汇率|港元|人民币.*中间价|外汇|结汇|售汇/.test(t)) {
-        view = '官方表态锚定汇率制度稳定预期，引导跨境资本流动与外汇市场有序运行。';
-      } else if (/财政部.*发行|国债.*发行|债券.*发行|发行.*债券|发行利率|投标倍数|国库现金定存|中标利率/.test(t)) {
-        view = '财政部门统筹发债节奏与利率定价，优化政府债务期限结构并保障重点领域资金供给。';
-      } else if (/买地|拿地|土地出让|摘牌|地块|土地市场/.test(t)) {
-        view = '头部企业逆周期配置核心地段土地储备，强化长期产能布局与区域战略纵深。';
-      } else if (/充电桩|充电基础设施|新能源车|电动汽车.*保有量/.test(t)) {
-        view = '新能源基础设施加速规模化覆盖，保障终端用户补能体验并推动运营商盈利模型优化。';
-      } else if (/逆回购|公开市场|mlf|slf|再贴现|央行.*操作/.test(t)) {
-        view = '央行灵活运用公开市场操作工具平抑银行间流动性波动，确保资金面平稳跨月。';
-      } else if (/期货|主力合约|涨超|跌超|收涨|收跌|夜盘/.test(t)) {
-        view = '期货衍生品价格波动直接反映产业链现货供需预期，引导套保与投机头寸动态再平衡。';
-      } else {
-        view = `${cleanTitle}。各方密切跟踪其对产业链上下游供需格局与市场定价预期的边际影响。`;
-      }
+    if (summary5W1H.why && summary5W1H.consequence) {
+      view = `受${summary5W1H.why}影响，${factDesc}，直接导致${summary5W1H.consequence}。`;
+    } else if (summary5W1H.why) {
+      view = `该事项起因于${summary5W1H.why}，当前${factDesc}。`;
+    } else if (summary5W1H.consequence) {
+      view = `${factDesc}，后续直接导致${summary5W1H.consequence}。`;
     } else {
-      view = `${factDesc}。`;
+      view = `${factDesc}。官方通报已确认相关核心事实细节，当事机构与主管方正推进各项应对落地。`;
     }
   }
 

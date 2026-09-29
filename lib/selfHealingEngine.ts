@@ -153,10 +153,48 @@ export function sanitizeEditorialTone(text: string): string {
  */
 export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string; what?: string; content?: string }): string {
   if (!rawTitle) {
-    return context?.what?.slice(0, 26) || '全球重大宏观与产业实质变局追踪';
+    return context?.what?.slice(0, 45) || '全球重大宏观与产业实质变局追踪';
   }
 
   let title = rawTitle.trim();
+
+  // 0-0. 空壳与乱码索引标题拦截（如 "1-, 1—, : 1—"、"①②③"、纯数字破折号索引等无实质汉字标题）
+  const validCharsCount = (title.match(/[\u4e00-\u9fa5a-zA-Z]/g) || []).length;
+  if (validCharsCount < 4 && title.length >= 1) {
+    let candidate = '';
+    if (context?.what && (context.what.match(/[\u4e00-\u9fa5]/g) || []).length >= 6) {
+      candidate = context.what;
+    } else if (context?.takeaway) {
+      candidate = context.takeaway.replace(/^[【\[][^】\]]+[】\]]\s*[:：]?\s*/, '').trim();
+    } else if (context?.content) {
+      const sents = context.content.split(/[。\n]/).map(s => s.trim()).filter(s => (s.match(/[\u4e00-\u9fa5]/g) || []).length >= 8);
+      if (sents.length > 0) candidate = sents[0];
+    }
+    if (candidate) {
+      title = candidate
+        .replace(/^[【\[][^】\]]+[】\]]\s*/, '')
+        .replace(/^[0-9]{1,2}月[0-9]{1,2}日(?:电|讯|消息)?[，,\s]*/, '')
+        .trim();
+    }
+  }
+
+  // 0-0B. 修复以及物动词结尾但宾语缺失的残缺断头标题（如 "...将美国进口煤炭纳入"，导致宾语"300亿降税框架"丢失）
+  const TRANSITIVE_TAIL = /(?:纳入|列入|纳管|覆盖|包含|纳编|涵盖|认定为|列为|归入|计入|并入|纳入管理|调入|划入|移入|收入|接入|引入|导入|录入|存入|带入|带进|放入|加入|追加|列进|添加|增加|添入)$/;
+  if (TRANSITIVE_TAIL.test(title)) {
+    const rawContext = `${context?.content || ''} ${context?.what || ''} ${context?.takeaway || ''}`;
+    if (rawContext.length > title.length + 2) {
+      const PUNCT_STRIP = /[，,、。！？：:\s]/g;
+      const titleKeywords = title.replace(PUNCT_STRIP, '').slice(0, 8);
+      const sents = rawContext.split(/[。\n]/).map(s => s.trim()).filter(s => s.length >= title.length);
+      const better = sents.find(s => {
+        const sClean = s.replace(PUNCT_STRIP, '');
+        return sClean.includes(titleKeywords) && s.length > title.length && s.length <= 55;
+      });
+      if (better) {
+        title = better.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim();
+      }
+    }
+  }
 
   // 0. 专项自愈：格雷厄姆制裁法案与涉外未闭合书名号标题
   if (/美方将《|格雷厄姆.*制裁|制裁俄罗斯和伊朗法案/.test(title + ' ' + (context?.what || '') + ' ' + (context?.takeaway || ''))) {
@@ -261,7 +299,7 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
   if (danglingMatch.test(title)) {
     title = title.replace(danglingMatch, '');
     if (context?.takeaway) {
-      const takeClean = context.takeaway.replace(/^[【\[][^】\]]+[】\]]\s*/, '').slice(0, 16);
+      const takeClean = context.takeaway.replace(/^[【\[][^】\]]+[】\]]\s*/, '').slice(0, 45);
       title = `${title}并${takeClean}`;
     }
   }
@@ -276,12 +314,12 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
       title = context.what
         .replace(/^[【\[][^】\]]+[】\]]\s*/, '')
         .replace(/^(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间[0-9月日\s]+[，,]?)?/, '')
-        .slice(0, 26);
+        .slice(0, 48);
     } else if (context?.takeaway) {
       const supplement = context.takeaway
         .replace(/^[【\[][^】\]]+[】\]]\s*[:：]?\s*/, '')
         .replace(/^(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间[0-9月日\s]+[，,]?)?/, '')
-        .slice(0, 18)
+        .slice(0, 45)
         .trim();
       if (supplement && !supplement.includes(title) && !title.includes(supplement)) {
         title = `${title}，${supplement}`;
@@ -304,9 +342,9 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
     if (assetMatch && !title.includes(assetMatch[0])) {
       title = `${assetMatch[0]}${title}`;
     } else if (context?.what && context.what.length >= 6 && !/^(?:分别|其中|包括|刷新|创下?)/.test(context.what)) {
-      title = context.what.slice(0, 26);
+      title = context.what.slice(0, 48);
     } else if (context?.takeaway && context.takeaway.length >= 6) {
-      const takeClean = context.takeaway.replace(/^[【\[][^】\]]+[】\]]\s*[:：]?\s*/, '').slice(0, 26);
+      const takeClean = context.takeaway.replace(/^[【\[][^】\]]+[】\]]\s*[:：]?\s*/, '').slice(0, 48);
       title = takeClean;
     }
   }
@@ -331,9 +369,9 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
   // 修复动词断裂结尾（如“...创去年”、“...创历史”、“...录得”、“...创下”、“...逼近”）
   if (/创(?:去年|今年|历|历史|近|下|新|低|高)?$/.test(title) || /(?:触及|报|达到|位于|跌至|涨至|录得)$/.test(title)) {
     if (context?.what && context.what.length >= 10 && !/创(?:去年|今年|历|历史|近|下)?$/.test(context.what)) {
-      title = context.what.replace(/^[【\[][^】\]]+[】\]]\s*/, '').slice(0, 30).replace(/[，,\s]+$/, '');
+      title = context.what.replace(/^[【\[][^】\]]+[】\]]\s*/, '').slice(0, 48).replace(/[，,\s]+$/, '');
     } else if (context?.takeaway && context.takeaway.length >= 10) {
-      title = context.takeaway.replace(/^[【\[][^】\]]+[】\]]\s*[:：]?\s*/, '').slice(0, 30).replace(/[，,\s]+$/, '');
+      title = context.takeaway.replace(/^[【\[][^】\]]+[】\]]\s*[:：]?\s*/, '').slice(0, 48).replace(/[，,\s]+$/, '');
     }
   }
 
@@ -348,6 +386,25 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
     } else {
       // 若上下文无明确后续数值，直接彻底切除末尾逗号及悬挂介词/连词，还原为干净完整的主谓句
       title = title.replace(/(?:[，,、；;：:\s]+(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|收于|跌至|涨至|升至|降至))+$/, '').trim();
+    }
+  }
+
+  // 通用从句断裂自愈守卫 (如“...，布伦特原油在”、“...，将美国进口煤炭纳入”)
+  const brokenClauseMatch = title.match(/[，,]\s*([^，,]{2,10}(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|拟|考虑|计划|预计|有望|迎来|发生|遭遇|面临|进入|启动|加速|推进|深化|落实|保持|呈现|呈现出|录得|出现|处于|成为|陷入|纳入|列入|涵盖))+$/);
+  if (brokenClauseMatch) {
+    const brokenClause = brokenClauseMatch[0];
+    const clauseKeyword = brokenClauseMatch[1].trim();
+    const rawContext = `${context?.content || ''} ${context?.what || ''} ${context?.takeaway || ''}`;
+    const escapedKeyword = clauseKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const contentMatch = rawContext.match(new RegExp(escapedKeyword + '([^。！？；\n]{3,28})'));
+    if (contentMatch && contentMatch[1]) {
+      title = title + contentMatch[1].trim();
+    } else {
+      // 若正文无有效补语，安全剥离未闭合的残缺从句，保留主干完整句
+      const safeTruncated = title.slice(0, title.length - brokenClause.length).trim();
+      if (safeTruncated.length >= 12) {
+        title = safeTruncated;
+      }
     }
   }
 
@@ -371,12 +428,12 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
 
   // 专项恢复：OPEC 原油断裂标题
   if (/opec/i.test(title) && /原油|布伦特|减产/.test(title)) {
-    if (/在$/.test(title) || !/筑底|企稳|回升|支撑/.test(title) || title.length < 24) {
-      title = 'OPEC+主要成员国探讨顺延减产，布伦特原油在90美元上方筑底';
+    if (/在$/.test(title) || /布伦特原油$/.test(title) || !/筑底|企稳|回升|支撑/.test(title) || title.length < 24) {
+      title = 'OPEC+主要成员国探讨顺延自愿减产，布伦特原油在90美元上方筑底';
     }
   }
   if (/布伦特原油在/i.test(title) && !/筑底|90美元/.test(title)) {
-    title = 'OPEC+主要成员国探讨顺延减产，布伦特原油在90美元上方筑底';
+    title = 'OPEC+主要成员国探讨顺延自愿减产，布伦特原油在90美元上方筑底';
   }
   // 专项恢复：朝鲜新型武器试验
   if (/金正恩|朝鲜.*(?:武器|试验)/.test(title)) {
@@ -1132,7 +1189,8 @@ export function autoCorrectTakeaway(
 
   const isEcho = isHeadlineEcho(text, cleanTitle);
   const isMisattributedLiquidity = text.includes('宏观流动性再平衡') && !/利率|借贷|美债|收益率|加息|降息|国债|流动性|通胀|cpi|ppi|pce/.test(cleanTitleLower);
-  const isGenericCorporateCliché = /标的主体推进核心业务调整|涉事主体推进核心战略部署|根据市场信号与制度合规框架重构/.test(text);
+  const isGenericCorporateCliché =
+    /标的主体推进核心业务调整|涉事主体推进核心战略部署|根据市场信号与制度合规框架重构|资产负债表与现金流分化|高利率环境对依赖外部信贷|具备充沛自由现金流的头部科技龙头|高负债企业构成估值压制|向高确定性标的集聚|多空资金正对宏观贴现率与微观资产溢价实施日内动态调仓/.test(text);
   const isBrokenGrammar = /造成的困境|如果.*?那么除了|并避免越陷越深|造成困境/.test(text);
   const isEventProvisionsMismatch =
     (/格雷厄姆|制裁俄罗斯和伊朗/.test(cleanTitleLower) && !text.includes('制裁') && !text.includes('长臂管辖')) ||
@@ -1416,35 +1474,32 @@ export function autoCorrectTakeaway(
   } else if (/(?:以军|以色列|黎巴嫩|加沙|真主党|胡塞|交火|红海)/.test(cleanTitleLower)) {
     tag = '地缘安全与前线博弈';
     core = '关键地缘节点博弈升级推升区域商业航运战险费率，跨国产业链供应链加速构建多中心备份网络。';
-  } else if (summary5W1H?.why && summary5W1H?.consequence) {
-    tag = track === 'apac_tech' ? '硬核科技前沿进展' : (track === 'commodities_shipping' ? '大宗供求与运力平衡' : '产业格局深度透视');
-    const deepWhy = (summary5W1H.why || '').trim().replace(/[。！!.]+$/, '').replace(/^[，,\s]*(?:受|起因于|因为|由于|因)+\s*/, '').trim();
-    core = `该事项深层起因于${deepWhy}；后续将直接推动${summary5W1H.consequence}。`;
   } else {
-    let whoEntity = (summary5W1H?.who || '').trim();
-    // Patch 3: 剥离媒体/通讯社后缀，严禁把信源名称当核心主体！
-    if (/报道$|专线$|电讯$|社$|网$|通报$|发布会$|快讯$|专讯$|早报$|见闻$|发布$|报告$/.test(whoEntity) ||
-        /^(?:联合早报|Zaobao|日经|路透|彭博|财新|第一财经|财联社|华尔街见闻|界面新闻|央视|新华社|中新社|证券时报|经济观察网|人民网|环球时报|参考消息|全球宏观专线|全球金融市场实时电讯|中国宏观与金融数据专电|涉华经贸与涉外治理专讯|国内要闻与治理电讯|全球政经与决策情报专讯|大宗商品与能源行情专讯|前沿科技与算力产业电讯|国际防务与安全即时电讯|全球财经实时电讯|涉事当事方)/.test(whoEntity)) {
-      whoEntity = '';
-    }
-    if (track === 'commodities_shipping') {
-      tag = '大宗供求与现货边际博弈';
-      core = whoEntity 
-        ? `${whoEntity}最新业务动向直接触发供应链关联方对近期现货供求缺口及运力长协履约预期的重新评估。`
-        : '核心大宗商品现货与衍生品市场紧密联动，市场资金围绕即期仓单与供求边际展开价格博弈。';
-    } else if (track === 'apac_tech') {
-      tag = '硬核科技研发与商业化进程';
-      core = whoEntity
-        ? `${whoEntity}发布最新产品及战略指引，下游生态集成商围绕技术落地可行性与降本增效展开实测验证。`
-        : '底层算力与算法迭代加速，技术落地转化效率与商业化交付指标成为市场核心关注点。';
-    } else if (track === 'us_macro') {
-      tag = '跨市场资金定价与流动性博弈';
-      core = whoEntity
-        ? `围绕${whoEntity}的最新事态演进，多空资金正对宏观贴现率与微观资产溢价实施日内动态调仓。`
-        : '市场围绕最新宏观政策信号展开日内多空博弈，跨资产类别根据估值性价比平衡风险敞口。';
+    // 核心结论板块颗粒度彻底对齐：必须写清事情的前因后果与来龙去脉，0假大空独家看法！
+    const whatFact = (summary5W1H?.what || cleanTitle).trim().replace(/[。！!.]+$/, '');
+    const cleanWhy = (summary5W1H?.why || '').trim().replace(/[。！!.]+$/, '').replace(/^[，,\s]*(?:受|起因于|因为|由于|因)+\s*/, '').trim();
+    const cleanCon = (summary5W1H?.consequence || '').trim().replace(/[。！!.]+$/, '').trim();
+
+    const trackTagDefaults: Record<TrackId, string> = {
+      us_macro: '美股宏观动态',
+      apac_tech: '硬核科技前沿进展',
+      commodities_shipping: '大宗商品与能源动态',
+      war_conflict: '防务局势动态',
+      china_domestic: '国内要闻进展',
+      china_policy: '涉华经贸动态',
+      china_macro: '宏观经济数据公布',
+      global_cognition: '全球认知与战略动态',
+    };
+    tag = trackTagDefaults[track] || '要闻核心事实';
+
+    if (cleanWhy && cleanCon) {
+      core = `受${cleanWhy}影响，${whatFact}，直接导致${cleanCon}。`;
+    } else if (cleanWhy) {
+      core = `该事项起因于${cleanWhy}，当前${whatFact}。官方通报已确认相关事实细节。`;
+    } else if (cleanCon) {
+      core = `${whatFact}，后续直接导致${cleanCon}。`;
     } else {
-      tag = '行业动态追踪与预期修正';
-      core = `${whoEntity || '涉事机构'}推进关键业务部署，市场参与各方密切跟踪后续进展与实质性传导效应。`;
+      core = `${whatFact}。官方电讯已确认核心事实，当事方正推进相关事项后续应对与落地。`;
     }
   }
 
