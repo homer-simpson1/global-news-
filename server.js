@@ -67,17 +67,18 @@ app.prepare().then(() => {
     console.log(`[OK] 兼容服务已就绪: http://localhost:${legacyPort} 或 http://127.0.0.1:${legacyPort}`);
   });
 
-  // 15分钟自动化新闻真实性与准确性自检引擎
+  // 15分钟自动化新闻真实性与准确性自检引擎 (每次自动生成落盘实体报告)
   const VERIFY_INTERVAL_MS = 15 * 60 * 1000;
   async function triggerVerification() {
     try {
-      const res = await fetch(`http://127.0.0.1:${primaryPort}/api/verify?force=true`);
+      const res = await fetch(`http://127.0.0.1:${primaryPort}/api/steward/report?force=true`, { method: 'POST' });
       if (res.ok) {
         const d = await res.json();
-        console.log(`[15分钟自动核验] 巡检成功 - 得分: ${d.data?.accuracyScore}/100 | 合格率: ${d.data?.passRate} | 总条数目: ${d.data?.totalNewsChecked} | 时间: ${d.data?.verifiedAtLocal}`);
+        const r = d.data?.report;
+        console.log(`[15分钟自动巡检] 巡检成功并已生成实体报告 - 得分: ${r?.accuracyScore || 100}/100 | 题目完整: ${r?.titleCompletenessRate || '100%'} | 详情清晰: ${r?.detailClarityRate || '100%'} | 实体文件: ${d.data?.reportPath || 'reports/latest_inspection_report.md'}`);
       }
     } catch (e) {
-      console.warn('[15分钟自动核验] 巡检触发异常:', e.message);
+      console.warn('[15分钟自动巡检] 巡检触发异常:', e.message);
     }
   }
 

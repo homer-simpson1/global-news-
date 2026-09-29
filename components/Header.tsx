@@ -20,12 +20,17 @@ import {
   Image as ImageIcon,
   X,
   Building2,
+  FileText,
 } from 'lucide-react';
 import { FlashBrief, MarketQuote, NewsItem } from '@/lib/types';
 import { getCompanyProfileForNews } from '@/lib/companyProfiles';
 import dynamic from 'next/dynamic';
 
 const ShareImageModal = dynamic(() => import('./ShareImageModal'), {
+  ssr: false,
+});
+
+const StewardReportModal = dynamic(() => import('./StewardReportModal'), {
   ssr: false,
 });
 
@@ -184,6 +189,7 @@ export default function Header({
   const [isVerifyingNow, setIsVerifyingNow] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const popoverContainerRef = useRef<HTMLDivElement>(null);
 
@@ -660,14 +666,27 @@ export default function Header({
                   )}
 
                   <div className="pt-2.5 mt-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
-                    <span>巡检模式: 15分钟全要素自动自检</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsPopoverOpen(false);
+                        setIsPinned(false);
+                        setIsReportModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
+                      title="打开首席站长全天候巡检报告全文，支持在线查看与下载.md实体文件"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      <span>查看/导出完整巡检报告 (.md)</span>
+                    </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         fetchVerify(true);
                       }}
                       disabled={isVerifyingNow}
-                      className="text-blue-600 dark:text-blue-400 hover:underline font-medium inline-flex items-center gap-1 cursor-pointer"
+                      className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium inline-flex items-center gap-1 cursor-pointer"
                     >
                       <RefreshCw className={`w-3 h-3 ${isVerifyingNow ? 'animate-spin' : ''}`} />
                       <span>{isVerifyingNow ? '自检中...' : '重新自检'}</span>
@@ -679,6 +698,19 @@ export default function Header({
 
             {/* 30分钟倒计时指示器（独立自驱动，隔离重渲染） */}
             <CountdownBadge onRefresh={onRefresh} isRefreshing={isRefreshing} initialSeconds={countdownSeconds || 1800} />
+
+            {/* 站长全天候巡检报告按钮 */}
+            <button
+              type="button"
+              onClick={() => setIsReportModalOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 font-bold transition-all shadow-xs cursor-pointer active:scale-95 shrink-0"
+              title="查看 AI 首席站长全天候巡检报告全文，支持导出 Markdown 实体文件"
+              aria-label="查看站长巡检报告"
+            >
+              <FileText className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span className="hidden sm:inline">巡检报告</span>
+              <span className="sm:hidden">报告</span>
+            </button>
 
             {/* 一键生成早晚报高清长图 */}
             <button
@@ -761,6 +793,13 @@ export default function Header({
         flashBriefs={flashBriefs}
         newsItems={newsItems}
         quotes={quotes}
+      />
+
+      {/* 站长全天候巡检报告弹窗 */}
+      <StewardReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        onNavigateToCard={handleJumpToCard}
       />
     </>
   );

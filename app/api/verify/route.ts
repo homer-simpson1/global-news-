@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getOrRunNewsVerification, runNewsAccuracyVerification } from '@/lib/newsVerifier';
+import { generateInspectionMarkdown } from '@/lib/inspectionReportGenerator';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
@@ -28,11 +29,15 @@ export async function GET(request: Request) {
     }
 
     const report = await getOrRunNewsVerification(force);
+    const markdownReport = generateInspectionMarkdown(report);
 
     const response = NextResponse.json(
       {
         success: true,
-        data: report,
+        data: {
+          ...report,
+          markdownReport,
+        },
       },
       {
         headers: {
