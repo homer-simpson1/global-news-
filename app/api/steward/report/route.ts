@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { runNewsAccuracyVerification, getOrRunNewsVerification } from '@/lib/newsVerifier';
 import {
   generateInspectionMarkdown,
-  saveInspectionReportToDisk,
-  getLatestInspectionReportFromDisk,
+  cacheInspectionReportInMemory,
+  getLatestInspectionReportFromMemory,
 } from '@/lib/inspectionReportGenerator';
 
 export const dynamic = 'force-dynamic';
@@ -21,16 +21,16 @@ export async function GET(request: Request) {
     if (force) {
       reportData = await runNewsAccuracyVerification();
       markdown = generateInspectionMarkdown(reportData);
-      saveInspectionReportToDisk(reportData);
+      cacheInspectionReportInMemory(reportData);
     } else {
-      const diskReport = getLatestInspectionReportFromDisk();
-      if (diskReport && diskReport.markdown) {
-        markdown = diskReport.markdown;
-        reportData = diskReport.json;
+      const memoryReport = getLatestInspectionReportFromMemory();
+      if (memoryReport && memoryReport.markdown) {
+        markdown = memoryReport.markdown;
+        reportData = memoryReport.json;
       } else {
         reportData = await getOrRunNewsVerification(false);
         markdown = generateInspectionMarkdown(reportData);
-        saveInspectionReportToDisk(reportData);
+        cacheInspectionReportInMemory(reportData);
       }
     }
 
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
       data: {
         report: reportData,
         markdown,
-        reportPath: 'D:\\GEMINI\\global-intelligence-terminal\\reports\\latest_inspection_report.md',
+        storageMode: '纯内存高速缓存 (零硬盘占用)',
         generatedAt: reportData?.verifiedAtLocal || new Date().toLocaleString('zh-CN', { hour12: false }),
       },
     });
@@ -65,19 +65,19 @@ export async function GET(request: Request) {
 
 export async function POST() {
   try {
-    // 强制触发一次全新全量核验并就地持久化
+    // 强制触发一次全新全量核验并在内存中高速缓存 (零磁盘写入)
     const report = await runNewsAccuracyVerification();
     const markdown = generateInspectionMarkdown(report);
-    const diskSaved = saveInspectionReportToDisk(report);
+    const cached = cacheInspectionReportInMemory(report);
 
     return NextResponse.json({
       success: true,
-      message: '全栈巡检已完成并生成最新报告',
+      message: '全栈巡检已完成并缓存至内存 (零硬盘占用)',
       data: {
         report,
         markdown,
-        diskSaved,
-        reportPath: 'D:\\GEMINI\\global-intelligence-terminal\\reports\\latest_inspection_report.md',
+        cached,
+        storageMode: '纯内存高速缓存 (零硬盘占用)',
         generatedAt: report.verifiedAtLocal,
       },
     });

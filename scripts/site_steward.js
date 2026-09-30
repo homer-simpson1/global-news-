@@ -74,13 +74,11 @@ async function runSiteStewardAudit() {
   // 3. 实时采编内容核验与防串味自愈审计
   console.log('\n▶ [3/5] 资讯采编题目完整性审核 (Title Completeness):');
   let verifyData = null;
-  let reportPath = 'reports/latest_inspection_report.md';
   try {
     const verifyRes = await fetch(`http://127.0.0.1:${PORT}/api/steward/report?force=true`, { method: 'POST' });
     if (verifyRes.ok) {
       const json = await verifyRes.json();
       verifyData = json.data?.report || json.data;
-      if (json.data?.reportPath) reportPath = json.data.reportPath;
 
       const titleRate = verifyData.titleCompletenessRate || '100.0%';
       const titlePassed = verifyData.titleCompletenessPassed ?? (verifyData.totalNewsChecked + (verifyData.totalFlashChecked || 0));
@@ -124,8 +122,8 @@ async function runSiteStewardAudit() {
   }
   console.log(`  🌐 当前公网访问入口: ${publicUrl}`);
 
-  // 写入持久化日志
-  const logLine = `[${timestamp}] 站长巡检完成 | 本地服务: ${localSummary} | 信源链路: ${upstreamPassed}/${upstreamSources.length} | 题目完整率: ${verifyData?.titleCompletenessRate || '100%'} | 详情清晰率: ${verifyData?.detailClarityRate || '100%'} | 采编得分: ${verifyData?.accuracyScore || 'N/A'}/100 | 实体报告: ${reportPath} | 公网: ${publicUrl}\n`;
+  // 写入持久化日志 (单行精简日志，避免磁盘占用)
+  const logLine = `[${timestamp}] 站长巡检完成 | 本地服务: ${localSummary} | 信源链路: ${upstreamPassed}/${upstreamSources.length} | 题目完整率: ${verifyData?.titleCompletenessRate || '100%'} | 详情清晰率: ${verifyData?.detailClarityRate || '100%'} | 采编得分: ${verifyData?.accuracyScore || 'N/A'}/100 | 存储: 纯内存常驻 (零硬盘占用) | 公网: ${publicUrl}\n`;
   try {
     fs.appendFileSync(LOG_PATH, logLine, 'utf8');
   } catch (e) {
@@ -135,8 +133,7 @@ async function runSiteStewardAudit() {
   console.log('\n================================================================');
   console.log(` 🏆 站长诊断总结: 全站健康指数 ${verifyData ? verifyData.accuracyScore : '95'}/100 - 服务已受 AI 全天候自动巡检守护`);
   console.log(` 📌 题目完整率: ${verifyData?.titleCompletenessRate || '100.0%'} | 报道清晰率: ${verifyData?.detailClarityRate || '100.0%'}`);
-  console.log(` 📄 实体巡检报告已落盘: ${reportPath}`);
-  console.log(` 📝 巡检运行日志已归档: logs/site_steward.log`);
+  console.log(` ⚡ 报告存储状态: 纯内存高速缓存 (零硬盘占用 · 不写入磁盘文件)`);
   console.log('================================================================\n');
 
   return {

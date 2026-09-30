@@ -40,7 +40,7 @@ export function generateInspectionMarkdown(
     `> **巡检时间**：${time}  `,
     `> **巡检周期**：全天候 15 分钟定时自动化核验与异常自愈  `,
     `> **执行站长**：AI 首席站长与全天候智能主编引擎 (Autonomous Site Steward Engine v2.5)  `,
-    `> **报告存储位置**：\`D:\\GEMINI\\global-intelligence-terminal\\reports\\latest_inspection_report.md\`  `,
+    `> **存储模式**：纯内存高速缓存 (In-Memory Zero-Disk Storage · 零磁盘占用)  `,
     ``,
     `---`,
     ``,
@@ -146,101 +146,51 @@ export function generateInspectionMarkdown(
 }
 
 /**
- * 将巡检报告写入物理磁盘（永久留痕与历史归档）
+ * 内存单例高速缓存（纯内存常驻，零硬盘占用，不浪费任何磁盘空间）
  */
-export function saveInspectionReportToDisk(
+let memoryCachedInspection: {
+  report: VerificationAuditReport;
+  markdown: string;
+  generatedAt: string;
+  upstreamResults?: UpstreamCheckResult[];
+  serviceStatus?: ServiceStatusInfo;
+} | null = null;
+
+/**
+ * 将巡检报告缓存至内存（零磁盘写入）
+ */
+export function cacheInspectionReportInMemory(
   report: VerificationAuditReport,
   upstreamResults?: UpstreamCheckResult[],
   serviceStatus?: ServiceStatusInfo
-): { mdPath: string; jsonPath: string; historyPath: string } | null {
-  if (typeof process === 'undefined' || !process.versions?.node) {
-    return null;
-  }
+): { inMemory: boolean; cachedAt: string } {
+  const mdContent = generateInspectionMarkdown(report, upstreamResults, serviceStatus);
+  const time = report.verifiedAtLocal || new Date().toLocaleString('zh-CN', { hour12: false });
+  
+  memoryCachedInspection = {
+    report,
+    markdown: mdContent,
+    generatedAt: time,
+    upstreamResults,
+    serviceStatus,
+  };
 
-  try {
-    // 动态 Node 原生模块加载，避免 Webpack 静态追踪污染 Edge runtime
-    const getMod = (mod: string) => eval('require')(mod);
-    const fs = getMod('fs');
-    const path = getMod('path');
-
-    const reportsDir = path.resolve(process.cwd(), 'reports');
-    const historyDir = path.join(reportsDir, 'history');
-
-    if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
-    if (!fs.existsSync(historyDir)) fs.mkdirSync(historyDir, { recursive: true });
-
-    const mdContent = generateInspectionMarkdown(report, upstreamResults, serviceStatus);
-    const mdPath = path.join(reportsDir, 'latest_inspection_report.md');
-    const jsonPath = path.join(reportsDir, 'latest_inspection_report.json');
-
-    // 1. 保存最新的 Markdown 报告
-    fs.writeFileSync(mdPath, mdContent, 'utf8');
-
-    // 2. 保存最新的结构化 JSON
-    const reportPayload = {
-      ...report,
-      markdown: mdContent,
-      upstreamResults: upstreamResults || [],
-      serviceStatus: serviceStatus || {},
-      generatedAt: new Date().toISOString(),
-    };
-    fs.writeFileSync(jsonPath, JSON.stringify(reportPayload, null, 2), 'utf8');
-
-    // 3. 历史快照留痕 (保留最近 50 份历史)
-    const timeSafe = (report.verifiedAtLocal || new Date().toISOString())
-      .replace(/[\/\s:]/g, '-')
-      .replace(/--+/g, '-');
-    const historyPath = path.join(historyDir, `inspection_${timeSafe}.md`);
-    fs.writeFileSync(historyPath, mdContent, 'utf8');
-
-    // 清理超过 50 个的历史快照
-    try {
-      const files = fs.readdirSync(historyDir)
-        .filter((f: string) => f.endsWith('.md'))
-        .map((f: string) => ({ name: f, time: fs.statSync(path.join(historyDir, f)).mtime.getTime() }))
-        .sort((a: any, b: any) => b.time - a.time);
-
-      if (files.length > 50) {
-        files.slice(50).forEach((f: any) => {
-          try { fs.unlinkSync(path.join(historyDir, f.name)); } catch (e) {}
-        });
-      }
-    } catch (e) {}
-
-    return { mdPath, jsonPath, historyPath };
-  } catch (err) {
-    console.error('[INSPECTION REPORT] 保存报告至磁盘异常:', err);
-    return null;
-  }
+  return { inMemory: true, cachedAt: time };
 }
+
+// 兼容别名：彻底杜绝磁盘写入，零空间浪费
+export const saveInspectionReportToDisk = cacheInspectionReportInMemory;
 
 /**
- * 从本地磁盘读取最新一次巡检报告
+ * 从内存高速缓存中读取最新一次巡检报告
  */
-export function getLatestInspectionReportFromDisk(): { markdown: string; json: any | null } | null {
-  if (typeof process === 'undefined' || !process.versions?.node) {
-    return null;
-  }
-
-  try {
-    const getMod = (mod: string) => eval('require')(mod);
-    const fs = getMod('fs');
-    const path = getMod('path');
-    const mdPath = path.resolve(process.cwd(), 'reports', 'latest_inspection_report.md');
-    const jsonPath = path.resolve(process.cwd(), 'reports', 'latest_inspection_report.json');
-
-    if (!fs.existsSync(mdPath)) return null;
-
-    const markdown = fs.readFileSync(mdPath, 'utf8');
-    let json = null;
-    if (fs.existsSync(jsonPath)) {
-      try {
-        json = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-      } catch (e) {}
-    }
-
-    return { markdown, json };
-  } catch (err) {
-    return null;
-  }
+export function getLatestInspectionReportFromMemory(): { markdown: string; json: any | null } | null {
+  if (!memoryCachedInspection) return null;
+  return {
+    markdown: memoryCachedInspection.markdown,
+    json: memoryCachedInspection.report,
+  };
 }
+
+// 兼容别名
+export const getLatestInspectionReportFromDisk = getLatestInspectionReportFromMemory;

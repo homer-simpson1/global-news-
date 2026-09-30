@@ -169,14 +169,14 @@ export default function StewardReportModal({
           </div>
         </div>
 
-        {/* 磁盘落盘状态通知条 (证明巡检实体文件落盘) */}
-        <div className="px-5 py-2.5 bg-blue-50/70 dark:bg-blue-950/30 border-b border-blue-100 dark:border-blue-900/40 text-xs text-slate-700 dark:text-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
+        {/* 纯内存高速缓存状态通知条（零硬盘占用） */}
+        <div className="px-5 py-2.5 bg-emerald-50/70 dark:bg-emerald-950/30 border-b border-emerald-100 dark:border-emerald-900/40 text-xs text-slate-700 dark:text-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-2 overflow-hidden text-ellipsis">
-            <FolderOpen className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-            <span className="font-semibold text-slate-800 dark:text-slate-200 shrink-0">本地物理报告:</span>
-            <code className="px-2 py-0.5 rounded bg-white dark:bg-slate-800 text-[11px] font-mono border border-slate-200 dark:border-slate-700 text-blue-800 dark:text-blue-300 select-all truncate">
-              {data?.reportPath || 'D:\\GEMINI\\global-intelligence-terminal\\reports\\latest_inspection_report.md'}
-            </code>
+            <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span className="font-semibold text-slate-800 dark:text-slate-200 shrink-0">存储模式:</span>
+            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-800 text-[11px] font-bold border border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300">
+              ⚡ 纯内存单例高速缓存 (零硬盘占用 · 0 磁盘空间消耗)
+            </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
@@ -191,10 +191,10 @@ export default function StewardReportModal({
             <button
               onClick={handleDownloadMarkdown}
               className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-              title="下载 .md 格式巡检报告到本地"
+              title="按需下载 .md 格式巡检报告到本地"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>下载巡检报告 (.md)</span>
+              <span>按需导出报告 (.md)</span>
             </button>
           </div>
         </div>
@@ -478,7 +478,7 @@ export default function StewardReportModal({
         {/* 底部按钮栏 */}
         <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-950/60 flex items-center justify-between shrink-0 text-xs">
           <span className="text-slate-500 dark:text-slate-400">
-            AI 站长定期巡检报告已物理固化落盘 · 每次巡检自动生成归档
+            AI 站长巡检报告纯内存常驻 · 零硬盘空间占用 · 支持按需导出与在线阅览
           </span>
           <div className="flex items-center gap-2">
             <button

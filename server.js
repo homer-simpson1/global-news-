@@ -67,7 +67,7 @@ app.prepare().then(() => {
     console.log(`[OK] 兼容服务已就绪: http://localhost:${legacyPort} 或 http://127.0.0.1:${legacyPort}`);
   });
 
-  // 15分钟自动化新闻真实性与准确性自检引擎 (每次自动生成落盘实体报告)
+  // 15分钟自动化新闻真实性与准确性自检引擎 (纯内存常驻 · 零硬盘占用)
   const VERIFY_INTERVAL_MS = 15 * 60 * 1000;
   async function triggerVerification() {
     try {
@@ -75,7 +75,7 @@ app.prepare().then(() => {
       if (res.ok) {
         const d = await res.json();
         const r = d.data?.report;
-        console.log(`[15分钟自动巡检] 巡检成功并已生成实体报告 - 得分: ${r?.accuracyScore || 100}/100 | 题目完整: ${r?.titleCompletenessRate || '100%'} | 详情清晰: ${r?.detailClarityRate || '100%'} | 实体文件: ${d.data?.reportPath || 'reports/latest_inspection_report.md'}`);
+        console.log(`[15分钟自动巡检] 巡检成功 (纯内存常驻 · 0硬盘占用) - 得分: ${r?.accuracyScore || 100}/100 | 题目完整: ${r?.titleCompletenessRate || '100%'} | 详情清晰: ${r?.detailClarityRate || '100%'} | 时间: ${d.data?.generatedAt}`);
       }
     } catch (e) {
       console.warn('[15分钟自动巡检] 巡检触发异常:', e.message);
