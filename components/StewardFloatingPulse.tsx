@@ -207,10 +207,10 @@ export default function StewardFloatingPulse({ onOpenReportModal }: StewardFloat
                   onOpenReportModal();
                 }}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-all shadow-xs cursor-pointer active:scale-95"
-                title="打开全屏巡检报告大弹窗"
+                title="打开 15 分钟定期巡检报告归档中心"
               >
                 <FileText className="w-3 h-3" />
-                <span>查看完整报告</span>
+                <span>15分钟巡检报告清单</span>
               </button>
             </div>
           </div>
