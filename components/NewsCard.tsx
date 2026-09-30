@@ -9,7 +9,7 @@ import DisasterTrackerView from './DisasterTrackerView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
 import { isWithin24Hours, calculateTrackedDays } from '@/lib/timeUtils';
 import { getCompanyProfileForNews, CompanyProfile } from '@/lib/companyProfiles';
-import { isHeadlineEcho, autoCorrectWatchlist, autoCorrectTitle, autoCorrectTakeaway } from '@/lib/selfHealingEngine';
+import { isHeadlineEcho, autoCorrectWatchlist, autoCorrectTitle, autoCorrectTakeaway, formatIndirectQuote, formatConsequenceSentence, formatWhySentence, healDanglingSummaryText } from '@/lib/selfHealingEngine';
 import {
   getMacroInflationBreakdown,
   isMacroInflationNews,
@@ -188,28 +188,26 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
     } else if (item.summary5W1H) {
       // B. 根据 5W1H 动态拼装连贯叙事闭环（坚决杜绝据...电讯加标题一字不差复读）
       const s = item.summary5W1H;
-      const what = (s.what || cleanTitle).replace(/[。！!.]+$/, '').trim();
+      const what = formatIndirectQuote((s.what || cleanTitle).replace(/[。！!.]+$/, '').trim());
       const isWhatEcho = what === cleanTitle || cleanTitle.includes(what) || what.includes(cleanTitle);
-      // Patch 4: 清洗 why 前缀，避免 "起因于受..." 语法冲突
-      const cleanWhy = (s.why || '').trim().replace(/[。！!.]+$/, '').replace(/^[，,\s]*(?:受|起因于|因为|由于|因)+\s*/, '').trim();
 
-      if (isWhatEcho && cleanWhy && cleanWhy.length >= 4 && !/宏观宏图|利益交织|深层动因/.test(cleanWhy)) {
-        text = `据${item.source}通报，该事项起因于${cleanWhy}。${s.consequence && !/直接影响相关领域/.test(s.consequence) ? `直接影响方面，${s.consequence}。` : ''}`;
+      if (isWhatEcho && s.why && s.why.length >= 4 && !/宏观宏图|利益交织|深层动因/.test(s.why)) {
+        text = `据${item.source}通报，${formatWhySentence(s.why).trim()}${s.consequence && !/直接影响相关领域/.test(s.consequence) ? formatConsequenceSentence(s.consequence) : ''}`;
       } else if (isWhatEcho && item.bulletPoints && item.bulletPoints.length > 0 && !cleanTitle.includes(item.bulletPoints[0])) {
         text = item.bulletPoints.slice(0, 2).join(' ');
       } else if (isWhatEcho) {
         text = `据${item.source}电讯核验：该条动态核心主体与现场事实已锁定。各当事方正根据市场供求与政策合规框架推进后续处置。`;
       } else {
         text = `据${item.publishedAt ? `${item.publishedAt}（${item.source}）` : `${item.source}`}电讯，${what}。`;
-        if (cleanWhy && cleanWhy.length >= 4 && !/宏观宏图|利益交织|深层动因/.test(cleanWhy)) {
-          text += ` 该事项起因于${cleanWhy}。`;
+        if (s.why && s.why.length >= 4 && !/宏观宏图|利益交织|深层动因/.test(s.why)) {
+          text += formatWhySentence(s.why);
         } else if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
           text += ` 该事项起因于此前监管部门对涉事企业财务造假违规行为通报点名并实施立案稽查与顶格处罚。`;
         }
         if (s.consequence && s.consequence.length >= 4 && !/直接影响相关领域/.test(s.consequence)) {
-          text += ` 直接影响方面，${s.consequence}。`;
+          text += formatConsequenceSentence(s.consequence);
         } else if (/退市/.test(cleanTitle)) {
-          text += ` 直接影响方面，涉案企业将依法进入退市出清程序并被终止上市。`;
+          text += formatConsequenceSentence('涉案企业将依法进入退市出清程序并被终止上市');
         }
       }
     } else if (item.bulletPoints && item.bulletPoints.length > 0 && item.bulletPoints[0].length >= 15 && !cleanTitle.includes(item.bulletPoints[0])) {
@@ -247,7 +245,7 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       }
     }
 
-    return sanitizeFedRatePolicyWording(text);
+    return sanitizeFedRatePolicyWording(healDanglingSummaryText(text, { content: item.content || item.summaryParagraph || '', title: item.title, what: item.summary5W1H?.what }));
   }, [item.summaryParagraph, item.summary5W1H, item.bulletPoints, cleanTitle, item.publishedAt, item.source, companyProfile, macroBreakdown]);
 
   // 2. 核心结论：直接调用统一的 autoCorrectTakeaway，叙述事情前因后果与来龙去脉，0私设主观模板！

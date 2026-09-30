@@ -8,7 +8,7 @@ import Summary5W1HView from './Summary5W1HView';
 import { extractSearchKeywords, getSearchUrl } from '@/lib/keywordExtractor';
 import { isWithin24Hours } from '@/lib/timeUtils';
 import { getCompanyProfileForNews, CompanyProfile } from '@/lib/companyProfiles';
-import { autoCorrectTakeaway, autoCorrectInterestTransmission, autoCorrectTitle, autoCorrectWatchlist } from '@/lib/selfHealingEngine';
+import { autoCorrectTakeaway, autoCorrectInterestTransmission, autoCorrectTitle, autoCorrectWatchlist, formatIndirectQuote, formatConsequenceSentence, formatWhySentence, healDanglingSummaryText } from '@/lib/selfHealingEngine';
 import { getMacroInflationBreakdown, isMacroInflationNews, MacroInflationBreakdown, sanitizeFedRatePolicyWording } from '@/lib/macroInflationEngine';
 import { isDeepPerspectiveEligible, extractDeepPerspective } from '@/lib/deepPerspective';
 import { buildEventProvisionsFactParagraph } from '@/lib/eventProvisions';
@@ -186,14 +186,13 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
             factParagraph = brief.summaryParagraph;
           } else if (brief.summary5W1H) {
             const s = brief.summary5W1H;
-            const what = (s.what || parsed.title).replace(/[。！!.]+$/, '');
-            const cleanWhy = (s.why || '').trim().replace(/[。！!.]+$/, '').replace(/^[，,\s]*(?:受|起因于|因为|由于|因)+\s*/, '').trim();
+            const what = formatIndirectQuote((s.what || parsed.title).replace(/[。！!.]+$/, ''));
             factParagraph = `据${brief.time ? `${brief.time}（${brief.source}）` : brief.source}电讯，${what}。`;
-            if (cleanWhy && cleanWhy.length >= 4 && !/宏观宏图|利益交织|深层动因/.test(cleanWhy)) {
-              factParagraph += ` 该事项起因于${cleanWhy}。`;
+            if (s.why && s.why.length >= 4 && !/宏观宏图|利益交织|深层动因/.test(s.why)) {
+              factParagraph += formatWhySentence(s.why);
             }
             if (s.consequence && s.consequence.length >= 4 && !/直接影响相关领域/.test(s.consequence)) {
-              factParagraph += ` 直接影响方面，${s.consequence}。`;
+              factParagraph += formatConsequenceSentence(s.consequence);
             }
           } else {
             factParagraph = `据${brief.source}通报：${parsed.title}。涉案当事机构与主管机构依法依规有序推进各项应对与处置工作。`;
@@ -207,7 +206,7 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
           if (/信威.*宁算|西藏宁算.*破产/.test(parsed.title) || (parsed.title.includes('西藏宁算') && /破产|重整/.test(parsed.title))) {
             factParagraph = `据${brief.time ? `${brief.time}（${brief.source}）` : brief.source}权威通报，西藏宁算科技集团及其关联公司破产重整程序进入关键阶段，法院及破产管理人推进债权申报复核、资产审计评估及重组投资人招募。该事项起因于此前信威集团重大历史债务风险牵连及自身债务结构失衡。直接影响方面，破产重整旨在通过法治化市场化手段盘活数字经济核心数据中心与算力基础设施资产，重构债务清偿方案并阻断风险外溢。`;
           }
-          factParagraph = sanitizeFedRatePolicyWording(factParagraph);
+          factParagraph = sanitizeFedRatePolicyWording(healDanglingSummaryText(factParagraph, { content: brief.content, title: parsed.title, what: brief.summary5W1H?.what }));
 
           // 运行时双重铁幕：对 brief.oneLineTakeaway 与 brief.nextWatchlist 在渲染层前强制重算校验，杜绝旧缓存脏数据直接上屏
           const healedTakeaway = autoCorrectTakeaway(

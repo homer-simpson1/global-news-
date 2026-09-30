@@ -2,7 +2,25 @@ import { FlashBrief, MarketQuote, NewsItem, TrackId, Summary5W1H, MarketSentimen
 import { SEED_FLASH_BRIEFS, SEED_NEWS_ITEMS, SEED_MARKET_QUOTES, GYIRONG_PORT_DISASTER_TRACKER } from '@/data/seedData';
 import { fetchVerifiedMarketQuotes, getCachedVerifiedQuotesSnapshot } from './quotesVerifier';
 import { enforceCountryEntityGuardrails, checkCrossContamination, validateTitleSummaryEntityConsistency, FOREIGN_ENTITIES } from './guardrails';
-import { autoCorrectAllNews, autoCorrectFlashBrief, sanitizeEditorialTone } from './selfHealingEngine';
+import {
+  autoCorrectAllNews,
+  autoCorrectFlashBrief,
+  sanitizeEditorialTone,
+  healDanglingClause,
+  healDanglingSummaryText,
+  formatIndirectQuote,
+  formatConsequenceSentence,
+  formatWhySentence,
+  truncateSentenceSafely,
+} from './selfHealingEngine';
+
+export {
+  formatIndirectQuote,
+  formatConsequenceSentence,
+  formatWhySentence,
+  truncateSentenceSafely,
+  healDanglingSummaryText,
+};
 import { EDITORIAL_CHIEF_SYSTEM_PROMPT, extractIntelligenceDeterministic } from './aiService';
 import { getCompanyProfileForNews } from './companyProfiles';
 import {
@@ -2595,7 +2613,7 @@ export function generateCoreTakeaway(
   } else if (why) {
     view = `${why}。`;
   } else if (consequence) {
-    view = `直接影响方面，${consequence}。`;
+    view = formatConsequenceSentence(consequence).trim();
   } else {
     let factDesc = (summary5W1H.what || cleanTitle || '').trim().replace(/[。！!.]+$/, '');
     // 严禁将“主持例行记者会 / 答记者问”等引言空话作为核心观点输出
@@ -2943,13 +2961,24 @@ export function build5W1HSummary(
     .map((s) => s.trim())
     .filter((s) => s.length > 8);
 
-  const isAStockOrMacroWho = /(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘|国债|央行|人行|中国|我国|国内|港股|恒生|宏观|通胀|CPI|PPI|PMI|社融|信贷|LPR|逆回购|MLF|降准|降息|财政部|发改委|统计局|国家统计局|工信部|商务部|证监会|中纪委|国务院|地方债|专项债|超长期国债|大宗|商品|期货|外汇|汇率|人民币)/i.test(
-    `${cleanTitle} ${sents[0] || ''}`
+  const normTitle = cleanTitle.replace(/^[【\[][^】\]]+[】\]]\s*/, '').replace(/[\s：:，,。！？!?.—–-]/g, '');
+  const normSent0 = (sents[0] || '').replace(/^[【\[][^】\]]+[】\]]\s*/, '').replace(/[\s：:，,。！？!?.—–-]/g, '');
+  const isSent0TitleEcho = sents.length > 0 && (
+    normTitle === normSent0 ||
+    normTitle.includes(normSent0) ||
+    normSent0.includes(normTitle) ||
+    (normTitle.length >= 8 && normSent0.startsWith(normTitle.slice(0, 8)))
   );
 
-  // 1.5 从正文首句识别知名实体（严格限定在首句前80字内，严禁通读正文漫游次句或后文无关大厂！）
-  if (!who && !isAStockOrMacroWho && sents.length > 0) {
-    const leadEntityMatch = sents[0].slice(0, 80).match(KNOWN_ENTITIES_REGEX);
+  const genuineFirstBodySent = isSent0TitleEcho && sents.length > 1 ? sents[1] : (sents[0] || '');
+
+  const isAStockOrMacroWho = /(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘|国债|央行|人行|中国|我国|国内|港股|恒生|宏观|通胀|CPI|PPI|PMI|社融|信贷|LPR|逆回购|MLF|降准|降息|财政部|发改委|统计局|国家统计局|工信部|商务部|证监会|中纪委|国务院|地方债|专项债|超长期国债|大宗|商品|期货|外汇|汇率|人民币)/i.test(
+    `${cleanTitle} ${genuineFirstBodySent}`
+  );
+
+  // 1.5 从正文首句识别知名实体（严格限定在真实正文首句前80字内，严禁通读正文漫游次句或后文无关大厂！）
+  if (!who && !isAStockOrMacroWho && genuineFirstBodySent) {
+    const leadEntityMatch = genuineFirstBodySent.slice(0, 80).match(KNOWN_ENTITIES_REGEX);
     if (leadEntityMatch) {
       let cand = leadEntityMatch[1];
       if (cand === '长鑫') cand = '长鑫存储';
@@ -2977,16 +3006,16 @@ export function build5W1HSummary(
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 3. What (事实要点：客观陈述事实动作，严禁贪婪正则删掉关键前半句；对发布会/问答/回应跳过“主持记者会/就某事回应”等引言，直取实质回复内容)
+  // 3. What (事实要点：客观陈述事实动作，严禁盲目复读标题废弃真实导语)
   // ─────────────────────────────────────────────────────────────
   let what = cleanTitle;
   if (sents.length > 0) {
     let targetSentence = '';
     // 3.1 若标题或首句属于“...回应”、“...答记者问”、“主持例行记者会”等，直接搜寻正文中官员/机构实质回复语句
-    const isResponseOrBriefing = /回应|答问|答记者问|记者会|发布会|开场白|中方表示|中方指出|对此有何评论/.test(cleanTitle + ' ' + (sents[0] || ''));
+    const isResponseOrBriefing = /回应|答问|答记者问|记者会|发布会|开场白|中方表示|中方指出|对此有何评论/.test(cleanTitle + ' ' + (genuineFirstBodySent || ''));
     if (isResponseOrBriefing) {
-      // 遍历所有句子，找到包含真实答复动作且具有实际说明内容的句子（跳过纯问句与主持引言）
-      const substantiveAnswer = sents.find((s) => {
+      const candidateSents = isSent0TitleEcho && sents.length > 1 ? sents.slice(1) : sents;
+      const substantiveAnswer = candidateSents.find((s) => {
         const clean = s.trim();
         if (/主持例行记者会|主持记者会|举行发布会|在例行发布会上|开场白|有记者提问|有何评论|外交部发言人郭嘉昆/.test(clean) && !/表示|强调|指出|重申|称|明确|介绍|回答/.test(clean)) {
           return false;
@@ -2999,10 +3028,15 @@ export function build5W1HSummary(
     }
 
     if (!targetSentence) {
-      targetSentence = sents[0];
+      // 核心修复：若 sents[0] 为标题复读或为其子集，坚决跳过 sents[0]，优先选取真实正文首句 sents[1]
+      let candIdx = 0;
+      if (isSent0TitleEcho && sents.length > 1) {
+        candIdx = 1;
+      }
+      targetSentence = sents[candIdx];
       const isPrologue = /主持例行记者会|主持记者会|举行发布会|答记者问|在例行发布会上|开场白/.test(targetSentence);
-      if (isPrologue && sents.length > 1) {
-        const substantive = sents.slice(1).find((s) => /表示|强调|指出|重申|称|明确|介绍|回答|谈到|回应/.test(s));
+      if (isPrologue && sents.length > candIdx + 1) {
+        const substantive = sents.slice(candIdx + 1).find((s) => /表示|强调|指出|重申|称|明确|介绍|回答|谈到|回应/.test(s));
         if (substantive) {
           targetSentence = substantive;
         }
@@ -3013,7 +3047,8 @@ export function build5W1HSummary(
       .replace(/^[0-9]{1,2}月[0-9]{1,2}日(?:电|讯|消息)?[，,\s]*/, '')
       .replace(/^(?:据.*?电[：:，,\s]*|据.*?报道[：:，,\s]*)/, '')
       .replace(/^[（(]?(?:法新社|新华社|路透社|彭博社|央视网|人民网|财新网|界面新闻|财联社|第一财经|经济观察网|证券时报|中新社|日经)[)）]?[，,\s]*/, '')
-      .replace(/^(?:快讯|电讯|直发|专电|通报|最新消息)[：:，,\s]*/, '')
+      .replace(/^(?:早报讯|财新网消息|快讯|电讯|直发|专电|通报|最新消息)[：:，,\s]*/, '')
+      .replace(/^[（(][^）)]*(?:早报|电|讯|记者|编辑)[)）][，,\s]*/, '')
       .trim();
     cleanLead = cleanLead.replace(/^[，,和与以及同时因此使得导致]+/, '').trim();
     if (cleanLead.length >= 10 && cleanLead.length <= 150) {
@@ -3021,15 +3056,17 @@ export function build5W1HSummary(
     }
   }
 
+  what = formatIndirectQuote(what);
+
   // ─────────────────────────────────────────────────────────────
   // 4. Why (起因事实：有原因就有原因，没有原因不要硬编写！严禁万能套话)
   // ─────────────────────────────────────────────────────────────
   let why = '';
   
-  // 4.1 从正文提取显式因果关联句
-  const causeMatch = rawTotal.match(/(?:因为|由于|受.*?影响|因.*?导致|起因于|主要系|主要因|旨在|为缓解|为应对|为防范|出于.*?考量|受.*?拖累|受.*?提振)([^。！？；\n]{4,60})/);
+  // 4.1 从正文提取显式因果关联句（以句终标点为边界提取，废除定长截断）
+  const causeMatch = rawTotal.match(/(?:因为|由于|受.*?影响|因.*?导致|起因于|主要系|主要因|旨在|为缓解|为应对|为防范|出于.*?考量|受.*?拖累|受.*?提振)([^。！？\n]+)/);
   if (causeMatch) {
-    why = causeMatch[0].trim().replace(/^[，,]/, '');
+    why = truncateSentenceSafely(causeMatch[0].trim().replace(/^[，,]/, ''));
   }
 
   // 4.2 针对特定严重灾害/事故/司法判决提取具体事实原因（非万能套话）
@@ -3043,11 +3080,11 @@ export function build5W1HSummary(
     }
   }
 
-  // 4.3 Why 启发式提取强化：识别次级原因引导词与行情/司法因果（严禁单字“受”误伤“接受/深受/受众”）
+  // 4.3 Why 启发式提取强化：识别次级原因引导词与行情/司法因果
   if (!why) {
-    const implicitWhyMatch = rawTotal.match(/(?:旨在|为了|配合|基于|受.*?影响|伴随|随着|由于)([^，,。；;\n]{4,30})/);
+    const implicitWhyMatch = rawTotal.match(/(?:旨在|为了|配合|基于|受.*?影响|伴随|随着|由于)([^。！？\n]+)/);
     if (implicitWhyMatch && implicitWhyMatch[1]) {
-      why = implicitWhyMatch[1].replace(/^(?:着|随着|伴随|鉴于|鉴于此)\s*/, '').trim();
+      why = truncateSentenceSafely(implicitWhyMatch[1].replace(/^(?:着|随着|伴随|鉴于|鉴于此)\s*/, '').trim());
     } else if (/大跌|暴跌|跳水|走低|下挫|回调/.test(cleanTitle)) {
       why = '受短期市场获利了结盘抛压或外部宏观利空情绪压制';
     } else if (/大涨|暴涨|飙升|走高|冲高|反弹/.test(cleanTitle)) {
@@ -3058,12 +3095,12 @@ export function build5W1HSummary(
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 5. Consequence (后续影响：优先从原文提取直接影响，若原文无显式连接词则采用启发式分析)
+  // 5. Consequence (后续影响：以句终标点为边界提取，严禁字符数截断腰斩)
   // ─────────────────────────────────────────────────────────────
   let consequence = '';
-  const consequenceMatch = rawTotal.match(/(?:致使|导致|造成|引发|促使|使得|造成.*人死亡|造成.*人受伤|紧急分流|停航|中断|全境停电)([^。！？；\n]{4,60})/);
+  const consequenceMatch = rawTotal.match(/(?:致使|导致|造成|引发|促使|使得|造成.*人死亡|造成.*人受伤|紧急分流|停航|中断|全境停电)([^。！？\n]+)/);
   if (consequenceMatch) {
-    consequence = consequenceMatch[0].trim().replace(/^[，,]/, '');
+    consequence = truncateSentenceSafely(consequenceMatch[0].trim().replace(/^[，,]/, ''));
     if (/造成的困境|如果.*?那么除了|并避免越陷越深/.test(consequence)) {
       consequence = '';
     }
@@ -3105,11 +3142,11 @@ export function build5W1HParagraph(
     return buildEventProvisionsFactParagraph(title, undefined, source, summary.when);
   }
 
-  let cleanWhat = (summary.what || title || '').trim().replace(/[。！!.]+$/, '');
+  let cleanWhat = formatIndirectQuote((summary.what || title || '').trim().replace(/[。！!.]+$/, ''));
   cleanWhat = cleanWhat.replace(/^[，,和与以及同时因此使得导致]+/, '').trim();
   const cleanWho = (summary.who || '').trim();
   const cleanWhere = (summary.where || '').trim();
-  const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '').replace(/^[，,\s]*(?:受|起因于|因为|由于|因)+\s*/, '').trim();
+  const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '');
   let cleanConsequence = (summary.consequence || '').trim().replace(/[。！!.]+$/, '');
   if (/造成的困境|如果.*?那么除了|并避免越陷越深/.test(cleanConsequence)) {
     cleanConsequence = '';
@@ -3136,10 +3173,15 @@ export function build5W1HParagraph(
     factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWhat}。`;
   }
 
-  // 有原因就陈述，没有原因绝不硬编写！
+  // 确保绝无“电讯，人名：”冒号引语
+  factSentence = factSentence.replace(/电讯[，,]\s*([^：:，,——\s\n]{2,16})[：:]\s*(.+?)(?:[。！？\n]|$)/g, (m, spk, q) => {
+    return `电讯，${formatIndirectQuote(`${spk}：${q}`)}。`;
+  });
+
+  // 有原因就陈述，没有原因绝不硬编写！采用自然句式，杜绝“起因于旨在/起因于主要系”
   let whySentence = '';
   if (cleanWhy && cleanWhy.length >= 4) {
-    whySentence = ` 信源表明，该事项起因于${cleanWhy}。`;
+    whySentence = formatWhySentence(cleanWhy);
   }
 
   // 有涉事主体背景则无缝融入业务速览（解答“为什么不简单介绍这家公司”）
@@ -3170,13 +3212,14 @@ export function build5W1HParagraph(
     profileSentence = ` 涉事主体${profile.name}（${profile.sector}）：${profile.description}`;
   }
 
-  // 有后续影响就陈述，没有就不硬编！
+  // 有后续影响就陈述，没有就不硬编！消灭无主语病句“直接影响方面，促使...”
   let consequenceSentence = '';
   if (cleanConsequence && cleanConsequence.length >= 4) {
-    consequenceSentence = ` 直接影响方面，${cleanConsequence}。`;
+    consequenceSentence = formatConsequenceSentence(cleanConsequence);
   }
 
-  return `${factSentence}${profileSentence}${whySentence}${consequenceSentence}`.trim();
+  const rawParagraph = `${factSentence}${profileSentence}${whySentence}${consequenceSentence}`.trim();
+  return healDanglingSummaryText(rawParagraph, { content, title, what: cleanWhat });
 }
 
 

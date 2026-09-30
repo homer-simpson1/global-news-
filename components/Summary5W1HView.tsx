@@ -16,6 +16,12 @@ import {
   buildEventProvisionsFactParagraph,
   isEventProvisionsNews,
 } from '@/lib/eventProvisions';
+import {
+  formatIndirectQuote,
+  formatConsequenceSentence,
+  formatWhySentence,
+  healDanglingSummaryText,
+} from '@/lib/selfHealingEngine';
 
 interface Summary5W1HViewProps {
   summaryParagraph?: string;
@@ -65,20 +71,28 @@ export default function Summary5W1HView({
     paragraph = undefined;
   }
 
-  // 1.1 清理语病残句（如“直接影响方面，造成的困境，并避免越陷越深…”）
+  // 1.1 清理语病残句与八股病句
   if (paragraph) {
     paragraph = paragraph
       .replace(/直接影响方面，(?:造成的困境|如果.*?那么除了).*?([。！!]|$)/g, '。')
+      .replace(/电讯[，,]\s*([^：:，,——\s\n]{2,16})[：:]\s*(.+?)(?:[。！？\n]|$)/g, (m, spk, q) => {
+        return `电讯，${formatIndirectQuote(`${spk}：${q}`)}。`;
+      })
+      .replace(/直接影响方面[，,]\s*(?:促使|导致|造成|引发|使得|推动|致使|倒逼|加速)([^。！？\n]+)/g, (m) => {
+        return formatConsequenceSentence(m.replace(/^直接影响方面[，,]\s*/, '')).trim();
+      })
+      .replace(/起因于\s*(?:旨在|出于|为缓解|为应对|为防范)\s*([^。！？\n]+)/g, (m, rest) => `此举旨在${rest}`)
+      .replace(/起因于\s*(?:主要系|主要因|因为|由于)\s*([^。！？\n]+)/g, (m, rest) => `主要系${rest}`)
       .replace(/，{2,}/g, '，')
       .replace(/。{2,}/g, '。')
       .trim();
+    paragraph = healDanglingSummaryText(paragraph, { title, what: summary?.what });
   }
 
   // 2. 如果只有结构化的 summary，根据实际披露要素客观叙述（无原因绝不硬编）
   if (!paragraph && summary) {
     const when = summary.when || (time ? `${time}` : '权威电讯通报');
-    const cleanWhat = (summary.what || (title ? title.replace(/^【.*?】\s*/, '') : '发布最新核心进展')).trim().replace(/[。！!.]+$/, '');
-    const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '').replace(/^[，,\s]*(?:受|起因于|因为|由于|因)+\s*/, '').trim();
+    const cleanWhat = formatIndirectQuote((summary.what || (title ? title.replace(/^【.*?】\s*/, '') : '发布最新核心进展')).trim().replace(/[。！!.]+$/, ''));
     let cleanConsequence = (summary.consequence || '').trim().replace(/[。！!.]+$/, '');
 
     // 剔除破损因果碎片
@@ -87,17 +101,17 @@ export default function Summary5W1HView({
     }
 
     let text = `据${when}，${cleanWhat}。`;
-    if (cleanWhy && cleanWhy.length >= 4 && !cleanWhy.includes('宏观宏图') && !cleanWhy.includes('利益交织对立')) {
-      text += ` 信源表明，该事项起因于${cleanWhy}。`;
+    if (summary.why && summary.why.length >= 4 && !summary.why.includes('宏观宏图') && !summary.why.includes('利益交织对立')) {
+      text += formatWhySentence(summary.why);
     } else if (title && /退市.*造假|造假.*退市/.test(title)) {
       text += ` 该事项起因于此前监管部门对涉事企业财务造假违规行为通报点名并实施顶格行政处罚。`;
     }
     if (cleanConsequence && cleanConsequence.length >= 4 && !cleanConsequence.includes('直接影响相关领域')) {
-      text += ` 直接影响方面，${cleanConsequence}。`;
+      text += formatConsequenceSentence(cleanConsequence);
     } else if (title && /退市/.test(title)) {
-      text += ` 直接影响方面，涉案企业将依法进入退市出清程序并被终止上市。`;
+      text += formatConsequenceSentence('涉案企业将依法进入退市出清程序并被终止上市');
     }
-    paragraph = text;
+    paragraph = healDanglingSummaryText(text, { title, what: summary.what });
   }
 
   // 3. 保底段落生成（确保客观事实陈述，讲清来龙去脉）
@@ -135,9 +149,9 @@ export default function Summary5W1HView({
     paragraph = buildMacroInflationFactParagraph(title, paragraph || '', source, time);
   }
 
-  // 修复美联储降息周期机翻倒错 (加息/上调 -> 降息/下调)
+  // 修复美联储降息周期机翻倒错并自愈可能残存的及物动词断句
   if (paragraph) {
-    paragraph = sanitizeFedRatePolicyWording(paragraph);
+    paragraph = sanitizeFedRatePolicyWording(healDanglingSummaryText(paragraph, { title, what: summary?.what }));
   }
 
   // 提取核心后果一句话提示（用于在段落下方醒目强调，过滤破损片段）

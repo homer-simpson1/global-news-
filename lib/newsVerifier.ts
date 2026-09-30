@@ -128,7 +128,7 @@ export async function runNewsAccuracyVerification(
     }
 
     // 门禁：题目末尾严禁存在悬挂使役/及物动词或残缺连词（如“迫使”、“导致”、“使得”、“拟”、“至”等缺少宾语）
-    const DANGLING_TAIL_REGEX = /(?:迫使|致使|造成|促使|导致|使得|逼迫|驱使|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|计划|拟|考虑|面临|面临须|斥资|拟动用|拟以|突破|至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至|纳入|列入|涵盖|引发|推动|加速|推进|进入|启动|成为|陷入|正在|或将|将|须|在|于|向|从|对|并|与|等|及|但|而|或者|以及)\s*(\.{2,3})?$/;
+    const DANGLING_TAIL_REGEX = /(?:迫使|致使|造成|促使|导致|使得|逼迫|驱使|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|计划|拟|考虑|面临|面临须|斥资|拟动用|拟以|突破|至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至|纳入|列入|涵盖|引发|推动|加速|推进|进入|启动|成为|陷入|正在|或将|将|须|在|于|向|从|对|采取|出台|制定|实施|开展|进行|落实|执行|寻求|谋求|要求采取|并|与|等|及|但|而|或者|以及)\s*(\.{2,3})?$/;
     if (DANGLING_TAIL_REGEX.test(item.title)) {
       titleOk = false;
       titleCompletenessOk = false;
@@ -156,6 +156,36 @@ export async function runNewsAccuracyVerification(
     } else if (/[：:,，、\s]$/.test(p)) {
       detailClarityOk = false;
       reasons.push('报道详情末尾存在残句或悬空标点截断');
+    }
+
+    // 门禁：报道详情末尾与句内严禁存在及物动词截断（如“要求采取。”）
+    const DANGLING_PERIOD_REGEX = /(?:要求采取|促使|导致|出台|制定|实施|推进|纳入|引发|采取|开展|进行|启动|落实|执行|寻求|谋求)[。！？!?]$/;
+    if (DANGLING_PERIOD_REGEX.test(p)) {
+      detailClarityOk = false;
+      reasons.push('报道详情末尾存在及物动词截断（如“要求采取。”），缺少宾语');
+    }
+    const DANGLING_INNER_REGEX = /(?:要求采取|促使|导致|出台|制定|实施|推进|纳入|引发)[。！？!?]/;
+    if (DANGLING_INNER_REGEX.test(p)) {
+      detailClarityOk = false;
+      reasons.push('报道详情语句中存在及物动词截断（缺少宾语直接打句号）');
+    }
+
+    // 门禁：报道详情严禁生硬复读“电讯，人名：”冒号直接引语
+    if (/电讯[，,]\s*[^：:，,——\s\n]{2,12}[：:]/.test(p)) {
+      detailClarityOk = false;
+      reasons.push('报道详情违规包含冒号直接引语（应转述为自然间接引语）');
+    }
+
+    // 门禁：报道详情严禁硬拼八股“直接影响方面，促使...”无主语病句
+    if (/直接影响方面[，,]\s*(?:促使|导致|造成|引发|使得|推动|致使)/.test(p)) {
+      detailClarityOk = false;
+      reasons.push('报道详情违规包含“直接影响方面，促使”无主语病句模板');
+    }
+
+    // 门禁：报道详情严禁介词堆叠“起因于旨在/起因于主要系”
+    if (/起因于\s*(?:旨在|主要系|主要因|出于|为缓解|为应对|因为|由于)/.test(p)) {
+      detailClarityOk = false;
+      reasons.push('报道详情违规包含“起因于旨在/主要系”介词堆叠病句');
     }
 
     if (/信源仅陈述单一动作|未披露上下游合同与转嫁细节|不做无依据推测|涉事当事方正推进处置|使得市场面临现实痛点|造成的困境，并避免越陷越深/.test(p + ' ' + (item.oneLineTakeaway || ''))) {

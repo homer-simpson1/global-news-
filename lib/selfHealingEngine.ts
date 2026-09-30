@@ -148,9 +148,212 @@ export function sanitizeEditorialTone(text: string): string {
   return cleaned.trim();
 }
 
+// ─────────────────────────────────────────────────────────────
+// 5W1H 事实通报句子与间接引语自然格式化引擎
+// 彻底消灭“要求采取。”及物动词腰斩、机械硬拼八股“直接影响方面，促使...”与冒号标题生硬复读
+// ─────────────────────────────────────────────────────────────
+
+export const DEFAULT_TRANSITIVE_OBJECTS: Record<string, string> = {
+  '要求采取': '有效应对与合规处置措施',
+  '采取': '相应应对举措',
+  '出台': '具体实施细则与合规指引',
+  '制定': '具体实施方案与落地细则',
+  '实施': '全流程合规监管与防范措施',
+  '推进': '后续落地与妥善处置措施',
+  '开展': '专项排查与常态化监管',
+  '进行': '实质性研判与妥善应对',
+  '启动': '应急响应机制与专项程序',
+  '落实': '各项监管与风险防范举措',
+  '执行': '既定政策方案与合规要求',
+  '寻求': '多方协商与共识解决方案',
+  '谋求': '市场化化解与长效支撑',
+  '纳入': '重点监测与常态化监管范围',
+  '列入': '重点观察与防范清单',
+  '涵盖': '核心业务与重点监控环节',
+  '引发': '市场广泛关切与连锁反应',
+  '促使': '各当事方加快研判与应对',
+  '导致': '市场波动加剧并引发连锁关注',
+  '造成': '多重连锁冲击与业务承压',
+  '使得': '相关各方加快研判与应对',
+  '推动': '相关机制持续完善与落地',
+  '加速': '产业链上下游重塑与调整',
+};
+
+/**
+ * 将冒号标题/引语体自动转述为自然间接引语
+ * 例如：“特朗普：与习近平合作治理AI将不利美国企业” -> “特朗普公开警告称，与习近平合作治理AI将不利美国企业”
+ */
+export function formatIndirectQuote(text: string): string {
+  if (!text) return text;
+  let clean = text.trim();
+  const tagMatch = clean.match(/^([【\[][^】\]]+[】\]]\s*)(.*)$/);
+  let prefix = '';
+  if (tagMatch) {
+    prefix = tagMatch[1];
+    clean = tagMatch[2];
+  }
+  const colonMatch = clean.match(/^([^：:，,——\s\n]{2,16})[：:]\s*(.+)$/);
+  if (!colonMatch) return text;
+  const speaker = colonMatch[1].trim();
+  let quote = colonMatch[2].trim().replace(/^[“"「『]+|[”"」』]+$/g, '');
+
+  if (/(?:称|表示|指出|强调|呼吁|警告|敦促|重申|宣布|坦言|证实|回答)$/.test(speaker)) {
+    return `${prefix}${speaker}，${quote}`;
+  }
+
+  if (/警告|不利|危险|威胁|反制|风险|代价|严厉|制裁|报复/.test(quote)) {
+    return `${prefix}${speaker}公开警告称，${quote}`;
+  }
+  if (/敦促|严正|反对|谴责|抗议/.test(quote)) {
+    return `${prefix}${speaker}明确表示，${quote}`;
+  }
+  if (/宣布|决定|启动|上线|发布|签署|设立/.test(quote)) {
+    return `${prefix}${speaker}宣布，${quote}`;
+  }
+  if (/强调|重申|指出|坦言|证实|澄清/.test(quote)) {
+    return `${prefix}${speaker}强调称，${quote}`;
+  }
+  if (/呼吁|要求|倡议/.test(quote)) {
+    return `${prefix}${speaker}呼吁称，${quote}`;
+  }
+  return `${prefix}${speaker}明确表示，${quote}`;
+}
+
+/**
+ * 语义安全因果从句截断：以标点为界，严禁在及物动词/连词/介词后截断腰斩
+ */
+const DANGLING_TRUNC_END = /(?:要求采取|采取|出台|制定|实施|推进|开展|进行|启动|落实|执行|寻求|谋求|促使|导致|造成|引发|使得|推动|加速|纳入|列入|涵盖|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|计划|拟|考虑|面临|斥资|在|于|向|从|对|并|与|等|及|但|而|或者|以及|以|为了|为|由|被|随着|伴随|因|因为|由于|鉴于)$/;
+
+export function truncateSentenceSafely(clause: string, maxLen: number = 75): string {
+  let text = (clause || '').trim().replace(/[。！!.]+$/, '');
+  if (!text) return '';
+  if (text.length <= maxLen && !DANGLING_TRUNC_END.test(text)) {
+    return text;
+  }
+  const commas: number[] = [];
+  for (let i = 0; i < text.length; i++) {
+    if ((text[i] === '，' || text[i] === ',' || text[i] === '；' || text[i] === ';') && i >= 12 && i <= maxLen) {
+      commas.push(i);
+    }
+  }
+  for (let i = commas.length - 1; i >= 0; i--) {
+    const splitIdx = commas[i];
+    const candidate = text.slice(0, splitIdx).trim();
+    if (candidate.length >= 10 && !DANGLING_TRUNC_END.test(candidate)) {
+      return candidate;
+    }
+  }
+  if (text.length <= 95 && !DANGLING_TRUNC_END.test(text)) {
+    return text;
+  }
+  let candidate = text.replace(DANGLING_TRUNC_END, '').trim();
+  candidate = candidate.replace(/[，,；;、\s]+$/, '').trim();
+  return candidate || text;
+}
+
+/**
+ * 后续影响自然陈述格式化：
+ * 消除“直接影响方面，促使...”等无主语病句，使役动词前置转为自然承前主语或“受此影响”
+ */
+export function formatConsequenceSentence(rawConsequence: string): string {
+  let c = (rawConsequence || '').trim().replace(/[。！!.]+$/, '').replace(/^[，,\s]+/, '');
+  if (!c || c.length < 4 || /直接影响相关领域|造成的困境|如果.*?那么除了|并避免越陷越深/.test(c)) {
+    return '';
+  }
+  c = c.replace(/^直接影响方面[，,\s]*/, '').trim();
+
+  // 若以使役词开头，转换为自然承前主语“该事项...”
+  const causativeMatch = c.match(/^(?:促使|导致|造成|引发|使得|推动|致使|倒逼|加速|逼迫)/);
+  if (causativeMatch) {
+    return ` 该事项${c}。`;
+  }
+
+  // 若已有完整主语或承接词
+  if (/^(?:受此影响|此举|该事项|该法案|该政策|这一变动|相关方|涉案企业|市场各方)/.test(c)) {
+    return ` ${c}。`;
+  }
+  return ` 受此影响，${c}。`;
+}
+
+/**
+ * 起因事实自然陈述格式化：
+ * 剥离前缀冗余介词，若含“旨在/为缓解/为应对”则自然表达为“此举旨在...”，杜绝“起因于旨在”介词堆叠
+ */
+export function formatWhySentence(rawWhy: string): string {
+  let w = (rawWhy || '').trim().replace(/[。！!.]+$/, '').replace(/^[，,\s]+/, '');
+  if (!w || w.length < 4 || /宏观宏图|利益交织|深层动因/.test(w)) {
+    return '';
+  }
+  if (/^(?:旨在|出于|为缓解|为应对|为防范|为了)/.test(w)) {
+    const strippedAim = w.replace(/^(?:旨在|出于|为缓解|为应对|为防范|为了)[，,\s]*/, '').trim();
+    if (/^为(?:缓解|应对|防范)/.test(w)) {
+      return ` 信源表明，此举旨在${w}。`;
+    }
+    return ` 信源表明，此举旨在${strippedAim}。`;
+  }
+
+  let clean = w.replace(/^(?:起因于|主要系|主要因|因为|由于|因|受|鉴于|鉴于此)+[，,\s]*/, '').trim();
+  if (w.startsWith('受')) {
+    return ` 信源表明，该事项主要受${clean}。`;
+  }
+  return ` 信源表明，该事项起因于${clean}。`;
+}
+
+/**
+ * 段落级及物动词腰斩自愈器：
+ * 拦截“要求采取。”、“推进。”等句末及物动词截断，优先检索上下文补全，检索不到则补全标准宾语
+ */
+export function healDanglingSummaryText(
+  paragraph: string,
+  context?: { content?: string; title?: string; what?: string }
+): string {
+  if (!paragraph) return paragraph;
+  let text = paragraph;
+  const rawContext = `${context?.content || ''} ${context?.title || ''} ${context?.what || ''}`.trim();
+
+  const DANGLING_INNER_REGEX = /(要求采取|采取|出台|制定|实施|推进|开展|进行|启动|落实|执行|寻求|谋求|促使|导致|造成|引发|使得|推动|加速|纳入|列入|涵盖)[。！？!?]/g;
+
+  text = text.replace(DANGLING_INNER_REGEX, (match, verb) => {
+    if (rawContext && verb) {
+      const vEscaped = verb.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const ctxMatch = rawContext.match(new RegExp(vEscaped + '([^。！？；\n]{2,35})'));
+      if (ctxMatch && ctxMatch[1]) {
+        let continuation = ctxMatch[1].trim();
+        const punc = continuation.search(/[，,；;]/);
+        if (punc >= 2 && punc <= 25) {
+          continuation = continuation.slice(0, punc);
+        } else if (continuation.length > 25) {
+          continuation = continuation.slice(0, 25);
+        }
+        continuation = continuation.replace(/[，,、\s]+$/, '');
+        if (
+          continuation.length >= 2 &&
+          !/(?:要求采取|采取|出台|制定|实施|推进|开展|进行|启动|落实|执行|寻求|谋求|促使|导致|造成|引发|使得|推动|加速|纳入|列入|涵盖)$/.test(
+            continuation
+          )
+        ) {
+          return `${verb}${continuation}。`;
+        }
+      }
+    }
+    const defObj = DEFAULT_TRANSITIVE_OBJECTS[verb] || '相应应对措施';
+    return `${verb}${defObj}。`;
+  });
+
+  const DANGLING_TAIL_REGEX = /(要求采取|采取|出台|制定|实施|推进|开展|进行|启动|落实|执行|寻求|谋求|促使|导致|造成|引发|使得|推动|加速|纳入|列入|涵盖)[，,、\s]*$/;
+  const tailMatch = text.match(DANGLING_TAIL_REGEX);
+  if (tailMatch) {
+    const verb = tailMatch[1];
+    const defObj = DEFAULT_TRANSITIVE_OBJECTS[verb] || '相应应对措施';
+    text = text.replace(DANGLING_TAIL_REGEX, `${verb}${defObj}。`);
+  }
+
+  return text;
+}
+
 /**
  * 标题断尾与无标点悬挂词自愈引擎 (Dangling Clause & Stutter Healing)
- * 彻底解决无逗号从句以及直接以动词/介词/副词/半截动宾收尾的残缺标题（如“美国芯片公司AMD斥资”、“AI行业面临须”、“我国生成式人工智能用户规模突破”、“MSCI亚太指数下跌1%至”、“中国台湾证交所加权股价指数收低0.8%报”）
+ * 彻底解决无逗号从句以及直接以动词/介词/副词/半截动宾收尾的残缺标题
  * 优先从上下文正文中提取补全，提取不到时回退剥离悬挂词；同时彻底消除同词镜像复读。
  */
 export function healDanglingClause(
@@ -160,12 +363,12 @@ export function healDanglingClause(
   let title = (rawTitle || '').trim();
   if (!title) return title;
 
-  // 1. 处理同词结巴重复与镜像复读（如“长鑫科技拟动用， 长鑫科技拟动用”或“长鑫科技拟动用 长鑫科技拟动用”）
+  // 1. 处理同词结巴重复与镜像复读
   title = title.replace(/([^，,；;\s]{3,25})[，,\s]+\1/g, '$1');
   title = title.replace(/^(.{2,30}?)[，,\s|｜]+(?:\1)(.*)$/, '$1$2').trim();
 
-  // 2. 匹配末尾悬挂词（无论是否有前置标点）：在/拟/将/创/报/达/于/面临/斥资/突破/须/至/拟动用/拟以/迫使/导致 等
-  const DANGLING_REGEX = /(?:[，,、\s]*)(迫使|致使|造成|促使|导致|使得|逼迫|驱使|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|计划|拟|考虑|面临|面临须|斥资|拟动用|拟以|突破|至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至|纳入|列入|涵盖|引发|推动|加速|推进|进入|启动|成为|陷入|正在|或将|将|须|在|于|向|从|对)$/;
+  // 2. 匹配末尾悬挂词（无论是否有前置标点）：扩充及物动作动词库
+  const DANGLING_REGEX = /(?:[，,、\s]*)(迫使|致使|造成|促使|导致|使得|逼迫|驱使|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|计划|拟|考虑|面临|面临须|斥资|拟动用|拟以|突破|至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至|纳入|列入|涵盖|引发|推动|加速|推进|进入|启动|成为|陷入|正在|或将|将|须|在|于|向|从|对|采取|出台|制定|实施|开展|进行|落实|执行|寻求|谋求|要求采取)$/;
   const match = title.match(DANGLING_REGEX);
 
   if (match) {
@@ -177,7 +380,7 @@ export function healDanglingClause(
     const tailWord = match[1];
     const rawContext = `${context?.content || ''} ${context?.what || ''} ${context?.takeaway || ''} ${context?.why || ''}`.trim();
 
-    // 2.1 若为数值/点位/幅度悬挂词（如“至/报/达/创/收于/位于/处于/跌至/涨至/升至/降至/突破”），优先提取后续数值
+    // 2.1 若为数值/点位/幅度悬挂词，优先提取后续数值
     if (/(?:至|报|达|创|收于|位于|处于|跌至|涨至|升至|降至|突破)/.test(tailWord)) {
       const numMatch = rawContext.match(new RegExp('(?:' + tailWord + ')\\s*([0-9.,]+(?:\\s*(?:亿|万|千|百)?(?:点|基点|%|％|美元|桶|元|人|户|倍|吨|克|股|份|条|个|次|家|关口|大关))?|历史新高|新高|历史低位|新低|大关|关口)'));
       if (numMatch && numMatch[1] && numMatch[1].length >= 1) {
@@ -185,8 +388,7 @@ export function healDanglingClause(
       }
     }
 
-    // 2.2 通用动词/及物谓语：从正文提取后置实质主谓宾补语（如“AMD斥资” -> “49亿美元收购ZT Systems”，“规模突破” -> “6亿人”，“AI行业面临须” -> “诸多监管挑战与算力短缺压力”）
-    // 取标题末尾 2~8 个字符作为正文检索锚点
+    // 2.2 通用动词/及物谓语：从正文提取后置实质主谓宾补语
     let anchor = title.slice(Math.max(0, title.length - 8)).replace(/^[，,、\s]+/, '').trim();
     let baseTitle = title;
     let continuationMatch: RegExpMatchArray | null = null;
@@ -194,7 +396,6 @@ export function healDanglingClause(
       const escapedAnchor = anchor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       continuationMatch = rawContext.match(new RegExp(escapedAnchor + '([^。！？；\n]{2,35})'));
     } else {
-      // 若原锚点包含截断残字（如“面临须”中带有 OCR/抓取截断残字“须”），剥离悬垂单字后再在正文中定位
       const strippedAnchor = anchor.replace(/(?:须|在|于|向|至|报|达|拟)+$/, '').trim();
       if (strippedAnchor.length >= 2 && rawContext.includes(strippedAnchor)) {
         anchor = strippedAnchor;
@@ -215,7 +416,7 @@ export function healDanglingClause(
       } else if (continuation.length > 26) {
         continuation = continuation.slice(0, 26);
       }
-      continuation = continuation.replace(/(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|面临|斥资|突破|收于|跌至|涨至|升至|降至|拟动用|拟以|迫使|使得)+$/, '').trim();
+      continuation = continuation.replace(/(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|面临|斥资|突破|收于|跌至|涨至|升至|降至|拟动用|拟以|迫使|使得|采取|出台|制定|实施|推进|开展|进行|启动|落实|执行|寻求|谋求|要求采取)+$/, '').trim();
       if (continuation.length >= 2) {
         const candidate = `${baseTitle}${continuation}`.trim();
         if (candidate.length <= 48) {
@@ -225,8 +426,7 @@ export function healDanglingClause(
     }
 
     // 2.3 若上下文无法提取有效宾语补全，安全回退：
-    // 若带逗号从句且逗号前主干完整（>= 12 字），剥离未闭合的残缺从句
-    const commaClauseMatch = title.match(/([，,]\s*[^，,]{1,14}(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|面临|斥资|突破|收于|跌至|涨至|升至|降至|拟动用|拟以|须|面临须|迫使|使得))$/);
+    const commaClauseMatch = title.match(/([，,]\s*[^，,]{1,14}(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|面临|斥资|突破|收于|跌至|涨至|升至|降至|拟动用|拟以|须|面临须|迫使|使得|采取|出台|制定|实施|推进|开展|进行|启动|落实|执行|寻求|谋求|要求采取))$/);
     if (commaClauseMatch) {
       const safePrefix = title.slice(0, title.length - commaClauseMatch[0].length).trim();
       if (safePrefix.length >= 12) {
@@ -235,12 +435,11 @@ export function healDanglingClause(
     }
 
     // 无逗号或逗号前太短：剥离末尾悬挂词本身
-    const stripped = title.replace(/(?:[，,、；;：:\s]*(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|收于|跌至|涨至|升至|降至|突破|面临|斥资|拟动用|拟以|须|面临须|迫使|致使|造成|促使|使得|逼迫|驱使|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|引发|推动|加速|推进|进入|启动|成为|陷入|正在|或将))+$/, '').trim();
+    const stripped = title.replace(/(?:[，,、；;：:\s]*(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|收于|跌至|涨至|升至|降至|突破|面临|斥资|拟动用|拟以|须|面临须|迫使|致使|造成|促使|使得|逼迫|驱使|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|引发|推动|加速|推进|进入|启动|成为|陷入|正在|或将|采取|出台|制定|实施|开展|进行|落实|执行|寻求|谋求|要求采取))+$/, '').trim();
     if (stripped.length >= 12) {
       return stripped;
     }
 
-    // 若剥离后过短（如“美国芯片公司AMD”），尝试回退至 context.what 或 context.takeaway
     if (context?.what && context.what.length >= 12 && !DANGLING_REGEX.test(context.what)) {
       return context.what.replace(/^[【\[][^】\]]+[】\]]\s*/, '').slice(0, 48).trim();
     }
@@ -288,7 +487,7 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
   }
 
   // 0-0B. 修复以及物动词结尾但宾语缺失的残缺断头标题（如 "...将美国进口煤炭纳入"，导致宾语"300亿降税框架"丢失）
-  const TRANSITIVE_TAIL = /(?:纳入|列入|纳管|覆盖|包含|纳编|涵盖|认定为|列为|归入|计入|并入|纳入管理|调入|划入|移入|收入|接入|引入|导入|录入|存入|带入|带进|放入|加入|追加|列进|添加|增加|添入|迫使|致使|造成|促使|导致|使得|逼迫|驱使|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|引发|推动|或将)$/;
+  const TRANSITIVE_TAIL = /(?:纳入|列入|纳管|覆盖|包含|纳编|涵盖|认定为|列为|归入|计入|并入|纳入管理|调入|划入|移入|收入|接入|引入|导入|录入|存入|带入|带进|放入|加入|追加|列进|添加|增加|添入|迫使|致使|造成|促使|导致|使得|逼迫|驱使|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|引发|推动|或将|采取|出台|制定|实施|推进|开展|进行|启动|落实|执行|寻求|谋求|要求采取)$/;
   if (TRANSITIVE_TAIL.test(title)) {
     // 麦肯锡报告专项特快
     if (/麦肯锡.*(?:ai|人工智能)?.*(?:迫使|或将迫使|将迫使)$/i.test(title)) {
@@ -1810,6 +2009,23 @@ export function autoCorrectSummaryParagraph(
       .replace(/。{2,}/g, '。')
       .trim();
 
+    // 修复间接引语：彻底消除“电讯，人名：”冒号引语
+    cleaned = cleaned.replace(/电讯[，,]\s*([^：:，,——\s\n]{2,16})[：:]\s*(.+?)(?:[。！？\n]|$)/g, (m, spk, q) => {
+      return `电讯，${formatIndirectQuote(`${spk}：${q}`)}。`;
+    });
+
+    // 修复无主语病句：彻底消灭“直接影响方面，促使...”
+    cleaned = cleaned.replace(/直接影响方面[，,]\s*(?:促使|导致|造成|引发|使得|推动|致使|倒逼|加速)([^。！？\n]+)/g, (m) => {
+      return formatConsequenceSentence(m.replace(/^直接影响方面[，,]\s*/, '')).trim();
+    });
+
+    // 修复介词堆叠：杜绝“起因于旨在/起因于主要系”
+    cleaned = cleaned.replace(/起因于\s*(?:旨在|出于|为缓解|为应对|为防范)\s*([^。！？\n]+)/g, (m, rest) => `此举旨在${rest}`);
+    cleaned = cleaned.replace(/起因于\s*(?:主要系|主要因|因为|由于)\s*([^。！？\n]+)/g, (m, rest) => `主要系${rest}`);
+
+    // 自愈及物动词截断（如“要求采取。”）
+    cleaned = healDanglingSummaryText(cleaned, { content: text, title: cleanTitle, what: summary5W1H?.what });
+
     // 核心守卫：清除 A股/国内宏观与科技主体错配或李代桃僵的涉事主体说明
     const isMacroOrAStock = /(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘|国债|央行|人行|中国|我国|国内|港股|恒生|宏观|通胀|CPI|PPI|PMI|社融|信贷|LPR|逆回购|MLF|降准|降息|财政部|发改委|统计局|国家统计局|工信部|商务部|证监会|中纪委|国务院|地方债|专项债|超长期国债|大宗|商品|期货|外汇|汇率|人民币)/i.test(cleanTitle);
     const profileMatch = cleaned.match(/\s*涉事主体([^（(]+)[（(]([^）)]+)[）)](?:：|:)[^。]+。?/);
@@ -1855,9 +2071,9 @@ export function autoCorrectSummaryParagraph(
     };
   }
 
-  const what = (summary5W1H?.what || cleanTitle).replace(/[。！!.]+$/, '').trim();
-  const why = (summary5W1H?.why || '').replace(/[。！!.]+$/, '').replace(/^[，,\s]*(?:受|起因于|因为|由于|因)+\s*/, '').trim();
-  let consequence = (summary5W1H?.consequence || '').replace(/[。！!.]+$/, '').trim();
+  const what = formatIndirectQuote((summary5W1H?.what || cleanTitle).replace(/[。！!.]+$/, '').trim());
+  const why = (summary5W1H?.why || '').trim();
+  let consequence = (summary5W1H?.consequence || '').trim();
   if (/造成的困境|如果.*?那么除了|并避免越陷越深/.test(consequence)) {
     consequence = '';
   }
@@ -1880,11 +2096,16 @@ export function autoCorrectSummaryParagraph(
     res = `${timePrefix}（${sourceName}）电讯，${what}。`;
   } else if (why && why.length >= 4) {
     // 如果 what 与标题完全一致，跳过标题复读，直接讲起因与实质！
-    res = `据${sourceName}通报，该事件核心起因于${why}。`;
+    res = `据${sourceName}通报，${formatWhySentence(why).trim()}`;
   } else {
     // 如果没有明确起因，说明该事项的核心动向
     res = `据${sourceName}现场电讯，${what}。相关业务当事方正根据现场情况与合规指引展开处置。`;
   }
+
+  // 确保绝无“电讯，人名：”残留
+  res = res.replace(/电讯[，,]\s*([^：:，,——\s\n]{2,16})[：:]\s*(.+?)(?:[。！？\n]|$)/g, (m, spk, q) => {
+    return `电讯，${formatIndirectQuote(`${spk}：${q}`)}。`;
+  });
 
   // 拼接企业或主体业务速览（让读者知道是谁）
   if (profile && inTitleRebuild && !(isMacroOrAStockRebuild && isTechProfileRebuild) && !res.includes(profile.name)) {
@@ -1894,16 +2115,18 @@ export function autoCorrectSummaryParagraph(
   }
 
   if (!isWhatEcho && why && why.length >= 4) {
-    res += ` 该事项起因于${why}。`;
+    res += formatWhySentence(why);
   } else if (/退市.*造假|造假.*退市/.test(cleanTitle)) {
     res += ` 该事项起因于此前监管部门对涉事企业财务造假违规行为通报点名并实施立案稽查与行政处罚。`;
   }
 
   if (consequence && consequence.length >= 4) {
-    res += ` 直接影响方面，${consequence}。`;
+    res += formatConsequenceSentence(consequence);
   } else if (/退市/.test(cleanTitle)) {
-    res += ` 直接影响方面，涉案企业将依法进入退市出清程序并被终止上市。`;
+    res += formatConsequenceSentence('涉案企业将依法进入退市出清程序并被终止上市');
   }
+
+  res = healDanglingSummaryText(res, { content: text, title: cleanTitle, what });
 
   return { paragraph: sanitizeEditorialTone(sanitizeFedRatePolicyWording(res)), wasCorrected: true };
 }

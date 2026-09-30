@@ -1250,6 +1250,140 @@ check('Gate 24: A股指数严禁匹配英伟达/海外科技画像，外国实�
 });
 
 // -------------------------------------------------------------
+// 门禁 25: 5W1H 事实通报语法通顺性与及物动词断句自愈硬门禁 (0 处“要求采取。”断句、0 处“电讯，人名：”冒号引语、0 处“直接影响方面，促使”无主语病句)
+// -------------------------------------------------------------
+check('Gate 25: 5W1H 事实通报语法通顺性与及物动词截断自愈 (0 处“要求采取。”、0 处“电讯，人名：”、0 处“直接影响方面，促使”)', () => {
+  const {
+    build5W1HSummary,
+    build5W1HParagraph,
+    formatIndirectQuote,
+    formatConsequenceSentence,
+    formatWhySentence,
+  } = require('../lib/rssFetcher.ts');
+  const { autoCorrectSummaryParagraph, autoCorrectNewsItem } = require('../lib/selfHealingEngine.ts');
+
+  // 25.1 验证联合早报原始新闻：严禁“要求采取。”及物动词腰斩，严禁“电讯，特朗普：”冒号体，严禁丢失真实导语首句
+  const zbTitle = '特朗普：与习近平合作治理AI将不利美国企业';
+  const zbBody = '美国前总统特朗普重申，如果美国在人工智能治理问题上与中国开展双边合作，将极大损害美国科技公司的领先优势与商业利益。这一强硬立场引发了市场关注，也进一步引发美国民主、共和两党议员要求采取行动的呼声。';
+  const zbContent = `${zbTitle}\n\n${zbBody}`;
+  const zbSummary = build5W1HSummary(zbTitle, zbContent, '9月29日 15:30', '联合早报 Zaobao', 'apac_tech');
+
+  // 事实要素 what 必须跳过标题复读首句，优先提取记者编写的真实导语首句
+  if (zbSummary.what === zbTitle || zbSummary.what.includes('特朗普：')) {
+    throw new Error(`build5W1HSummary 盲目复读标题，未能选取真实正文导语：${zbSummary.what}`);
+  }
+  if (!zbSummary.what.includes('如果美国在人工智能治理问题上与中国开展双边合作')) {
+    throw new Error(`build5W1HSummary 未能选取正文真实事实要点：${zbSummary.what}`);
+  }
+
+  // 后续影响 consequence 严禁定长截断在“要求采取”，必须包含完整宾语“行动的呼声”
+  if (zbSummary.consequence.endsWith('要求采取') || zbSummary.consequence.endsWith('要求采取。')) {
+    throw new Error(`build5W1HSummary 将因果从句定长截断在及物动词：“${zbSummary.consequence}”`);
+  }
+  if (!zbSummary.consequence.includes('行动的呼声')) {
+    throw new Error(`build5W1HSummary 因果提取未能保留完整宾语“行动的呼声”：“${zbSummary.consequence}”`);
+  }
+
+  // 事实段落生成检验
+  const zbParagraph = build5W1HParagraph(zbSummary, zbTitle, zbContent, '联合早报 Zaobao');
+  if (zbParagraph.includes('要求采取。') || /(?:要求采取|促使|导致|出台|制定|实施|推进|纳入|引发)[。！？!?]/.test(zbParagraph)) {
+    throw new Error(`build5W1HParagraph 生成的段落包含及物动词腰斩病句：“${zbParagraph}”`);
+  }
+  if (zbParagraph.includes('电讯，特朗普：') || /电讯[，,]\s*[^：:，,——\s\n]{2,12}[：:]/.test(zbParagraph)) {
+    throw new Error(`build5W1HParagraph 生成的段落包含“电讯，人名：”冒号引语病句：“${zbParagraph}”`);
+  }
+  if (zbParagraph.includes('直接影响方面，促使') || /直接影响方面[，,]\s*(?:促使|导致|造成|引发|使得|推动)/.test(zbParagraph)) {
+    throw new Error(`build5W1HParagraph 包含无主语硬拼模板“直接影响方面，促使”：“${zbParagraph}”`);
+  }
+  if (!zbParagraph.includes('行动的呼声')) {
+    throw new Error(`build5W1HParagraph 丢失了因果中的关键宾语“行动的呼声”：“${zbParagraph}”`);
+  }
+
+  // 25.2 冒号标题引述格式化为自然间接引语
+  const colonLead = formatIndirectQuote('特朗普：与习近平合作治理AI将不利美国企业');
+  if (colonLead.includes('：') || colonLead.includes(':')) {
+    throw new Error(`formatIndirectQuote 未能剥离冒号：“${colonLead}”`);
+  }
+  if (!colonLead.includes('公开警告称') && !colonLead.includes('表示')) {
+    throw new Error(`formatIndirectQuote 未能转述为合规间接引语：“${colonLead}”`);
+  }
+
+  // 当正文缺失且首句为冒号标题时，电讯引述必须自动转为间接引语，绝不能出现“电讯，特朗普：”
+  const fallbackColonPara = build5W1HParagraph(
+    { who: '', what: '特朗普：与习近平合作治理AI将不利美国企业', when: '9月29日 15:30', where: '', why: '', consequence: '' },
+    '特朗普：与习近平合作治理AI将不利美国企业',
+    '特朗普：与习近平合作治理AI将不利美国企业',
+    '联合早报 Zaobao'
+  );
+  if (fallbackColonPara.includes('电讯，特朗普：') || fallbackColonPara.includes('电讯，特朗普:')) {
+    throw new Error(`电讯通报生硬拼接冒号标题：“${fallbackColonPara}”`);
+  }
+
+  // 25.3 消灭“直接影响方面，促使...”与“起因于旨在...”
+  const causativeConsequence = formatConsequenceSentence('促使美国两党议员加紧出台跨行业监管审查框架');
+  if (causativeConsequence.includes('直接影响方面，促使')) {
+    throw new Error(`formatConsequenceSentence 依然生成了“直接影响方面，促使”：“${causativeConsequence}”`);
+  }
+  if (!causativeConsequence.includes('该事项促使')) {
+    throw new Error(`formatConsequenceSentence 未能转换为自然承前指代“该事项促使”：“${causativeConsequence}”`);
+  }
+
+  const aimWhy = formatWhySentence('旨在防范前沿模型关键技术与敏感算力外溢');
+  if (aimWhy.includes('起因于旨在')) {
+    throw new Error(`formatWhySentence 违规生成“起因于旨在”介词堆叠：“${aimWhy}”`);
+  }
+  if (!aimWhy.includes('此举旨在')) {
+    throw new Error(`formatWhySentence 未能自然表述为“此举旨在...”：“${aimWhy}”`);
+  }
+
+  // 25.4 自愈引擎自动修复段落中的“要求采取。”与及物动词截断
+  const brokenParagraph = '据9月29日 15:30（联合早报 Zaobao）电讯，美两党议员提出新监管议案。 直接影响方面，引发两党议员要求采取。';
+  const healed = autoCorrectSummaryParagraph(
+    brokenParagraph,
+    '美两党议员提出新监管议案',
+    undefined,
+    '联合早报 Zaobao',
+    '9月29日 15:30'
+  );
+  if (healed.paragraph.includes('要求采取。')) {
+    throw new Error(`autoCorrectSummaryParagraph 未能自愈“要求采取。”：“${healed.paragraph}”`);
+  }
+  if (healed.paragraph.includes('直接影响方面，引发')) {
+    throw new Error(`autoCorrectSummaryParagraph 未能消除“直接影响方面，引发”：“${healed.paragraph}”`);
+  }
+
+  // 25.5 自愈流水线自动修复包含腰斩与模板的完整新闻条目
+  const badItem = {
+    id: 'bad_test',
+    title: '美两党议员提出新AI监管法案',
+    source: '联合早报 Zaobao',
+    sourceUrl: 'https://www.zaobao.com.sg/news/world/story',
+    publishedAt: '2026-09-29 15:30',
+    impactLevel: 2,
+    oneLineTakeaway: '【全球治理】：两党议员要求加快法案审议。',
+    track: 'apac_tech',
+    transmissionImpact: '① 议案提出 ➔ ② 审议加速 ➔ ③ 规则落地。',
+    summary5W1H: {
+      who: '美两党议员',
+      what: '提出新AI监管法案',
+      when: '9月29日',
+      where: '华盛顿',
+      why: '防范风险',
+      consequence: '促使两党议员加快审议并要求采取',
+    },
+    summaryParagraph: '据9月29日 15:30（联合早报 Zaobao）电讯，美两党议员提出新AI监管法案。 直接影响方面，促使两党议员要求采取。',
+  };
+
+  const healedItem = autoCorrectNewsItem(badItem);
+  if (healedItem.summaryParagraph.includes('要求采取。')) {
+    throw new Error(`autoCorrectNewsItem 未能修复 summaryParagraph 中的“要求采取。”：“${healedItem.summaryParagraph}”`);
+  }
+  if (healedItem.summaryParagraph.includes('直接影响方面，促使')) {
+    throw new Error(`autoCorrectNewsItem 未能消除“直接影响方面，促使”：“${healedItem.summaryParagraph}”`);
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {
@@ -1268,6 +1402,9 @@ if (errors.length > 0) {
   console.log('   - 100% 深度传导遵循 1-Hop 一级直接因果，5W1H 结论定性全闭环');
   console.log('   - 100% 爬虫时效真实归因，严禁 Date.now() 伪造时间戳与陈年僵尸旧闻霸榜');
   console.log('   - 100% 物理拦截 A股盘中分时流水账，严禁“分别涨...”无主语残缺半截数字标题');
+  console.log('   - 0 处“要求采取。”及物动词腰斩断句，5W1H 事实通报 100% 语法通顺');
+  console.log('   - 0 处“电讯，人名：”冒号引语复读，间接引语自然转述 100% 闭环');
+  console.log('   - 0 处“直接影响方面，促使”无主语病句与“起因于旨在”介词堆叠');
   console.log('================================================================\n');
   process.exit(0);
 }
