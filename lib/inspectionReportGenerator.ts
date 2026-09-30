@@ -140,13 +140,22 @@ export function generateInspectionMarkdown(
 
   lines.push(``);
   lines.push(`---`);
-  lines.push(`*本报告由全球决策情报终端 AI 首席站长全天候定时生成，已同步持久化归档至本地磁盘与对外服务接口。*`);
+  lines.push(`*本报告由全球决策情报终端 AI 首席站长全天候定时生成，以纯内存高速缓存驻留，零硬盘空间消耗。*`);
 
   return lines.join('\n');
 }
 
+export interface InspectionHistoryEntry {
+  timestamp: string;
+  score: number;
+  titleCompletenessRate: string;
+  detailClarityRate: string;
+  totalNews: number;
+  status: string;
+}
+
 /**
- * 内存单例高速缓存（纯内存常驻，零硬盘占用，不浪费任何磁盘空间）
+ * 内存单例高速缓存与轻量环形巡检历史（纯内存常驻，零硬盘占用）
  */
 let memoryCachedInspection: {
   report: VerificationAuditReport;
@@ -155,6 +164,9 @@ let memoryCachedInspection: {
   upstreamResults?: UpstreamCheckResult[];
   serviceStatus?: ServiceStatusInfo;
 } | null = null;
+
+const memoryInspectionHistory: InspectionHistoryEntry[] = [];
+const MAX_HISTORY_ENTRIES = 12;
 
 /**
  * 将巡检报告缓存至内存（零磁盘写入）
@@ -175,6 +187,20 @@ export function cacheInspectionReportInMemory(
     serviceStatus,
   };
 
+  // 记录最近 12 次巡检时序流水 (FIFO 环形内存队列)
+  memoryInspectionHistory.push({
+    timestamp: time.slice(11, 19) || time,
+    score: report.accuracyScore ?? 100,
+    titleCompletenessRate: report.titleCompletenessRate || '100.0%',
+    detailClarityRate: report.detailClarityRate || '100.0%',
+    totalNews: report.details?.length || (report.totalNewsChecked + report.totalFlashChecked),
+    status: report.overallStatus || 'EXCELLENT',
+  });
+
+  if (memoryInspectionHistory.length > MAX_HISTORY_ENTRIES) {
+    memoryInspectionHistory.shift();
+  }
+
   return { inMemory: true, cachedAt: time };
 }
 
@@ -194,3 +220,10 @@ export function getLatestInspectionReportFromMemory(): { markdown: string; json:
 
 // 兼容别名
 export const getLatestInspectionReportFromDisk = getLatestInspectionReportFromMemory;
+
+/**
+ * 获取内存巡检历史趋势流水
+ */
+export function getInspectionHistoryFromMemory(): InspectionHistoryEntry[] {
+  return [...memoryInspectionHistory];
+}

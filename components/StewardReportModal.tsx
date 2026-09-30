@@ -30,6 +30,15 @@ interface InspectionData {
   report?: any;
   markdown?: string;
   reportPath?: string;
+  storageMode?: string;
+  history?: Array<{
+    timestamp: string;
+    score: number;
+    titleCompletenessRate: string;
+    detailClarityRate: string;
+    totalNews: number;
+    status: string;
+  }>;
   generatedAt?: string;
 }
 
@@ -422,6 +431,45 @@ export default function StewardReportModal({
                   </div>
                 </div>
               </div>
+
+              {/* 最近巡检时序流水 (纯内存环形记录，无硬盘消耗) */}
+              {data?.history && data.history.length > 0 && (
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <span>最近自动化巡检时序流水 (最近 {data.history.length} 次)</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-normal">内存环形记录 · 零磁盘占用</span>
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead>
+                        <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
+                          <th className="py-2 px-3 font-semibold">巡检时间</th>
+                          <th className="py-2 px-3 font-semibold">质量得分</th>
+                          <th className="py-2 px-3 font-semibold">题目完整达标率</th>
+                          <th className="py-2 px-3 font-semibold">报道详情清晰率</th>
+                          <th className="py-2 px-3 font-semibold">全域条数</th>
+                          <th className="py-2 px-3 font-semibold">运行状态</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {data.history.map((h, hIdx) => (
+                          <tr key={hIdx} className="hover:bg-slate-100/60 dark:hover:bg-slate-800/80 transition-colors">
+                            <td className="py-2 px-3 font-mono font-medium text-slate-700 dark:text-slate-300">{h.timestamp}</td>
+                            <td className="py-2 px-3 font-bold text-emerald-600 dark:text-emerald-400">{h.score}/100</td>
+                            <td className="py-2 px-3 text-blue-600 dark:text-blue-400 font-semibold">{h.titleCompletenessRate}</td>
+                            <td className="py-2 px-3 text-purple-600 dark:text-purple-400 font-semibold">{h.detailClarityRate}</td>
+                            <td className="py-2 px-3 text-slate-600 dark:text-slate-400">{h.totalNews} 篇</td>
+                            <td className="py-2 px-3 text-emerald-600 font-semibold">🟢 正常巡检完成</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -110,4 +110,16 @@ app.prepare().then(() => {
     }
   }
   setInterval(checkMorningPaperSchedule, 30 * 1000);
+
+  // 每日晚间 21:30 美股开盘与夜盘哨兵核验 (Night Watch Sentinel)
+  let lastNightSentDate = '';
+  function checkNightWatchSchedule() {
+    const now = new Date();
+    if (now.getHours() === 21 && now.getMinutes() >= 30 && lastNightSentDate !== now.toDateString()) {
+      lastNightSentDate = now.toDateString();
+      console.log(`[晚间 21:30 夜盘哨兵] 美股开盘前夕，自动触发全域宏观信源与深度内容深度核验...`);
+      triggerVerification();
+    }
+  }
+  setInterval(checkNightWatchSchedule, 30 * 1000);
 });

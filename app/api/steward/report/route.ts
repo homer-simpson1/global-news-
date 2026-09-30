@@ -4,6 +4,7 @@ import {
   generateInspectionMarkdown,
   cacheInspectionReportInMemory,
   getLatestInspectionReportFromMemory,
+  getInspectionHistoryFromMemory,
 } from '@/lib/inspectionReportGenerator';
 
 export const dynamic = 'force-dynamic';
@@ -45,11 +46,14 @@ export async function GET(request: Request) {
       });
     }
 
+    const history = getInspectionHistoryFromMemory();
+
     return NextResponse.json({
       success: true,
       data: {
         report: reportData,
         markdown,
+        history,
         storageMode: '纯内存高速缓存 (零硬盘占用)',
         generatedAt: reportData?.verifiedAtLocal || new Date().toLocaleString('zh-CN', { hour12: false }),
       },
@@ -69,6 +73,7 @@ export async function POST() {
     const report = await runNewsAccuracyVerification();
     const markdown = generateInspectionMarkdown(report);
     const cached = cacheInspectionReportInMemory(report);
+    const history = getInspectionHistoryFromMemory();
 
     return NextResponse.json({
       success: true,
@@ -77,6 +82,7 @@ export async function POST() {
         report,
         markdown,
         cached,
+        history,
         storageMode: '纯内存高速缓存 (零硬盘占用)',
         generatedAt: report.verifiedAtLocal,
       },

@@ -12,6 +12,15 @@ import { SEED_NEWS_ITEMS } from '@/data/seedNews';
 import { Search, SlidersHorizontal, Calendar, Clock, Sparkles, X, ChevronDown } from 'lucide-react';
 import BackToTopButton from '@/components/BackToTopButton';
 import { autoCorrectAllNews } from '@/lib/selfHealingEngine';
+import dynamic from 'next/dynamic';
+
+const StewardFloatingPulse = dynamic(() => import('@/components/StewardFloatingPulse'), {
+  ssr: false,
+});
+
+const StewardReportModal = dynamic(() => import('@/components/StewardReportModal'), {
+  ssr: false,
+});
 
 const REFRESH_INTERVAL_SECONDS = 3 * 60; // 3分钟 = 180秒自动静默轮询最新资讯
 
@@ -42,6 +51,7 @@ function TerminalApp() {
   const [isVerifyingQuotes, setIsVerifyingQuotes] = useState<boolean>(false);
   const [isTopBarHidden, setIsTopBarHidden] = useState<boolean>(false);
   const [headerOpacity, setHeaderOpacity] = useState<number>(1);
+  const [isFloatingReportOpen, setIsFloatingReportOpen] = useState<boolean>(false);
 
   useEffect(() => {
     try {
@@ -919,7 +929,16 @@ function TerminalApp() {
         </div>
       </footer>
 
-      {/* 一键回到页面顶端浮动按钮 */}
+      {/* AI 首席站长动态守护雷达 (左下角呼吸脉冲，避让右下角回到顶部) */}
+      <StewardFloatingPulse onOpenReportModal={() => setIsFloatingReportOpen(true)} />
+
+      {/* 站长巡检报告大弹窗 (由左下角雷达唤起) */}
+      <StewardReportModal
+        isOpen={isFloatingReportOpen}
+        onClose={() => setIsFloatingReportOpen(false)}
+      />
+
+      {/* 一键回到页面顶端浮动按钮 (右下角) */}
       <BackToTopButton />
     </div>
   );
