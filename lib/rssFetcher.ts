@@ -3050,8 +3050,14 @@ export function build5W1HSummary(
       .replace(/^(?:早报讯|财新网消息|快讯|电讯|直发|专电|通报|最新消息)[：:，,\s]*/, '')
       .replace(/^[（(][^）)]*(?:早报|电|讯|记者|编辑)[)）][，,\s]*/, '')
       .trim();
-    cleanLead = cleanLead.replace(/^[，,和与以及同时因此使得导致]+/, '').trim();
-    if (cleanLead.length >= 10 && cleanLead.length <= 150) {
+    cleanLead = cleanLead
+      .replace(/^[，,、\s]+/, '')
+      .replace(/^(?:并且|并|同时|因此|因而|进而|从而|以及)[，,\s]*/, '')
+      .trim();
+    if (cleanLead.length > 130) {
+      cleanLead = truncateSentenceSafely(cleanLead, 120);
+    }
+    if (cleanLead.length >= 10) {
       what = cleanLead;
     }
   }
@@ -3143,7 +3149,10 @@ export function build5W1HParagraph(
   }
 
   let cleanWhat = formatIndirectQuote((summary.what || title || '').trim().replace(/[。！!.]+$/, ''));
-  cleanWhat = cleanWhat.replace(/^[，,和与以及同时因此使得导致]+/, '').trim();
+  cleanWhat = cleanWhat
+    .replace(/^[，,、\s]+/, '')
+    .replace(/^(?:并且|并|同时|因此|因而|进而|从而|以及)[，,\s]*/, '')
+    .trim();
   const cleanWho = (summary.who || '').trim();
   const cleanWhere = (summary.where || '').trim();
   const cleanWhy = (summary.why || '').trim().replace(/[。！!.]+$/, '');
@@ -3162,12 +3171,23 @@ export function build5W1HParagraph(
     factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWhat}。`;
   } else if (cleanWho && !cleanWhat.includes(cleanWho)) {
     const locPart = cleanWhere ? `在${cleanWhere}` : '';
-    // 仅当 cleanWhat 以动作动词开头时拼接主语；若 cleanWhat 自身已是完整主谓从句，则不强行在句首叠加主语避免主谓打架
-    const startsWithAction = /^(?:发布|宣布|拟|称|表示|启动|完成|获批|遭遇|遭到|发生|空袭|打击|减产|加息|降息|公布|通报|裁定|判处|起诉|调查|决定|签署|呼吁|警告|反超|超越|超过|领先|力压|大增|暴涨|达到|成为|实现)/.test(cleanWhat);
-    if (startsWithAction) {
-      factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWho}${locPart}${cleanWhat}。`;
+    // 动作谓语、言论动词或介词短语引导：必须补全主体以杜绝无主语残句
+    const startsWithAction = /^(?:发布|宣布|拟|称|表示|启动|完成|获批|遭遇|遭到|发生|空袭|打击|减产|加息|降息|公布|通报|裁定|判处|起诉|调查|决定|签署|呼吁|警告|反超|超越|超过|领先|力压|大增|暴涨|达到|成为|实现|提出|出台|制定|实施|推进|开展|进行|落实|执行|寻求|谋求|要求|采取|提交|审议|通过|驳回|否决|撤回|达成|开出|强调|重申|指出|敦促|证实|披露|澄清|透露|指责|谴责|抗议|反对|支持|建议|提议|申请|要求采取|要求加快|正推进|已启动|将采取)/.test(cleanWhat);
+    const startsWithPrep = /^(?:与|向|对|就|在|针对|围绕|关于)[^，,。]{1,25}?(?:合作|开展|展开|进行|举行|商讨|谈判|提出|签署|达成|交涉|对话|会谈|会晤|施压|发声|表态|出台|制定|实施|推进|落实|呼吁|要求|警告|建议|提起|采取)/.test(cleanWhat);
+    const startsWithAux = /^(?:将|或将|拟|正|已|须)/.test(cleanWhat);
+
+    if (startsWithAction || startsWithPrep || startsWithAux) {
+      if (/^与/.test(cleanWhat) && /将不利|将损害|将导致|将造成|将削弱/.test(cleanWhat) && !cleanWhat.includes('表示') && !cleanWhat.includes('警告')) {
+        factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWho}明确表示，${cleanWhat}。`;
+      } else {
+        factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWho}${locPart}${cleanWhat}。`;
+      }
     } else {
-      factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWhat}。`;
+      if (/^与/.test(cleanWhat) && !cleanWhat.includes('表示') && !cleanWhat.includes('指出')) {
+        factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWho}明确表示，${cleanWhat}。`;
+      } else {
+        factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWhat}。`;
+      }
     }
   } else {
     factSentence = `${timePrefix}（${sourceName}）电讯，${cleanWhat}。`;

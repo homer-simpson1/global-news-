@@ -186,7 +186,10 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
             factParagraph = brief.summaryParagraph;
           } else if (brief.summary5W1H) {
             const s = brief.summary5W1H;
-            const what = formatIndirectQuote((s.what || parsed.title).replace(/[。！!.]+$/, ''));
+            let what = formatIndirectQuote((s.what || parsed.title).replace(/[。！!.]+$/, ''));
+            if (s.who && !what.includes(s.who) && /^(?:提出|出台|制定|实施|推进|开展|进行|启动|落实|执行|寻求|谋求|要求|采取|发布|宣布|拟|称|表示|指出|强调|重申|警告|敦促|呼吁|公布|通报|开出|要求加快|要求采取)/.test(what)) {
+              what = `${s.who}${what}`;
+            }
             factParagraph = `据${brief.time ? `${brief.time}（${brief.source}）` : brief.source}电讯，${what}。`;
             if (s.why && s.why.length >= 4 && !/宏观宏图|利益交织|深层动因/.test(s.why)) {
               factParagraph += formatWhySentence(s.why);

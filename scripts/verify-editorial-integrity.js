@@ -1336,6 +1336,81 @@ check('Gate 25: 5W1H 事实通报语法通顺性与及物动词截断自愈 (0 �
     throw new Error(`formatWhySentence 未能自然表述为“此举旨在...”：“${aimWhy}”`);
   }
 
+  // 深度测试：起因于旨在 / 为缓解介词清洗
+  const stackedWhy1 = formatWhySentence('起因于旨在防范地缘风险外溢');
+  if (stackedWhy1.includes('起因于旨在') || stackedWhy1.includes('该事项起因于旨在')) {
+    throw new Error(`formatWhySentence 未能消除“起因于旨在”介词堆叠：“${stackedWhy1}”`);
+  }
+  if (!stackedWhy1.includes('此举旨在防范地缘风险外溢')) {
+    throw new Error(`formatWhySentence 未能将“起因于旨在”转换为“此举旨在...”：“${stackedWhy1}”`);
+  }
+
+  const stackedWhy2 = formatWhySentence('为缓解跨国物流运力短缺压力');
+  if (stackedWhy2.includes('旨在为缓解')) {
+    throw new Error(`formatWhySentence 违规生成“旨在为缓解”介词堆叠：“${stackedWhy2}”`);
+  }
+  if (!stackedWhy2.includes('此举旨在缓解跨国物流运力短缺压力')) {
+    throw new Error(`formatWhySentence 未能将“为缓解”转换为“此举旨在缓解...”：“${stackedWhy2}”`);
+  }
+
+  // 深度测试：间接引语对非人名非发言人标签的智能识别，严禁“最新消息明确表示”或“数据显示明确表示”
+  const genreTagQuote = formatIndirectQuote('最新消息：各方达成停火协议');
+  if (genreTagQuote.includes('明确表示') || genreTagQuote.includes('最新消息：')) {
+    throw new Error(`formatIndirectQuote 误将新闻标签当作发言人转述：“${genreTagQuote}”`);
+  }
+  if (!genreTagQuote.includes('各方达成停火协议')) {
+    throw new Error(`formatIndirectQuote 未能提取标签后正文：“${genreTagQuote}”`);
+  }
+
+  const dataTagQuote = formatIndirectQuote('数据显示：8月CPI同比上涨0.6%');
+  if (dataTagQuote.includes('明确表示')) {
+    throw new Error(`formatIndirectQuote 误将数据标签当作发言人转述：“${dataTagQuote}”`);
+  }
+  if (!dataTagQuote.includes('数据显示，8月CPI同比上涨0.6%')) {
+    throw new Error(`formatIndirectQuote 未能将数据冒号转为自然逗号：“${dataTagQuote}”`);
+  }
+
+  const quoteWithVerb = formatIndirectQuote('高盛：预计大宗商品价格将在四季度迎来反弹');
+  if (quoteWithVerb.includes('明确表示，预计') || quoteWithVerb.includes('明确表示，')) {
+    throw new Error(`formatIndirectQuote 在引语已有动词时生成了重复生硬词句：“${quoteWithVerb}”`);
+  }
+  if (!quoteWithVerb.includes('高盛预计，大宗商品价格将在四季度迎来反弹')) {
+    throw new Error(`formatIndirectQuote 未能自然流转为“高盛预计，...”：“${quoteWithVerb}”`);
+  }
+
+  // 深度测试：事实主语绝不因 cleanWhat 为动词短语而丢失（如“提出新AI监管法案”）
+  const subjectCheckPara = build5W1HParagraph(
+    { who: '美两党议员', what: '提出新AI监管法案', when: '9月29日', where: '', why: '', consequence: '' },
+    '美两党议员提出新AI监管法案',
+    '美两党议员提出新AI监管法案',
+    '联合早报'
+  );
+  if (!subjectCheckPara.includes('美两党议员提出新AI监管法案')) {
+    throw new Error(`build5W1HParagraph 遗漏了主体主语“美两党议员”造成无主语病句：“${subjectCheckPara}”`);
+  }
+
+  // 深度测试：严禁字符集正则盲目剥离合法词首字符（如“和平”、“以色列”、“导弹”）
+  const israelSummary = build5W1HSummary(
+    '以色列军方对也门荷台达港发动空袭',
+    '以色列军方对也门荷台达港发动空袭\n\n以色列国防军战机在红海沿线发动精准打击。',
+    '9月29日',
+    '路透社',
+    'war_conflict'
+  );
+  if (israelSummary.what.startsWith('色列') || israelSummary.what.startsWith('国')) {
+    throw new Error(`build5W1HSummary 发生字符截断严重Bug，将“以色列”误削减为“${israelSummary.what.slice(0, 4)}”`);
+  }
+  if (!israelSummary.what.includes('以色列')) {
+    throw new Error(`build5W1HSummary 未能保留“以色列”合法实体词：“${israelSummary.what}”`);
+  }
+
+  // 深度测试：繁体中文及物动词截断自愈（“推進。”、“要求採取。”）
+  const tradText = '据电讯通报，相关当事方正要求採取。';
+  const healedTrad = autoCorrectSummaryParagraph(tradText, '测试标题');
+  if (healedTrad.paragraph.includes('要求採取。')) {
+    throw new Error(`autoCorrectSummaryParagraph 未能自愈繁体及物动词“要求採取。”：“${healedTrad.paragraph}”`);
+  }
+
   // 25.4 自愈引擎自动修复段落中的“要求采取。”与及物动词截断
   const brokenParagraph = '据9月29日 15:30（联合早报 Zaobao）电讯，美两党议员提出新监管议案。 直接影响方面，引发两党议员要求采取。';
   const healed = autoCorrectSummaryParagraph(

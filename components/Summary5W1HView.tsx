@@ -92,7 +92,10 @@ export default function Summary5W1HView({
   // 2. 如果只有结构化的 summary，根据实际披露要素客观叙述（无原因绝不硬编）
   if (!paragraph && summary) {
     const when = summary.when || (time ? `${time}` : '权威电讯通报');
-    const cleanWhat = formatIndirectQuote((summary.what || (title ? title.replace(/^【.*?】\s*/, '') : '发布最新核心进展')).trim().replace(/[。！!.]+$/, ''));
+    let cleanWhat = formatIndirectQuote((summary.what || (title ? title.replace(/^【.*?】\s*/, '') : '发布最新核心进展')).trim().replace(/[。！!.]+$/, ''));
+    if (summary.who && !cleanWhat.includes(summary.who) && /^(?:提出|出台|制定|实施|推进|开展|进行|启动|落实|执行|寻求|谋求|要求|采取|发布|宣布|拟|称|表示|指出|强调|重申|警告|敦促|呼吁|公布|通报|开出|要求加快|要求采取)/.test(cleanWhat)) {
+      cleanWhat = `${summary.who}${cleanWhat}`;
+    }
     let cleanConsequence = (summary.consequence || '').trim().replace(/[。！!.]+$/, '');
 
     // 剔除破损因果碎片

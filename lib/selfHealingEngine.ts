@@ -155,29 +155,49 @@ export function sanitizeEditorialTone(text: string): string {
 
 export const DEFAULT_TRANSITIVE_OBJECTS: Record<string, string> = {
   '要求采取': '有效应对与合规处置措施',
+  '要求採取': '有效應對與合規處置措施',
   '采取': '相应应对举措',
+  '採取': '相應應對舉措',
   '出台': '具体实施细则与合规指引',
   '制定': '具体实施方案与落地细则',
   '实施': '全流程合规监管与防范措施',
+  '實施': '全流程合規監管與防範措施',
   '推进': '后续落地与妥善处置措施',
+  '推進': '後續落地與妥善處置措施',
   '开展': '专项排查与常态化监管',
+  '開展': '專項排查與常態化監管',
   '进行': '实质性研判与妥善应对',
+  '進行': '實質性研判與妥善應對',
   '启动': '应急响应机制与专项程序',
+  '啟動': '應急響應機制與專項程序',
   '落实': '各项监管与风险防范举措',
+  '落實': '各項監管與風險防範舉措',
   '执行': '既定政策方案与合规要求',
+  '執行': '既定政策方案與合規要求',
   '寻求': '多方协商与共识解决方案',
+  '尋求': '多方協商與共識解決方案',
   '谋求': '市场化化解与长效支撑',
+  '謀求': '市場化化解與長效支撐',
   '纳入': '重点监测与常态化监管范围',
+  '納入': '重點監測與常態化監管範圍',
   '列入': '重点观察与防范清单',
   '涵盖': '核心业务与重点监控环节',
+  '涵蓋': '核心業務與重點監控環節',
   '引发': '市场广泛关切与连锁反应',
+  '引發': '市場廣泛關切與連鎖反應',
   '促使': '各当事方加快研判与应对',
   '导致': '市场波动加剧并引发连锁关注',
+  '導致': '市場波動加劇並引發連鎖關注',
   '造成': '多重连锁冲击与业务承压',
   '使得': '相关各方加快研判与应对',
   '推动': '相关机制持续完善与落地',
+  '推動': '相關機制持續完善與落地',
   '加速': '产业链上下游重塑与调整',
 };
+
+const NON_SPEAKER_GENRE_TAGS = /^(?:最新消息|最新进展|快讯|电讯|权威发布|权威通报|通报|专报|直发|专电|快报|播报|消息|报道|特稿|专访|内参|要闻|重磅|深度|独家|观察|评论|综述|视点|热点|焦点|导读|速递|速报|追踪|动态|简报|汇总|盘点|前瞻|提醒|警示|辟谣|答问|记者会|新闻发布会|重磅快讯|突发|突发快讯)$/;
+const NON_SPEAKER_DATA_TAGS = /^(?:数据显示|数据表明|统计显示|统计表明|报告显示|报告指出|调研显示|调查显示|公告显示|通告显示|文件显示|协议显示|监测显示)$/;
+const NON_SPEAKER_METADATA_LABELS = /^(?:涉事主体|核心要点|核心事实|主要内容|关键细节|事件脉络|影响评估|时间|地点|人物|背景|原因|起因|结果|影响|赛道|赛道纠偏|赛道分类|风险提示|投资建议|盘面解读|行情直击|标题|副标题|小结|总结|结语|备注|附注|声明|引言|导语)$/;
 
 /**
  * 将冒号标题/引语体自动转述为自然间接引语
@@ -197,10 +217,34 @@ export function formatIndirectQuote(text: string): string {
   const speaker = colonMatch[1].trim();
   let quote = colonMatch[2].trim().replace(/^[“"「『]+|[”"」』]+$/g, '');
 
+  // 1. 过滤非主体标签（如“最新消息：”、“数据显示：”、“涉事主体：”）
+  if (NON_SPEAKER_GENRE_TAGS.test(speaker)) {
+    return `${prefix}${quote}`;
+  }
+  if (NON_SPEAKER_DATA_TAGS.test(speaker)) {
+    return `${prefix}${speaker}，${quote}`;
+  }
+  if (NON_SPEAKER_METADATA_LABELS.test(speaker)) {
+    return text;
+  }
+
+  // 2. 发言人末尾已自带动作动词
   if (/(?:称|表示|指出|强调|呼吁|警告|敦促|重申|宣布|坦言|证实|回答)$/.test(speaker)) {
     return `${prefix}${speaker}，${quote}`;
   }
 
+  // 3. 引语自身已带有动作/观点动词（如“预计...”、“宣布...”、“呼吁...”、“坚决反对...”）
+  const quoteLeadingActionMatch = quote.match(/^(?:预计|预测|呼吁|要求|建议|敦促|强调|重申|警告|指出|称|表示|宣布|认为|坦言|证实|批评|谴责|指责|坚决反对|反对|支持|承诺|透露|发布|出台|制定|实施|推进)[，,\s]*/);
+  if (quoteLeadingActionMatch) {
+    const act = quoteLeadingActionMatch[0].trim().replace(/[，,\s]+$/, '');
+    const quoteBody = quote.slice(quoteLeadingActionMatch[0].length).trim();
+    if (quoteBody) {
+      return `${prefix}${speaker}${act}，${quoteBody}`;
+    }
+    return `${prefix}${speaker}${quote}`;
+  }
+
+  // 4. 根据引语语义倾向自然转述为不同态势间接引语
   if (/警告|不利|危险|威胁|反制|风险|代价|严厉|制裁|报复/.test(quote)) {
     return `${prefix}${speaker}公开警告称，${quote}`;
   }
@@ -222,7 +266,7 @@ export function formatIndirectQuote(text: string): string {
 /**
  * 语义安全因果从句截断：以标点为界，严禁在及物动词/连词/介词后截断腰斩
  */
-const DANGLING_TRUNC_END = /(?:要求采取|采取|出台|制定|实施|推进|开展|进行|启动|落实|执行|寻求|谋求|促使|导致|造成|引发|使得|推动|加速|纳入|列入|涵盖|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|计划|拟|考虑|面临|斥资|在|于|向|从|对|并|与|等|及|但|而|或者|以及|以|为了|为|由|被|随着|伴随|因|因为|由于|鉴于)$/;
+const DANGLING_TRUNC_END = /(?:要求采取|要求採取|采取|採取|出台|制定|实施|實施|推进|推進|开展|開展|进行|進行|启动|啟動|落实|落實|执行|執行|寻求|尋求|谋求|謀求|促使|导致|導致|造成|引发|引發|使得|推动|推動|加速|纳入|納入|列入|涵盖|涵蓋|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|计划|拟|考虑|面临|斥资|在|于|向|从|对|并|与|等|及|但|而|或者|以及|以|为了|为|由|被|随着|伴随|因|因为|由于|鉴于)$/;
 
 export function truncateSentenceSafely(clause: string, maxLen: number = 75): string {
   let text = (clause || '').trim().replace(/[。！!.]+$/, '');
@@ -263,13 +307,13 @@ export function formatConsequenceSentence(rawConsequence: string): string {
   c = c.replace(/^直接影响方面[，,\s]*/, '').trim();
 
   // 若以使役词开头，转换为自然承前主语“该事项...”
-  const causativeMatch = c.match(/^(?:促使|导致|造成|引发|使得|推动|致使|倒逼|加速|逼迫)/);
+  const causativeMatch = c.match(/^(?:促使|导致|造成|引发|使得|推动|致使|倒逼|加速|逼迫|引發|導致|推動)/);
   if (causativeMatch) {
     return ` 该事项${c}。`;
   }
 
   // 若已有完整主语或承接词
-  if (/^(?:受此影响|此举|该事项|该法案|该政策|这一变动|相关方|涉案企业|市场各方)/.test(c)) {
+  if (/^(?:受此影响|受此影響|此举|此舉|该事项|該事項|该法案|该政策|这一变动|相关方|涉案企业|市场各方)/.test(c)) {
     return ` ${c}。`;
   }
   return ` 受此影响，${c}。`;
@@ -284,17 +328,31 @@ export function formatWhySentence(rawWhy: string): string {
   if (!w || w.length < 4 || /宏观宏图|利益交织|深层动因/.test(w)) {
     return '';
   }
-  if (/^(?:旨在|出于|为缓解|为应对|为防范|为了)/.test(w)) {
-    const strippedAim = w.replace(/^(?:旨在|出于|为缓解|为应对|为防范|为了)[，,\s]*/, '').trim();
-    if (/^为(?:缓解|应对|防范)/.test(w)) {
-      return ` 信源表明，此举旨在${w}。`;
-    }
-    return ` 信源表明，此举旨在${strippedAim}。`;
+
+  // 剥离外层引导词（如“起因于”、“主要系”、“因为”、“由于”）
+  let clean = w.replace(/^(?:起因于|主要系|主要因|因为|由于|因|受|鉴于|鉴于此)+[，,\s]*/, '').trim();
+
+  // 出于动机/考量
+  if (/^出于/.test(clean)) {
+    const motive = clean.replace(/^出于[，,\s]*/, '').trim();
+    return ` 信源表明，此举出于${motive}。`;
   }
 
-  let clean = w.replace(/^(?:起因于|主要系|主要因|因为|由于|因|受|鉴于|鉴于此)+[，,\s]*/, '').trim();
-  if (w.startsWith('受')) {
-    return ` 信源表明，该事项主要受${clean}。`;
+  // 目的旨在型：杜绝“起因于旨在”和“此举旨在为缓解”
+  if (/^(?:旨在|为了|为缓解|为应对|为防范)/.test(clean)) {
+    let aimContent = clean.replace(/^(?:旨在|为了)[，,\s]*/, '').trim();
+    if (/^为(?:缓解|应对|防范)/.test(aimContent)) {
+      aimContent = aimContent.replace(/^为/, '').trim();
+    }
+    return ` 信源表明，此举旨在${aimContent}。`;
+  }
+
+  // 剥离次级介词堆叠
+  clean = clean.replace(/^(?:主要系|主要因|旨在|出于|为缓解|为应对|为防范|起因于|因为|由于)+[，,\s]*/, '').trim();
+
+  if (w.startsWith('受') || clean.startsWith('受')) {
+    const passiveClean = clean.replace(/^受[，,\s]*/, '').trim();
+    return ` 信源表明，该事项主要受${passiveClean}。`;
   }
   return ` 信源表明，该事项起因于${clean}。`;
 }
@@ -311,24 +369,24 @@ export function healDanglingSummaryText(
   let text = paragraph;
   const rawContext = `${context?.content || ''} ${context?.title || ''} ${context?.what || ''}`.trim();
 
-  const DANGLING_INNER_REGEX = /(要求采取|采取|出台|制定|实施|推进|开展|进行|启动|落实|执行|寻求|谋求|促使|导致|造成|引发|使得|推动|加速|纳入|列入|涵盖)[。！？!?]/g;
+  const DANGLING_INNER_REGEX = /(要求采取|要求採取|采取|採取|出台|制定|实施|實施|推进|推進|开展|開展|进行|進行|启动|啟動|落实|落實|执行|執行|寻求|尋求|谋求|謀求|促使|导致|導致|造成|引发|引發|使得|推动|推動|加速|纳入|納入|列入|涵盖|涵蓋)\s*([。！？!?])/g;
 
-  text = text.replace(DANGLING_INNER_REGEX, (match, verb) => {
+  text = text.replace(DANGLING_INNER_REGEX, (match, verb, punc) => {
     if (rawContext && verb) {
       const vEscaped = verb.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const ctxMatch = rawContext.match(new RegExp(vEscaped + '([^。！？；\n]{2,35})'));
       if (ctxMatch && ctxMatch[1]) {
         let continuation = ctxMatch[1].trim();
-        const punc = continuation.search(/[，,；;]/);
-        if (punc >= 2 && punc <= 25) {
-          continuation = continuation.slice(0, punc);
+        const puncIdx = continuation.search(/[，,；;]/);
+        if (puncIdx >= 2 && puncIdx <= 25) {
+          continuation = continuation.slice(0, puncIdx);
         } else if (continuation.length > 25) {
           continuation = continuation.slice(0, 25);
         }
         continuation = continuation.replace(/[，,、\s]+$/, '');
         if (
           continuation.length >= 2 &&
-          !/(?:要求采取|采取|出台|制定|实施|推进|开展|进行|启动|落实|执行|寻求|谋求|促使|导致|造成|引发|使得|推动|加速|纳入|列入|涵盖)$/.test(
+          !/(?:要求采取|要求採取|采取|採取|出台|制定|实施|實施|推进|推進|开展|開展|进行|進行|启动|啟動|落实|落實|执行|執行|寻求|尋求|谋求|謀求|促使|导致|導致|造成|引发|引發|使得|推动|推動|加速|纳入|納入|列入|涵盖|涵蓋)$/.test(
             continuation
           )
         ) {
@@ -340,7 +398,7 @@ export function healDanglingSummaryText(
     return `${verb}${defObj}。`;
   });
 
-  const DANGLING_TAIL_REGEX = /(要求采取|采取|出台|制定|实施|推进|开展|进行|启动|落实|执行|寻求|谋求|促使|导致|造成|引发|使得|推动|加速|纳入|列入|涵盖)[，,、\s]*$/;
+  const DANGLING_TAIL_REGEX = /(要求采取|要求採取|采取|採取|出台|制定|实施|實施|推进|推進|开展|開展|进行|進行|启动|啟動|落实|落實|执行|執行|寻求|尋求|谋求|謀求|促使|导致|導致|造成|引发|引發|使得|推动|推動|加速|纳入|納入|列入|涵盖|涵蓋)[，,、\s]*$/;
   const tailMatch = text.match(DANGLING_TAIL_REGEX);
   if (tailMatch) {
     const verb = tailMatch[1];
@@ -1254,7 +1312,10 @@ export function autoCorrect5W1H(
 
   // 5. 修复 what 字段前导残破连词（防止正则误切前半句后只留下“和三星电子...”）
   if (s.what) {
-    const cleanWhat = s.what.replace(/^[，,和与以及同时因此使得导致]+/, '').trim();
+    const cleanWhat = s.what
+      .replace(/^[，,、\s]+/, '')
+      .replace(/^(?:并且|并|同时|因此|因而|进而|从而|以及)[，,\s]*/, '')
+      .trim();
     if (cleanWhat !== s.what) {
       if (title.includes('反超') && /SK海力士|三星/.test(cleanWhat) && !cleanWhat.includes('长鑫')) {
         s.what = title;
@@ -1969,7 +2030,7 @@ export function autoCorrectSummaryParagraph(
 
   // 麦肯锡AI劳动力报告专属客观事实闭环段落
   if (/麦肯锡.*(?:ai|人工智能)|麦肯锡.*迫使/.test(cleanTitle + ' ' + text)) {
-    const reportParagraph = `${timePrefix}（${sourceName}）权威通报，麦肯锡全球研究院发布最新劳动力市场专项研究报告，指出生成式人工智能与自动化技术的快速演进或将迫使包括美国在内的数千万跨行业劳动者在2030年前后进行职业转型。该事项起因于生成式AI对重复性白领认知劳动与基层办公流的自动化替代加速。直接影响方面，报告建议企业与教育监管部门扩大人力资本投资，构建全生命周期的职业技能再培训机制。`;
+    const reportParagraph = `${timePrefix}（${sourceName}）权威通报，麦肯锡全球研究院发布最新劳动力市场专项研究报告，指出生成式人工智能与自动化技术的快速演进或将迫使包括美国在内的数千万跨行业劳动者在2030年前后进行职业转型。该事项起因于生成式AI对重复性白领认知劳动与基层办公流的自动化替代加速。受此影响，报告建议企业与教育监管部门扩大人力资本投资，构建全生命周期的职业技能再培训机制。`;
     return { paragraph: sanitizeEditorialTone(reportParagraph), wasCorrected: true };
   }
 
@@ -1977,7 +2038,7 @@ export function autoCorrectSummaryParagraph(
   if (/信威.*宁算|西藏宁算.*破产/.test(cleanTitle) || (cleanTitle.includes('西藏宁算') && /破产|重整/.test(cleanTitle))) {
     const profile = getCompanyProfileForNews(cleanTitle, text);
     const profileDesc = profile ? ` 涉事主体${profile.name}（${profile.sector}）：${profile.description}` : '';
-    const restructuredParagraph = `${timePrefix}（${sourceName}）权威通报，西藏宁算科技集团及其关联公司破产重整程序进入关键阶段，法院及破产管理人推进债权申报复核、资产审计评估及重组投资人招募。该事项起因于此前信威集团重大历史债务风险牵连及自身债务结构失衡。直接影响方面，破产重整旨在通过法治化市场化手段盘活数字经济核心数据中心与算力基础设施资产，重构债务清偿方案并阻断风险外溢。${profileDesc}`;
+    const restructuredParagraph = `${timePrefix}（${sourceName}）权威通报，西藏宁算科技集团及其关联公司破产重整程序进入关键阶段，法院及破产管理人推进债权申报复核、资产审计评估及重组投资人招募。该事项起因于此前信威集团重大历史债务风险牵连及自身债务结构失衡。受此影响，破产重整旨在通过法治化市场化手段盘活数字经济核心数据中心与算力基础设施资产，重构债务清偿方案并阻断风险外溢。${profileDesc}`;
     return { paragraph: sanitizeEditorialTone(restructuredParagraph), wasCorrected: true };
   }
 
@@ -2014,14 +2075,15 @@ export function autoCorrectSummaryParagraph(
       return `电讯，${formatIndirectQuote(`${spk}：${q}`)}。`;
     });
 
-    // 修复无主语病句：彻底消灭“直接影响方面，促使...”
-    cleaned = cleaned.replace(/直接影响方面[，,]\s*(?:促使|导致|造成|引发|使得|推动|致使|倒逼|加速)([^。！？\n]+)/g, (m) => {
-      return formatConsequenceSentence(m.replace(/^直接影响方面[，,]\s*/, '')).trim();
+    // 修复无主语病句：彻底消灭“直接影响方面，...”
+    cleaned = cleaned.replace(/直接影响方面[，,\s]*([^。！？\n]+)/g, (m, rest) => {
+      return formatConsequenceSentence(rest).trim();
     });
 
-    // 修复介词堆叠：杜绝“起因于旨在/起因于主要系”
-    cleaned = cleaned.replace(/起因于\s*(?:旨在|出于|为缓解|为应对|为防范)\s*([^。！？\n]+)/g, (m, rest) => `此举旨在${rest}`);
+    // 修复介词堆叠：杜绝“起因于旨在/起因于主要系”与“旨在为缓解”
+    cleaned = cleaned.replace(/起因于\s*(?:旨在|出于|为缓解|为应对|为防范)\s*([^。！？\n]+)/g, (m, rest) => `此举旨在${rest.replace(/^为/, '')}`);
     cleaned = cleaned.replace(/起因于\s*(?:主要系|主要因|因为|由于)\s*([^。！？\n]+)/g, (m, rest) => `主要系${rest}`);
+    cleaned = cleaned.replace(/此举旨在为(缓解|应对|防范)/g, '此举旨在$1');
 
     // 自愈及物动词截断（如“要求采取。”）
     cleaned = healDanglingSummaryText(cleaned, { content: text, title: cleanTitle, what: summary5W1H?.what });
@@ -2071,7 +2133,10 @@ export function autoCorrectSummaryParagraph(
     };
   }
 
-  const what = formatIndirectQuote((summary5W1H?.what || cleanTitle).replace(/[。！!.]+$/, '').trim());
+  let what = formatIndirectQuote((summary5W1H?.what || cleanTitle).replace(/[。！!.]+$/, '').trim());
+  if (summary5W1H?.who && !what.includes(summary5W1H.who) && /^(?:提出|出台|制定|实施|推进|开展|进行|启动|落实|执行|寻求|谋求|要求|采取|发布|宣布|拟|称|表示|指出|强调|重申|警告|敦促|呼吁|公布|通报|开出|要求加快|要求采取)/.test(what)) {
+    what = `${summary5W1H.who}${what}`;
+  }
   const why = (summary5W1H?.why || '').trim();
   let consequence = (summary5W1H?.consequence || '').trim();
   if (/造成的困境|如果.*?那么除了|并避免越陷越深/.test(consequence)) {
