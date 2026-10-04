@@ -1,9 +1,9 @@
-﻿name: Global Intelligence Morning Paper Cloud Scheduler (云端免开机全自动推送)
+name: Global Intelligence Morning Paper Cloud Scheduler (云端免开机全自动推送)
 
 on:
   schedule:
-    # 每天北京时间 08:00 (即 UTC 时间 00:00) 自动云端执行，电脑关机断电也能准时送达
-    - cron: '0 0 * * *'
+    # 提前至每天北京时间 07:45 (即 UTC 时间 23:45) 自动云端执行，避开整点 00 分的全球拥堵洪峰，确保早间准时送达
+    - cron: '45 23 * * *'
   workflow_dispatch: # 允许在 GitHub 网页界面随时一键点击手动测试触发
 
 jobs:

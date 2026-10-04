@@ -71,6 +71,28 @@ function checkAlreadySentToday(force = false) {
   }
 }
 
+async function checkGitHubAlreadySentToday(force = false) {
+  if (force) return false;
+  try {
+    const res = await fetch('https://api.github.com/repos/homer-simpson1/global-news-/actions/runs?per_page=5', {
+      headers: { 'User-Agent': 'morning-paper-idempotency-check' },
+      signal: AbortSignal.timeout(5000)
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    const today = new Date().toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
+    const sentToday = data.workflow_runs?.some(w => {
+      if (w.conclusion !== 'success') return false;
+      if (!w.path?.includes('morning_paper.yml')) return false;
+      const runDate = new Date(w.created_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
+      return runDate === today;
+    });
+    return !!sentToday;
+  } catch (e) {
+    return false;
+  }
+}
+
 function recordSentSuccess() {
   try {
     const dataDir = path.resolve(__dirname, '../data');
@@ -89,11 +111,24 @@ async function sendMorningPaperToDiscord(options = {}) {
 
   console.log('=== 全球决策晨报 · Discord 发送调度器 ===');
 
-  // 0. 每日唯一推送幂等锁：彻底杜绝 Windows 计划任务与 server.js 同时触发产生两次重复推送
-  if (!isForce && checkAlreadySentToday(isForce)) {
-    const today = new Date().toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
-    console.log(`ℹ️ [幂等拦截] 今日 (${today}) 晨报已成功推送至 Discord，安全跳过重复发送以防刷屏。`);
-    return { success: true, skipped: true, reason: 'already_sent_today' };
+  // 0. 每日唯一推送幂等锁：彻底杜绝本地与云端或多次触发产生重复推送
+  if (!isForce) {
+    if (checkAlreadySentToday(isForce)) {
+      const today = new Date().toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
+      console.log(`ℹ️ [本地幂等拦截] 今日 (${today}) 晨报已在本地记录成功推送，跳过重复发送以防刷屏。`);
+      return { success: true, skipped: true, reason: 'already_sent_today_local' };
+    }
+
+    // 若在本地运行，额外检测云端 Actions 今日是否已成功推送
+    if (!process.env.GITHUB_ACTIONS) {
+      const cloudSent = await checkGitHubAlreadySentToday(isForce);
+      if (cloudSent) {
+        const today = new Date().toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
+        console.log(`ℹ️ [云端幂等拦截] 云端 GitHub Actions 今日 (${today}) 已成功推送晨报至 Discord，本地自动跳过以防重复。`);
+        recordSentSuccess(); // 同步记录到本地锁文件，后续无需重复请求网络
+        return { success: true, skipped: true, reason: 'already_sent_today_cloud' };
+      }
+    }
   }
 
   // 1. 生成最新高清晨报长图
