@@ -86,29 +86,32 @@ app.prepare().then(() => {
   setTimeout(triggerVerification, 5000);
   setInterval(triggerVerification, VERIFY_INTERVAL_MS);
 
-  // 每日早间 08:00 自动生成晨报长图并推送到 Discord (0 Token 本地免唤醒)
+  // 每日早间 08:00 - 09:30 智能晨报长图推送 (含开机补发与云端幂等去重)
   let lastMorningSentDate = '';
   function checkMorningPaperSchedule() {
     const now = new Date();
-    if (now.getHours() === 8 && lastMorningSentDate !== now.toDateString()) {
+    const isMorningWindow = now.getHours() === 8 || (now.getHours() === 9 && now.getMinutes() <= 30);
+    if (isMorningWindow && lastMorningSentDate !== now.toDateString()) {
       lastMorningSentDate = now.toDateString();
-      console.log(`[早间 08:00 晨报调度] 触发晨报长图生成与推送...`);
+      console.log(`[早间晨报调度] 触发晨报长图生成与推送...`);
       try {
         const { sendMorningPaperToDiscord } = require('./scripts/send_discord_morning_paper');
         sendMorningPaperToDiscord().then(res => {
           if (res?.skipped) {
-            console.log('[早间 08:00 晨报调度] 今日已推送过，已由幂等锁安全跳过，保持每日仅推送1次。');
+            console.log('[早间晨报调度] 今日已推送过，已由幂等锁安全跳过，保持每日仅推送1次。');
           } else {
-            console.log('[早间 08:00 晨报调度] 执行结果:', res?.success ? '推送成功' : '完成 (等待 Webhook 填入)');
+            console.log('[早间晨报调度] 执行结果:', res?.success ? '推送成功' : '完成 (等待 Webhook 填入)');
           }
         }).catch(err => {
-          console.error('[早间 08:00 晨报调度] 执行异常:', err.message);
+          console.error('[早间晨报调度] 执行异常:', err.message);
         });
       } catch (err) {
-        console.error('[早间 08:00 晨报调度] 模块调用异常:', err.message);
+        console.error('[早间晨报调度] 模块调用异常:', err.message);
       }
     }
   }
+  // 服务启动 15 秒后先检查一次早报窗口，之后每 30 秒轮询
+  setTimeout(checkMorningPaperSchedule, 15000);
   setInterval(checkMorningPaperSchedule, 30 * 1000);
 
   // 每日晚间 21:30 美股开盘与夜盘哨兵核验 (Night Watch Sentinel)
