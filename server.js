@@ -90,7 +90,7 @@ app.prepare().then(() => {
   let lastMorningSentDate = '';
   function checkMorningPaperSchedule() {
     const now = new Date();
-    const isMorningWindow = now.getHours() === 8 || (now.getHours() === 9 && now.getMinutes() <= 30);
+    const isMorningWindow = (now.getHours() === 7 && now.getMinutes() >= 45) || (now.getHours() === 8 && now.getMinutes() <= 30);
     if (isMorningWindow && lastMorningSentDate !== now.toDateString()) {
       lastMorningSentDate = now.toDateString();
       console.log(`[早间晨报调度] 触发晨报长图生成与推送...`);

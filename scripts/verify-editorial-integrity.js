@@ -748,16 +748,13 @@ check('Gate 17: 美债收益率完整性、栏目头脱水彻底度与商业重�
     throw new Error(`标题净化失败：处理《${testCorruptCard2}》结果为 "${healedCard2}"，未能完全剔除“特稿 |”与“相关工作稳步推进落”！`);
   }
 
-  // 17.4 实测检验：模拟修复《两年期美债收益率创去年》
+  // 17.4 实测检验：模拟清洗《两年期美债收益率创去年》
   const testBond = '两年期美债收益率创去年';
   const healBond = (t) => {
-    if (/两年期美债收益率创去年|创去年$/.test(t)) {
-      return '美国10年期基准国债收益率涨6.57基点，报4.9961%';
-    }
-    return t;
+    return t.replace(/创(?:去年|今年|历|历史|新|低|高)?$/, '').trim();
   };
   const healedBond = healBond(testBond);
-  if (healedBond !== '美国10年期基准国债收益率涨6.57基点，报4.9961%') {
+  if (healedBond !== '两年期美债收益率') {
     throw new Error(`美债断裂标题修复失败: "${healedBond}"`);
   }
 });

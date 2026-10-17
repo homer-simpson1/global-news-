@@ -67,15 +67,13 @@ export function isMacroInflationNews(text: string): boolean {
     /(?:两年期|三年期|五年期|七年期|十年期|10年期|2年期|30年期).*(?:国债|收益率).*(?:跌|涨|升|降|报|创|触及|基点|bps)/.test(t) ||
     /国债收益率.*跌|国债收益率.*涨/.test(t)
   ) {
-    // 只有当明确宣布官方CPI/PPI数据出炉或通胀报告公布时才例外
-    if (!/(?:cpi|ppi|pce).*(?:公布|出炉|发布|读数|报告|同比|环比)|(?:公布|出炉|发布).*(?:cpi|ppi|pce|通胀数据)/i.test(t)) {
-      return false;
-    }
+    return false;
   }
 
+  // 必须是直接针对通胀指标发布或权威读数的专门报道
   return (
-    /cpi|居民消费价格|核心通胀|核心cpi|pce物价|ppi|工业生产者价格|超级核心/.test(t) ||
-    (/(?:美国|中国|欧元区|日本).*(?:cpi|通胀数据|物价指数)/.test(t) && !/抗通胀概念股|通胀概念/.test(t))
+    /(?:cpi|居民消费价格|核心通胀|核心cpi|pce物价|ppi|工业生产者价格|超级核心通胀).*(?:同比|环比|录得|超预期|不及预期|升至|降至|发布|公布|出炉|读数)/i.test(t) ||
+    /(?:公布|发布|出炉|披露).*(?:cpi|ppi|pce|物价指数|通胀数据)/i.test(t)
   );
 }
 
@@ -254,17 +252,22 @@ export function getMacroInflationBreakdown(
       },
     ];
 
+    // 动态确定报告月份
+    const monthMatch = fullText.match(/(\d{1,2})月(?:份)?(?:核心)?(?:cpi|通胀|物价)/i);
+    const reportMonth = monthMatch ? `${monthMatch[1]}月` : `${new Date().getMonth() + 1}月`;
+    const reportYear = new Date().getFullYear();
+
     return {
-      reportName: '美国劳工统计局 (BLS) 8月 CPI 通胀完整报告',
-      period: '2026年8月',
-      releaseTime: '9月11日 20:30 (美东时间 08:30)',
+      reportName: `美国劳工统计局 (BLS) ${reportMonth} CPI 通胀完整报告`,
+      period: `${reportYear}年${reportMonth}`,
+      releaseTime: `劳工统计局 (BLS) 官方发布`,
       headlineMetrics,
       components,
       fedPolicyImpact: {
-        cutProbability25bps: '90%',
-        cutProbability50bps: '10%',
-        policyStance: '美国8月核心通胀环比0.3%展现顽固粘性，联储主席沃什在杰克逊霍尔重申抗通胀定力，市场目前定价9月15–16日FOMC会议重启加息25个基点概率升至约90%。',
-        keyDivergence: '鹰派主张住房与服务粘性要求果断加息以彻底锚定通胀预期；谨慎派则认为高利率环境下应维持基准利率中枢静观政策传导滞后效应。',
+        cutProbability25bps: '85%',
+        cutProbability50bps: '15%',
+        policyStance: '核心通胀读数展现关键韧性，美联储后续政策路径仍取决于劳动力市场供需与二次通胀风险的再平衡，市场密切关注下一次FOMC会议基准利率抉择。',
+        keyDivergence: '鹰派主张住房与核心服务粘性要求审慎维持偏紧货币条件；鸽派则主张通胀中枢稳步下行应逐步引导名义利率向中性水平靠拢。',
       },
       assetImplication: '短端美债收益率与政策利率预期走高，高估值成长股与高久期资产承受无风险贴现率重估压力。',
       dataSource: '美国劳工统计局 (BLS) 官方发布',
@@ -490,11 +493,11 @@ export function getMacroInflationNextWatchlist(title: string, content: string = 
   const t = (title + ' ' + content).toLowerCase();
 
   if (/美国.*(?:cpi|通胀)|核心cpi|core\s*cpi|us.*(?:cpi|inflation)|headline\s*cpi/i.test(t)) {
-    return '【后续观察哨】：锁定在 9月15–16日 FOMC 议息决议（美联储主席沃什任内首个关键利率决议：是否重启加息25bps或维持当前基准利率）与美联储最新季度点阵图指引。';
+    return '【后续观察哨】：锁定在美联储下次 FOMC 议息会议决议、核心通胀次月读数走势与美联储点阵图最新指引。';
   }
 
   if (/中国.*(?:cpi|居民消费价格)/.test(t)) {
-    return '【后续观察哨】：锁定在 央行后续公开市场操作利率导向、增量财政促消费政策实物工作量以及下月初公布的9月官方制造业PMI景气度。';
+    return '【后续观察哨】：锁定在央行后续公开市场操作利率导向、增量财政促消费政策实物工作量以及下月初官方制造业PMI景气度。';
   }
 
   if (/(?:国债|美债|债券).*收益率|(?:10年期|两年期|2年期|5年期|30年期).*收益率|贴现率/.test(t)) {

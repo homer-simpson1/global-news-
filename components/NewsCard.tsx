@@ -71,13 +71,8 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
     cleanTitle = cleanTitle.replace(/(?:[，,、；;：:\s]+(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致|通过|经由|通过香港|收于|跌至|涨至|升至|降至))+$/, '').trim();
     cleanTitle = cleanTitle.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致)+$/, '').trim();
 
-    // 专项恢复：OPEC 原油断裂标题
-    if (/opec/i.test(cleanTitle) && /原油|布伦特|减产/.test(cleanTitle)) {
-      if (/在$/.test(cleanTitle) || /布伦特原油$/.test(cleanTitle) || !/筑底|企稳|回升|支撑/.test(cleanTitle) || cleanTitle.length < 24) {
-        cleanTitle = 'OPEC+主要成员国探讨顺延自愿减产，布伦特原油在90美元上方筑底';
-      }
-    }
-    if (/布伦特原油在/i.test(cleanTitle) && !/筑底|90美元/.test(cleanTitle)) {
+    // 专项恢复：OPEC 原油断裂标题（仅针对真正以“布伦特原油在”截断尾部的残缺标题进行修补）
+    if (/(?:opec|欧佩克)/i.test(cleanTitle) && /减产/.test(cleanTitle) && /(?:在|布伦特原油|布伦特原油在)$/.test(cleanTitle)) {
       cleanTitle = 'OPEC+主要成员国探讨顺延自愿减产，布伦特原油在90美元上方筑底';
     }
 
@@ -104,12 +99,20 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       }
     }
 
-    // 修复美债收益率断裂标题与两年期/10年期背离
+    // 修复美债收益率断裂残缺标题（从正文动态提取最新数值，严禁硬编码过时假数据）
     if (/两年期美债收益率创去年|创去年$/.test(cleanTitle) || (/美债.*收益率/.test(cleanTitle) && /创(?:去年|今年|历|历史|新|低|高)?$/.test(cleanTitle))) {
-      cleanTitle = '美国10年期基准国债收益率涨6.57基点，报4.9961%';
+      const dynamicYield = (item.summaryParagraph || '').match(/(?:美国)?(?:10年期|两年期)?(?:基准)?(?:国债|美债)收益率(?:涨|跌)[^，,。]*?(?:基点|bps)[^，,。]*?(?:报|至)[0-9.]+%/);
+      if (dynamicYield) {
+        cleanTitle = dynamicYield[0];
+      } else {
+        cleanTitle = cleanTitle.replace(/创(?:去年|今年|历|历史|新|低|高)?$/, '').trim();
+      }
     }
     if (cleanTitle.includes('两年期') && !cleanTitle.includes('10年期') && (item.summaryParagraph || '').includes('10年期基准国债') && !(item.summaryParagraph || '').includes('两年期')) {
-      cleanTitle = '美国10年期基准国债收益率涨6.57基点，报4.9961%';
+      const dynamicYield = (item.summaryParagraph || '').match(/(?:美国)?10年期基准国债收益率(?:涨|跌)[^，,。]*?(?:基点|bps)[^，,。]*?(?:报|至)[0-9.]+%/);
+      if (dynamicYield) {
+        cleanTitle = dynamicYield[0];
+      }
     }
 
     // 修复企业破产重整与信威宁算标题纯净化

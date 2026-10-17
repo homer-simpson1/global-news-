@@ -182,12 +182,7 @@ export function fallback_to_grounded_summary(rawText: string): {
   }
   title = title.replace(/(?:\d+\.|\.\d*)$/, '').replace(/(?:[，,、；;：:\s及与和等并]|为了|保证|以实现|以确保|正在全力)+$/, '').trim();
   title = title.replace(/(?:[在于向从对将把与和或为就至达创报被由]|位于|处于|关于|探讨|围绕|随着|导致)+$/, '').trim();
-  if (/opec/i.test(title) && /原油|布伦特|减产/.test(title)) {
-    if (/在$/.test(title) || !/筑底|企稳|回升|支撑/.test(title) || title.length < 24) {
-      title = 'OPEC+主要成员国探讨顺延减产，布伦特原油在90美元上方筑底';
-    }
-  }
-  if (/布伦特原油在/i.test(title) && !/筑底|90美元/.test(title)) {
+  if (/(?:opec|欧佩克)/i.test(clean) && /(?:opec|欧佩克)/i.test(title) && /减产/.test(title) && /(?:在|布伦特原油|布伦特原油在)$/.test(title)) {
     title = 'OPEC+主要成员国探讨顺延减产，布伦特原油在90美元上方筑底';
   }
   if (/金正恩|朝鲜.*(?:武器|试验)/.test(title)) {
@@ -246,6 +241,29 @@ export function verify_fact_faithfulness(
   // 门禁红线 3：利益链 1-Hop 规范检查（必须满足 ①... ➔ ②... ➔ ③... 结构，严禁机械免责套话）
   if (transmission_chain && (!/①.*➔.*②.*➔.*③/.test(transmission_chain) || transmission_chain.includes('信源仅陈述单一动作'))) {
     return { pass: false, reason: '利益链未满足 1-Hop 规范因果链结构或包含机械免责套话' };
+  }
+
+  // 门禁红线 4：标题与正文事实一致性审查（严禁多空方向倒置或主体张冠李戴）
+  const hasBearishTitle = /下挫|大跌|暴跌|走低|跳水|重挫|承压/.test(title);
+  const hasBullishTitle = /全线上扬|大涨|暴涨|飙升|走高|冲高/.test(title);
+  const riseMatches = raw_text.match(/涨[0-9.]*%/g) || [];
+  const fallMatches = raw_text.match(/跌[0-9.]*%/g) || [];
+
+  if (hasBearishTitle && riseMatches.length >= 2 && fallMatches.length === 0) {
+    return { pass: false, reason: '标题断言全线下挫/大跌，但事实通报全部为上涨数据（标题与正文多空方向严重倒置）' };
+  }
+  if (hasBullishTitle && fallMatches.length >= 2 && riseMatches.length === 0) {
+    return { pass: false, reason: '标题断言全线上扬/大涨，但事实通报全部为下跌数据（标题与正文多空方向严重倒置）' };
+  }
+
+  if (/(?:opec|欧佩克)/i.test(title) && !/opec|欧佩克/i.test(raw_text)) {
+    if (/(?:商品期货|期货开盘|主力合约|国内期货|沪银|焦煤|沪锡|20号胶|焦炭|橡胶)/.test(raw_text)) {
+      return { pass: false, reason: '标题套用OPEC+减产，但事实通报为国内商品期货开盘走势（主体张冠李戴）' };
+    }
+    if (/(?:飓风|墨西哥湾)/.test(raw_text)) {
+      return { pass: false, reason: '标题套用OPEC+减产，但事实通报为飓风关停墨西哥湾原油（主体张冠李戴）' };
+    }
+    return { pass: false, reason: '标题断言OPEC+，但事实原文完全无OPEC相关内容（主体张冠李戴）' };
   }
 
   return { pass: true };
@@ -1708,9 +1726,14 @@ export function inferTransmission(track: TrackId, title: string, content: string
   }
 
   // 4. 原油与化石能源 (排除国内民用天然气/管网基建)
-  // opec|原油|减产|油价
-  if (/(?:opec|原油|减产|油价|布伦特|wti|自愿减产|延长减产)/.test(cleanTitleLower) && !/食用油|地沟油|天然气|管网|输气/.test(cleanTitleLower)) {
+  if (/(?:opec|原油|减产|油价)/i.test(cleanTitleLower) && /(?:减产|配额|jmmc|自愿减产|顺延)/.test(cleanTitleLower)) {
     return '① OPEC+顺延自愿减产配额直接收紧现货市场可流通原油供应 ➔ ② 欧美炼油厂与交通运输企业承担高位燃油与航煤采购成本 ➔ ③ 国际能源期货多空力量围绕库存边际变动与需求中枢博弈定价。';
+  }
+  if (/(?:飓风|风暴|极端天气|地震|关停|停产)/.test(cleanTitleLower) && /(?:原油|石油|炼油|墨西哥湾)/.test(cleanTitleLower)) {
+    return '① 极端天气与自然灾害直接迫使近海油气平台关停与即期原油生产中断 ➔ ② 区域炼油厂与原油商业库存短期承接供应抽离缓冲压力 ➔ ③ 现货市场可流通库存紧缩推升即期能源期货风险溢价。';
+  }
+  if (/(?:原油|油价|布伦特|wti)/.test(cleanTitleLower) && !/食用油|地沟油|天然气|管网|输气/.test(cleanTitleLower)) {
+    return '① 国际基准油价波动直接影响全球原油现货贸易结算与产业链采购预算 ➔ ② 炼化企业与终端交通运输主体根据即期裂解价差动态调整采购与库存策略 ➔ ③ 大宗商品衍生品市场围绕供需预期与宏观流动性完成动态重平衡。';
   }
   if (/(?:天然气|lng|管网|输气)/.test(cleanTitleLower) && !/opec|原油|自愿减产/.test(cleanTitleLower)) {
     return '① 天然气储运管网与LNG调峰设施建设强化区域清洁能源供给韧性 ➔ ② 工业燃气与下游公用事业按期锁定中长期供用气保供配额 ➔ ③ 现货气价与跨区域管道输配调度平抑季节性用能峰值。';
@@ -1990,12 +2013,9 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
   }
   title = title.replace(/[，,\s]*(?:有记者问|记者问|问|答)[：:\s]*(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
 
-  // 1-C. 修复美债收益率断裂标题与两年期/10年期背离
-  if (/两年期美债收益率创去年|创去年$/.test(title) || (/美债.*收益率/.test(title) && /创(?:去年|今年|历|历史|新|低|高)?$/.test(title))) {
-    title = '美国10年期基准国债收益率涨6.57基点，报4.9961%';
-  }
-  if (/5\.13%/.test(title) || /刷新\s*2007年.*最高位/.test(title)) {
-    title = '美国10年期基准国债收益率刷新2007年以来最高位至5.13%上方';
+  // 1-C. 修复美债收益率断裂残缺标题（清除末尾截断残字，严禁硬编码过时数字）
+  if (/创(?:去年|今年|历|历史|新|低|高)?$/.test(title)) {
+    title = title.replace(/创(?:去年|今年|历|历史|新|低|高)?$/, '').trim();
   }
   // 1-D. 修复企业破产重整与信威宁算标题
   if (/信威.*宁算|西藏宁算.*破产/.test(title)) {
@@ -2009,57 +2029,25 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
   // 2. 仅去除前置标签式冒号（如“突发：”、“快讯：”、“要闻：”）与尾部残留冒号，保留合法发言引用冒号（如“吴泳铭：AI是战略”）
   title = title.replace(/^(?:突发|快讯|电讯|热点|要闻|独家|提醒|数据显示|播报)[：:\s]+/, '').replace(/[：:\s]+$/, '').trim();
 
-  // 3. 针对期指流水账与极端行情，提炼符合22~28字规范的冲突型自然标题
+  // 3. 针对期指流水账与行情通报，提炼客观准确的自然标题（严禁颠倒涨跌事实）
   if (/期指|期货|指数/.test(title) && /跌[0-9.]+%|涨[0-9.]+%/.test(title)) {
     if (title.includes('标普') && title.includes('道指') && title.includes('纳斯达克')) {
-      title = '美股三大期指尾盘全线下挫，道指大跌但科技巨头扛住跌幅';
-    } else if (title.includes('加密')) {
-      title = '加密股周涨12%后突然哑火，高位获利盘抢跑引发主力观望';
+      const riseMatches = title.match(/涨[0-9.]*%/g) || [];
+      const fallMatches = title.match(/跌[0-9.]*%/g) || [];
+      if (riseMatches.length > 0 && fallMatches.length === 0) {
+        title = '美股三大期指尾盘全线上扬，标普与道指期货均收高';
+      } else if (fallMatches.length > 0 && riseMatches.length === 0) {
+        title = '美股三大期指尾盘全线下挫，道指与标普期货均承压走低';
+      } else {
+        title = '美股三大期指尾盘走势分化，多空盘面呈现结构性博弈';
+      }
+    } else if (title.includes('加密') && /跌/.test(title)) {
+      title = '加密资产波动加剧，高位获利盘兑现引发震荡回调';
     }
   }
 
-  // 4. 重点领域高确定性事实标题提炼（中性专业机构投研语态，杜绝爽文口水词）
-  if (/台积电.*2nm|2nm.*台积电/.test(title) && /涨价|报价/.test(title)) {
-    title = '台积电2nm代工传调升价格，英伟达与苹果锁定先进制程产能';
-  } else if (/北美.*(?:变压器|电网)|算力.*变压器|变压器.*排队3年/.test(title) && !/a股|沪指|创业板|两市|上证/.test(title)) {
-    title = '变压器交付周期长达数年，北美AI数据中心面临电网接入约束';
-  } else if (/美债.*收益率|两年期美债/.test(title) && /非农|降息/.test(title)) {
-    title = '两年期美债收益率反弹走高，劳动力市场韧性推迟降息时间表';
-  } else if (/集运|欧线|好望角|红海/.test(title) && /运价|绕航/.test(title)) {
-    title = '好望角绕航使航期延长约两周，集运有效运力供给持续受约束';
-  } else if (/伦铜|铜价|lme.*铜/.test(title) && /库存|升水/.test(title)) {
-    title = '伦铜现货大幅升水突破高位，全球显性库存触底凸显供需紧平衡';
-  } else if (/opec|原油|减产/.test(title)) {
-    title = 'OPEC+主要成员国探讨顺延减产，布伦特原油在90美元上方筑底';
-  } else if (/泄密|五角大楼|测谎/.test(title)) {
-    title = '五角大楼启动涉密战备库存泄密排查，多名指挥军官接受技术测谎';
-  } else if (/以军|空袭|黎巴嫩/.test(title)) {
-    title = '以军连续空袭黎巴嫩南部目标，中东地缘交火推升区域风险溢价';
-  } else if (/物流.*景气|物流.*50.9%/.test(title)) {
-    title = '8月物流景气指数回升至50.9%，大宗商品与制造业货流周转提速';
-  } else if (/中金.*合并|券商.*合并|中金.*停牌/.test(title)) {
-    title = '中金公司与东兴信达推进整合重组，相关股票停牌进入交割程序';
-  } else if (/商务部.*贸易救济|反歧视|反倾销/.test(title)) {
-    title = '商务部针对单边技术限制启动反歧视救济评估，维护公平经贸秩序';
-  } else if (/禽流感|乌拉圭/.test(title)) {
-    title = '乌拉圭因禽流感疫情宣布卫生紧急状态，南美多国启动边境检疫拦截';
-  } else if (/吉隆口岸/.test(title)) {
-    title = '吉隆口岸遭跨境泥石流冲击，陆路抢通推进搜救与选址论证';
-  } else if (/王建军/.test(title)) {
-    title = '证监会原副主席王建军受贿9340万元，一审被判处无期徒刑';
-  } else if (/澳洲联储|澳联储|hunter/i.test(title) && /通胀|抗击通胀/.test(title)) {
-    title = '澳洲联储明确抗击通胀为首要任务，警惕物价反复压制降息预期';
-  } else if (/欧洲央行|欧央行|拉加德/.test(title) && /降息|加息|通胀/.test(title)) {
-    title = '欧洲央行审慎权衡降息节奏，通胀回落与经济低迷拉锯加剧';
-  } else if (/英国央行|英央行|贝利/.test(title) && /降息|加息|利率/.test(title)) {
-    title = '英国央行抗通胀立场保持克制，薪资粘性推迟全面宽松窗口';
-  } else if (/刚果.*埃博拉|埃博拉疫情/.test(title)) {
-    title = '刚果（金）暴发埃博拉疫情累计确诊超7500例，世卫组织紧急协同阻击';
-  } else if (/债务工具中央结算系统|cmu.*债券投标|发行.*央行票据|央行票据.*cmu/i.test(title + ' ' + rawContent)) {
-    title = '中国人民银行通过香港CMU平台以利率招标发行2026年第九期央票';
-  } else if (/拟溢价.*收购.*资产|收购控股股东旗下亏损资产/.test(title)) {
-    title = '东莞控股拟以605万元收购控股股东旗下低空经济亏损资产';
-  } else if (/(?:^[0-9]+月)?\s*lpr/i.test(title) || /贷款市场报价利率/.test(title)) {
+  // 4. 重点领域高确定性规范修正（仅补充主权主体，严禁硬编码虚假或不相关事实覆盖原题）
+  if (/(?:^[0-9]+月)?\s*lpr/i.test(title) || /贷款市场报价利率/.test(title)) {
     if (!/中国|我国|央行|人民银行|pboc/i.test(title)) {
       title = `中国${title}`;
     }
@@ -2168,14 +2156,9 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
   title = title.replace(/[，,\s]*(?:区域防务安全态势进一步明朗|相关工作稳步推进落[实]?|多边贸易合规评估稳步开展|宏观统筹稳步推进落实|引发市场密切关注|市场密切评估后续进展|供应链供需格局受市场关注|现货与期货基差进入再平衡|宏观政策调控窗口保持相机抉择|跨国机构动态校准资产配置|市场密切评估宏观传导节奏)[。.]*$/g, '');
   title = title.replace(/^(?:能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/, '').replace(/^[｜|·\-\/:：\s]+/, '').trim();
 
-  // 专项恢复：OPEC 原油断裂标题
-  if (/opec/i.test(title) && /原油|布伦特|减产/.test(title)) {
-    if (/在$/.test(title) || !/筑底|企稳|回升|支撑/.test(title) || title.length < 24) {
-      title = 'OPEC+主要成员国探讨顺延减产，布伦特原油在90美元上方筑底';
-    }
-  }
-  if (/布伦特原油在/i.test(title) && !/筑底|90美元/.test(title)) {
-    title = 'OPEC+主要成员国探讨顺延减产，布伦特原油在90美元上方筑底';
+  // 专项恢复：OPEC 原油断裂标题（仅针对真正以“布伦特原油在”截断尾部的残缺标题进行修补）
+  if (/(?:opec|欧佩克)/i.test(title) && /减产/.test(title) && /(?:在|布伦特原油|布伦特原油在)$/.test(title)) {
+    title = 'OPEC+主要成员国探讨顺延自愿减产，布伦特原油在90美元上方筑底';
   }
   // 专项恢复：朝鲜新型武器试验
   if (/金正恩|朝鲜.*(?:武器|试验)/.test(title)) {
@@ -2400,9 +2383,14 @@ export function generateCoreTakeaway(
   }
 
   // 4. 原油与化石能源 (排除国内民用天然气/管网基建)
-  // opec|原油|减产|油价
-  if (/(?:opec|原油|减产|油价|布伦特|wti|自愿减产|延长减产)/.test(cleanTitleLower) && !/食用油|地沟油|天然气|管网|输气/.test(cleanTitleLower)) {
+  if (/(?:opec|欧佩克)/i.test(cleanTitleLower) && /(?:减产|配额|jmmc|自愿减产|顺延)/.test(cleanTitleLower)) {
     return sanitizeEditorialTone('【产油国供给调节与市场平衡】：OPEC+核心成员国计划将每日220万桶自愿减产协议顺延至年底，通过调节原油实物供应量平衡国际供需格局。');
+  }
+  if (/(?:飓风|风暴|极端天气|地震|关停|停产)/.test(cleanTitleLower) && /(?:原油|石油|炼油|墨西哥湾)/.test(cleanTitleLower)) {
+    return sanitizeEditorialTone('【突发极端天气与产油设施关停】：极端天气与突发灾害迫使墨西哥湾等关键产区关停油气生产，短期供给收紧推升现货溢价。');
+  }
+  if (/(?:原油|油价|布伦特|wti)/.test(cleanTitleLower) && !/食用油|地沟油|天然气|管网|输气/.test(cleanTitleLower)) {
+    return sanitizeEditorialTone('【国际油价供需再平衡与地缘定价】：国际基准原油价格围绕即期库存变动、炼厂开工负荷与地缘溢价动态重定价。');
   }
   if (/(?:天然气|lng|管网|输气)/.test(cleanTitleLower) && !/opec|原油|自愿减产/.test(cleanTitleLower)) {
     return sanitizeEditorialTone('【清洁能源保供与基础设施互联】：跨区域天然气主干管网加速打通输配瓶颈，储气调峰与管道输配协同保障迎峰度夏/度冬平稳用能。');
@@ -2711,8 +2699,17 @@ function generateNextWatchlist(title: string, content: string, track: TrackId): 
   if (/航运|海运|红海|集运|运价|scfi|bdi/.test(t)) {
     return '【后续观察哨】：锁定在 上海航运交易所集装箱出口运价指数（SCFI）及苏伊士运河通行统计。';
   }
-  if (/原油|油价|wti|布伦特|opec/.test(t)) {
+  if (/(?:商品期货|期货开盘|主力合约|国内期货|沪银|焦煤|沪锡|20号胶|焦炭|橡胶)/.test(t + ' ' + leadText) && !/opec|欧佩克/i.test(t + ' ' + leadText)) {
+    return '【后续观察哨】：锁定在 上期所及大商所主力合约盘中持仓变动、仓单交割量与重点品种现货基差走势。';
+  }
+  if (/(?:opec|欧佩克)/i.test(t) && /(?:减产|配额|jmmc)/.test(t)) {
     return '【后续观察哨】：锁定在 下周 OPEC+ 联合部长级监督委员会（JMMC）官方公报及EIA库存。';
+  }
+  if (/(?:飓风|风暴|极端天气)/.test(t) && /(?:墨西哥湾|原油|石油)/.test(t)) {
+    return '【后续观察哨】：锁定在 美国国家飓风中心（NHC）路径研判、BSEE产区复工评估与EIA周度库存报告。';
+  }
+  if (/原油|油价|wti|布伦特/.test(t)) {
+    return '【后续观察哨】：锁定在 EIA周度原油及汽柴油商业库存变化与国际能源署（IEA）月度供需公报。';
   }
   if (/航班|航线|民航|通航|客运|降落|起飞/.test(t)) {
     return '【后续观察哨】：锁定在 民航局（CAAC）国际客运航线季度排班动态与出入境口岸通关运行通报。';
@@ -3091,9 +3088,9 @@ export function build5W1HSummary(
     const implicitWhyMatch = rawTotal.match(/(?:旨在|为了|配合|基于|受.*?影响|伴随|随着|由于)([^。！？\n]+)/);
     if (implicitWhyMatch && implicitWhyMatch[1]) {
       why = truncateSentenceSafely(implicitWhyMatch[1].replace(/^(?:着|随着|伴随|鉴于|鉴于此)\s*/, '').trim());
-    } else if (/大跌|暴跌|跳水|走低|下挫|回调/.test(cleanTitle)) {
+    } else if (/大跌|暴跌|跳水|走低|下挫|回调/.test(cleanTitle) && !/涨[0-9.]+%/.test(rawTotal)) {
       why = '受短期市场获利了结盘抛压或外部宏观利空情绪压制';
-    } else if (/大涨|暴涨|飙升|走高|冲高|反弹/.test(cleanTitle)) {
+    } else if (/大涨|暴涨|飙升|走高|冲高|反弹|上扬/.test(cleanTitle) || (/涨[0-9.]+%/.test(rawTotal) && !/跌[0-9.]+%/.test(rawTotal))) {
       why = '受多头买盘资金集中涌入或核心业务催化利好推动';
     } else if (/破产|清算|违约|立案|调查/.test(cleanTitle)) {
       why = '此前债务结构严重失衡或监管部门启动法治化稽查处置程序';

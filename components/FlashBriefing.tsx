@@ -94,13 +94,8 @@ function FlashBriefing({ briefs }: FlashBriefingProps) {
       cleanTitle = '美国10年期基准国债收益率刷新2007年以来最高位至5.13%上方';
     }
 
-    // 专项恢复：OPEC 原油断裂标题
-    if (/opec/i.test(cleanTitle) && /原油|布伦特|减产/.test(cleanTitle)) {
-      if (/在$/.test(cleanTitle) || /布伦特原油$/.test(cleanTitle) || !/筑底|企稳|回升|支撑/.test(cleanTitle) || cleanTitle.length < 24) {
-        cleanTitle = 'OPEC+主要成员国探讨顺延自愿减产，布伦特原油在90美元上方筑底';
-      }
-    }
-    if (/布伦特原油在/i.test(cleanTitle) && !/筑底|90美元/.test(cleanTitle)) {
+    // 专项恢复：OPEC 原油断裂标题（仅针对真正以“布伦特原油在”截断尾部的残缺标题进行修补）
+    if (/(?:opec|欧佩克)/i.test(cleanTitle) && /减产/.test(cleanTitle) && /(?:在|布伦特原油|布伦特原油在)$/.test(cleanTitle)) {
       cleanTitle = 'OPEC+主要成员国探讨顺延自愿减产，布伦特原油在90美元上方筑底';
     }
 

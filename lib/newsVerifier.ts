@@ -249,6 +249,35 @@ export async function runNewsAccuracyVerification(
       reasons.push('报道核心结论与标题议题存在张冠李戴（将战局防务议题误套用澳洲央行利率模板）');
     }
 
+    // 1.3 标题与正文事实多空方向及主题实体一致性检查
+    const hasBearishTitle = /下挫|大跌|暴跌|走低|跳水|重挫|承压/.test(item.title);
+    const hasBullishTitle = /全线上扬|大涨|暴涨|飙升|走高|冲高/.test(item.title);
+    const textToCheck = `${p} ${(item.bulletPoints || []).join(' ')}`;
+    const riseMatches = textToCheck.match(/涨[0-9.]*%/g) || [];
+    const fallMatches = textToCheck.match(/跌[0-9.]*%/g) || [];
+
+    if (hasBearishTitle && riseMatches.length >= 2 && fallMatches.length === 0) {
+      titleCompletenessOk = false;
+      detailClarityOk = false;
+      reasons.push('标题与内容事实严重背离（正文数据全线上涨，但标题断言全线下挫/大跌）');
+    }
+    if (hasBullishTitle && fallMatches.length >= 2 && riseMatches.length === 0) {
+      titleCompletenessOk = false;
+      detailClarityOk = false;
+      reasons.push('标题与内容事实严重背离（正文数据全线下跌，但标题断言全线上扬/大涨）');
+    }
+    if (/(?:opec|欧佩克)/i.test(item.title) && !/opec|欧佩克/i.test(textToCheck)) {
+      titleCompletenessOk = false;
+      detailClarityOk = false;
+      if (/(?:商品期货|期货开盘|主力合约|国内期货|沪银|焦煤|沪锡|20号胶|焦炭|橡胶)/.test(textToCheck)) {
+        reasons.push('标题与内容主体严重不符（正文通报商品期货开盘走势，但标题张冠李戴OPEC减产）');
+      } else if (/(?:飓风|墨西哥湾)/.test(textToCheck)) {
+        reasons.push('标题与内容主体严重不符（正文通报飓风关停墨湾产能，但标题张冠李戴OPEC减产）');
+      } else {
+        reasons.push('标题与内容主体严重不符（正文无OPEC相关内容，但标题断言OPEC）');
+      }
+    }
+
     // 3. 一级权威信源与真实可访问 URL 核验
     const sourceLower = (item.source || '').toLowerCase();
     const isKnownAuthority = KNOWN_AUTHORITIES.some(a => sourceLower.includes(a));
