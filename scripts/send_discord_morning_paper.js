@@ -74,16 +74,18 @@ function checkAlreadySentToday(force = false) {
 async function checkGitHubAlreadySentToday(force = false) {
   if (force) return false;
   try {
-    const res = await fetch('https://api.github.com/repos/homer-simpson1/global-news-/actions/runs?per_page=5', {
+    const res = await fetch('https://api.github.com/repos/homer-simpson1/global-news-/actions/runs?per_page=10', {
       headers: { 'User-Agent': 'morning-paper-idempotency-check' },
       signal: AbortSignal.timeout(5000)
     });
     if (!res.ok) return false;
     const data = await res.json();
     const today = new Date().toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
+    const currentRunId = process.env.GITHUB_RUN_ID;
     const sentToday = data.workflow_runs?.some(w => {
       if (w.conclusion !== 'success') return false;
       if (!w.path?.includes('morning_paper.yml')) return false;
+      if (currentRunId && String(w.id) === String(currentRunId)) return false;
       const runDate = new Date(w.created_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
       return runDate === today;
     });
@@ -119,15 +121,13 @@ async function sendMorningPaperToDiscord(options = {}) {
       return { success: true, skipped: true, reason: 'already_sent_today_local' };
     }
 
-    // 若在本地运行，额外检测云端 Actions 今日是否已成功推送
-    if (!process.env.GITHUB_ACTIONS) {
-      const cloudSent = await checkGitHubAlreadySentToday(isForce);
-      if (cloudSent) {
-        const today = new Date().toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
-        console.log(`ℹ️ [云端幂等拦截] 云端 GitHub Actions 今日 (${today}) 已成功推送晨报至 Discord，本地自动跳过以防重复。`);
-        recordSentSuccess(); // 同步记录到本地锁文件，后续无需重复请求网络
-        return { success: true, skipped: true, reason: 'already_sent_today_cloud' };
-      }
+    // 无论在本地还是云端，均检测今日是否已成功推送过
+    const cloudSent = await checkGitHubAlreadySentToday(isForce);
+    if (cloudSent) {
+      const today = new Date().toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
+      console.log(`ℹ️ [云端幂等拦截] 云端 GitHub Actions 今日 (${today}) 已成功推送晨报至 Discord，自动跳过以防重复。`);
+      recordSentSuccess(); // 同步记录到本地锁文件，后续无需重复请求网络
+      return { success: true, skipped: true, reason: 'already_sent_today_cloud' };
     }
   }
 
