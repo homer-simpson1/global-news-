@@ -9,7 +9,7 @@ import {
 } from '@/lib/inspectionReportGenerator';
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 
 export async function GET(request: Request) {
   try {

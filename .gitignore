@@ -21,3 +21,4 @@ morning_paper.log
 scratch/
 *.tsbuildinfo
 tsconfig.tsbuildinfo
+.vercel/
