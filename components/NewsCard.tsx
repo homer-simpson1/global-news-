@@ -99,8 +99,8 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       }
     }
 
-    // 修复美债收益率断裂残缺标题（从正文动态提取最新数值，严禁硬编码过时假数据）
-    if (/两年期美债收益率创去年|创去年$/.test(cleanTitle) || (/美债.*收益率/.test(cleanTitle) && /创(?:去年|今年|历|历史|新|低|高)?$/.test(cleanTitle))) {
+    // 修复美债收益率断裂残缺或陈旧硬编码标题（从正文动态提取最新数值，严禁展示过时假数据）
+    if (/4\.9961%|6\.57基点|两年期美债收益率创去年|创去年$/.test(cleanTitle) || (/美债.*收益率/.test(cleanTitle) && /创(?:去年|今年|历|历史|新|低|高)?$/.test(cleanTitle))) {
       const dynamicYield = (item.summaryParagraph || '').match(/(?:美国)?(?:10年期|两年期)?(?:基准)?(?:国债|美债)收益率(?:涨|跌)[^，,。]*?(?:基点|bps)[^，,。]*?(?:报|至)[0-9.]+%/);
       if (dynamicYield) {
         cleanTitle = dynamicYield[0];

@@ -585,7 +585,7 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
   }
 
   // 0-B. 专项自愈：美债基准收益率断裂标题清洗（从正文动态提取最新数值，严禁硬编码过时假数据）
-  if (/两年期美债收益率创去年|创去年$/.test(title) || (/美债.*收益率/.test(title) && /创(?:去年|今年|历|历史|新|低|高)?$/.test(title))) {
+  if (/4\.9961%|6\.57基点|两年期美债收益率创去年|创去年$/.test(title) || (/美债.*收益率/.test(title) && /创(?:去年|今年|历|历史|新|低|高)?$/.test(title))) {
     const dynamicYield = (context?.what || '').match(/(?:美国)?(?:10年期|两年期)?(?:基准)?(?:国债|美债)收益率(?:涨|跌)[^，,。]*?(?:基点|bps)[^，,。]*?(?:报|至)[0-9.]+%/);
     if (dynamicYield) {
       title = dynamicYield[0];
@@ -2552,9 +2552,10 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   if (!detectedMacro) {
     detectedMacro = getMacroInflationBreakdown(cleanTitle, cleanParagraph || item.summaryParagraph || item.bulletPoints?.join(' '), correctedTrack);
   } else {
-    // 门禁复核：若原有 item 挂了非当前实体的通胀报告（如德国国债被误挂美国BLS数据），强制清空自愈！
+    // 门禁复核：若原有 item 挂了非当前实体的通胀报告（如德国国债被误挂美国BLS数据），或纯债券行情资讯被误挂通胀矩阵，强制清空自愈！
     const isForeignNonUS = /(?:德国|德债|bund|欧洲|欧盟|欧元区|法国|法债|意大利|意债|英国|英债|gilt|日本|日债|jgb)/i.test(cleanTitle);
-    if (isForeignNonUS && detectedMacro.reportName && detectedMacro.reportName.includes('美国劳工统计局')) {
+    const fullText = (cleanTitle + ' ' + (cleanParagraph || item.summaryParagraph || item.bulletPoints?.join(' ') || '')).toLowerCase();
+    if ((isForeignNonUS && detectedMacro.reportName && detectedMacro.reportName.includes('美国劳工统计局')) || !isMacroInflationNews(fullText)) {
       detectedMacro = undefined;
     }
   }
@@ -2685,7 +2686,8 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
     detectedMacro = getMacroInflationBreakdown(cleanContent, cleanParagraph || flash.summaryParagraph, correctedTrack);
   } else {
     const isForeignNonUS = /(?:德国|德债|bund|欧洲|欧盟|欧元区|法国|法债|意大利|意债|英国|英债|gilt|日本|日债|jgb)/i.test(cleanContent);
-    if (isForeignNonUS && detectedMacro.reportName && detectedMacro.reportName.includes('美国劳工统计局')) {
+    const fullText = (cleanContent + ' ' + (cleanParagraph || flash.summaryParagraph || '')).toLowerCase();
+    if ((isForeignNonUS && detectedMacro.reportName && detectedMacro.reportName.includes('美国劳工统计局')) || !isMacroInflationNews(fullText)) {
       detectedMacro = undefined;
     }
   }
