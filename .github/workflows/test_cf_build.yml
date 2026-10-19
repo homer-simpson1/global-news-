@@ -1,0 +1,29 @@
+name: Test Cloudflare Build
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test-cf-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm ci || npm install
+      - name: Run Next on Pages build
+        run: |
+          npx @cloudflare/next-on-pages > build_output.log 2>&1 || true
+          cat build_output.log
+          git config user.name "bot"
+          git config user.email "bot@local"
+          git checkout -B cf-build-log
+          git add -f build_output.log
+          git commit -m "ci: cf build log"
+          git push -f origin cf-build-log
