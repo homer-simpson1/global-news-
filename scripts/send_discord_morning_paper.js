@@ -74,9 +74,13 @@ function checkAlreadySentToday(force = false) {
 async function checkGitHubAlreadySentToday(force = false) {
   if (force) return false;
   try {
-    const res = await fetch('https://api.github.com/repos/homer-simpson1/global-news-/actions/runs?per_page=10', {
-      headers: { 'User-Agent': 'morning-paper-idempotency-check' },
-      signal: AbortSignal.timeout(5000)
+    const headers = { 'User-Agent': 'morning-paper-idempotency-check' };
+    if (process.env.GITHUB_TOKEN) {
+      headers['Authorization'] = `Bearer ${process.env.GITHUB_TOKEN}`;
+    }
+    const res = await fetch('https://api.github.com/repos/homer-simpson1/global-news-/actions/runs?per_page=15', {
+      headers,
+      signal: AbortSignal.timeout(8000)
     });
     if (!res.ok) return false;
     const data = await res.json();

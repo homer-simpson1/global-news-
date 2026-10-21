@@ -14,6 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    permissions:
+      contents: read
+      actions: read
+
     steps:
       - name: Checkout Codebase
         uses: actions/checkout@v4
@@ -35,6 +39,7 @@ jobs:
       - name: Render Ultra-HD Morning Paper & Push to Discord
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           API_BASE_URL: https://global-news-8lp.pages.dev
         run: |
           node scripts/send_discord_morning_paper.js
