@@ -1456,6 +1456,66 @@ check('Gate 25: 5W1H 事实通报语法通顺性与及物动词截断自愈 (0 �
 });
 
 // -------------------------------------------------------------
+// 门禁 26: 坚决拦截金融爬虫未开标/未决占位符零利率垃圾债券快讯 (Gate 26)
+// -------------------------------------------------------------
+check('Gate 26: 坚决拦截金融爬虫未开标/未决占位符零利率垃圾债券快讯', () => {
+  const { isCalendarOrDigestSpam } = require('@/lib/rssFetcher');
+  const { isZeroYieldPlaceholderBond, autoCorrectAllNews } = require('@/lib/selfHealingEngine');
+
+  const testCases = [
+    '农发行发行3年期债券，规模10亿元，发行利率0.0000%，预期0.0000%',
+    '国开行增发10年期债券，规模50亿元，中标利率0.0000%，投标倍数1.00倍',
+    '进出口行发行2年期金融债券，发行利率0.0000%，预期0.0000%，投标倍数1.00倍，边际倍数1.00倍',
+    '财政部增发记账式附息国债，票面利率0.0000%，规模300亿元',
+  ];
+
+  testCases.forEach((caseTitle) => {
+    if (!isCalendarOrDigestSpam(caseTitle)) {
+      throw new Error(`isCalendarOrDigestSpam 未能拦截零利率债券占位脏数据：“${caseTitle}”`);
+    }
+    if (!isZeroYieldPlaceholderBond(caseTitle)) {
+      throw new Error(`isZeroYieldPlaceholderBond 未能拦截零利率债券占位脏数据：“${caseTitle}”`);
+    }
+  });
+
+  // 测试自愈引擎全域净化：包含该条目的新闻列表必须被 100% 过滤剔除
+  const mockNews = [
+    {
+      id: 'GID-26B9941B',
+      title: '农发行发行3年期债券，规模10亿元，发行利率0.0000%，预期0.0000%',
+      publishedAt: '2026-10-22 07:30',
+      track: 'macro_economy',
+      source: '华尔街见闻',
+    },
+    {
+      id: 'GID-NORMAL-NEWS',
+      title: '财政部在香港顺利发行首期人民币国债，发行规模120亿元，认购倍数超3倍',
+      publishedAt: '2026-10-22 08:30',
+      track: 'macro_economy',
+      source: '新华社',
+    },
+  ];
+
+  const mockBriefs = [
+    {
+      id: 'BRIEF-1',
+      content: '农发行发行3年期债券，规模10亿元，发行利率0.0000%，预期0.0000%，投标倍数1.00倍',
+    },
+  ];
+
+  const result = autoCorrectAllNews(mockNews, mockBriefs);
+  if (result.news.some((n) => n.id === 'GID-26B9941B' || n.title.includes('0.0000%'))) {
+    throw new Error('autoCorrectAllNews 未能过滤掉 GID-26B9941B 零利率占位符债券新闻');
+  }
+  if (result.flashBriefs.some((b) => b.content.includes('0.0000%'))) {
+    throw new Error('autoCorrectAllNews 未能过滤掉 0.0000% 占位符快讯');
+  }
+  if (!result.news.some((n) => n.id === 'GID-NORMAL-NEWS')) {
+    throw new Error('autoCorrectAllNews 误伤了正常的人民币国债发行新闻');
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {
@@ -1477,6 +1537,7 @@ if (errors.length > 0) {
   console.log('   - 0 处“要求采取。”及物动词腰斩断句，5W1H 事实通报 100% 语法通顺');
   console.log('   - 0 处“电讯，人名：”冒号引语复读，间接引语自然转述 100% 闭环');
   console.log('   - 0 处“直接影响方面，促使”无主语病句与“起因于旨在”介词堆叠');
+  console.log('   - 100% 拦截金融爬虫未开标/零利率 0.0000% 占位符虚假垃圾债券数据');
   console.log('================================================================\n');
   process.exit(0);
 }

@@ -2755,6 +2755,25 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
 }
 
 /**
+ * 拦截金融爬虫未开标/未决系统占位符脏数据（如债券发行占位 0.0000% 利率、预期0.0000%、投标倍数1.00倍模板）
+ */
+export function isZeroYieldPlaceholderBond(title: string, content?: string): boolean {
+  const t = (title || '').trim();
+  const c = (content || '').trim();
+  const allText = t + ' ' + c;
+  if (
+    /(?:发行利率|票面利率|中标利率|预期利率|收益率|利率)\s*(?:为|报|：|:)?\s*0(?:\.0{1,4})?%/.test(allText) &&
+    /(?:预期\s*0(?:\.0{1,4})?%|投标倍数\s*1(?:\.00)?倍|边际倍数\s*1(?:\.00)?倍|规模\d+亿元|债券|国债|农发|国开|进出口|金融债|存单)/.test(allText)
+  ) {
+    return true;
+  }
+  if (/0\.0000%/.test(allText) && /(?:债券|国债|农发|国开|进出口|金融债|存单|发行)/.test(allText)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * 11. 全站全域新闻自愈清洗中心 (Global News Auto-Healing Hub)
  * 在向前端输出前全面净化，确保特大灾害置顶且各专区饱满
  */
@@ -2762,9 +2781,16 @@ export function autoCorrectAllNews(
   newsList: NewsItem[],
   flashList: FlashBrief[]
 ): { news: NewsItem[]; flashBriefs: FlashBrief[] } {
-  // 数据已由 processSingleItemIsolated 完成全部过滤（杂音/语义/赛道），此处只做润色纠偏，不再重复过滤
-  const healedFlash = (flashList || []).map(autoCorrectFlashBrief);
-  const healedNews = (newsList || []).map(autoCorrectNewsItem);
+  // 严格过滤金融爬虫未开标/零利率占位符脏数据快讯及要闻
+  const validFlash = (flashList || []).filter(
+    (item) => !isZeroYieldPlaceholderBond(item.content, item.rawContent)
+  );
+  const validNews = (newsList || []).filter(
+    (item) => !isZeroYieldPlaceholderBond(item.title, (item.summaryParagraph || '') + ' ' + (item.oneLineTakeaway || ''))
+  );
+
+  const healedFlash = validFlash.map(autoCorrectFlashBrief);
+  const healedNews = validNews.map(autoCorrectNewsItem);
 
   // 确保吉隆口岸特大灾害卡片永久置顶在 china_domestic 专区首位
   const disasterItem = healedNews.find(

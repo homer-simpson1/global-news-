@@ -435,6 +435,17 @@ export function isCalendarOrDigestSpam(title: string, content?: string): boolean
   if (/^(?:【?(?:早间要闻汇总|要闻汇总|午间要闻汇总|晨报|早报|盘前必读|隔夜要闻)】?)/i.test(c) || /(?:早间要闻汇总|午间要闻汇总)/i.test(c)) {
     return true;
   }
+  // 5. 拦截金融爬虫未中标/未决系统占位符脏数据（如债券发行占位 0.0000% 利率、预期0.0000%、投标倍数1.00倍模板）
+  const allText = t + ' ' + c;
+  if (
+    /(?:发行利率|票面利率|中标利率|预期利率|收益率|利率)\s*(?:为|报|：|:)?\s*0(?:\.0{1,4})?%/.test(allText) &&
+    /(?:预期\s*0(?:\.0{1,4})?%|投标倍数\s*1(?:\.00)?倍|边际倍数\s*1(?:\.00)?倍|规模\d+亿元|债券|国债|农发|国开|进出口|金融债|存单)/.test(allText)
+  ) {
+    return true;
+  }
+  if (/0\.0000%/.test(allText) && /(?:债券|国债|农发|国开|进出口|金融债|存单|发行)/.test(allText)) {
+    return true;
+  }
   return false;
 }
 

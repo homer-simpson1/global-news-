@@ -118,12 +118,19 @@ function TerminalApp() {
           const healed = autoCorrectAllNews(rawN, rawB);
 
           if (healed.news.length > 0) {
+            healed.news = healed.news.filter((item) => {
+              const isZeroYieldBond = /0\.0000%|发行利率0(?:\.0+)?%|中标利率0(?:\.0+)?%|票面利率0(?:\.0+)?%/.test(item.title + ' ' + (item.summaryParagraph || ''));
+              return !isZeroYieldBond && !/早间要闻汇总|午间要闻汇总/.test(item.title);
+            });
             setNews(healed.news);
             try {
               localStorage.setItem('git_cached_news', JSON.stringify(healed.news));
             } catch (e) {}
           }
           if (healed.flashBriefs.length > 0) {
+            healed.flashBriefs = healed.flashBriefs.filter((item) => {
+              return !/0\.0000%|发行利率0(?:\.0+)?%|中标利率0(?:\.0+)?%|票面利率0(?:\.0+)?%/.test(item.content || '');
+            });
             setFlashBriefs(healed.flashBriefs);
             try {
               localStorage.setItem('git_cached_briefs', JSON.stringify(healed.flashBriefs));
@@ -228,13 +235,14 @@ function TerminalApp() {
               (/(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘)/.test(title) &&
                 (/(?:英伟达|NVIDIA|日经亚洲)/.test(title + ' ' + para + ' ' + (item.source || '') + ' ' + (item.companyProfile?.name || '')) ||
                  item.track === 'apac_tech' || item.companyProfile?.name === '英伟达' || (item.companyProfile && /AI|算力|GPU|CPU|芯片|半导体|大模型|晶圆|光刻/i.test(item.companyProfile.sector)))) ||
-              /早间要闻汇总|午间要闻汇总/.test(title)
+              /早间要闻汇总|午间要闻汇总/.test(title) ||
+              /0\.0000%|发行利率0(?:\.0+)?%|中标利率0(?:\.0+)?%|票面利率0(?:\.0+)?%/.test(title + ' ' + takeaway + ' ' + para)
             );
           };
           const hasCorruptNews = parsedN.some(isCorruptItem);
           const hasCorruptBriefs = Array.isArray(parsedB) && parsedB.some(isCorruptItem);
           if (hasCorruptNews || hasCorruptBriefs) {
-            console.log('[Cache] 本地缓存检测到破损污染旧闻，强制清除旧缓存并拉取最新数据');
+            console.log('[Cache] 本地缓存检测到破损污染旧闻或0利率占位符，强制清除旧缓存并拉取最新数据');
             localStorage.removeItem('git_cached_news');
             localStorage.removeItem('git_cached_briefs');
             parsedN = null;
@@ -247,13 +255,17 @@ function TerminalApp() {
       if (!Array.isArray(parsedB) || parsedB.length === 0) parsedB = SEED_FLASH_BRIEFS;
 
       const healed = autoCorrectAllNews(parsedN, parsedB);
-      // 客户端展示前再次过滤任何偶发的 A股+英伟达等荒谬错配条目
+      // 客户端展示前再次过滤任何偶发的 A股+英伟达等荒谬错配条目以及0利率占位符债券
       healed.news = healed.news.filter((item) => {
         const isMismatched =
           /(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘)/.test(item.title) &&
           (/(?:英伟达|NVIDIA|日经亚洲)/.test(item.title + ' ' + item.summaryParagraph + ' ' + item.source + ' ' + (item.companyProfile?.name || '')) ||
            item.track === 'apac_tech' || item.companyProfile?.name === '英伟达' || (item.companyProfile && /AI|算力|GPU|CPU|芯片|半导体|大模型|晶圆|光刻/i.test(item.companyProfile.sector)));
-        return !isMismatched && !/早间要闻汇总|午间要闻汇总/.test(item.title);
+        const isZeroYieldBond = /0\.0000%|发行利率0(?:\.0+)?%|中标利率0(?:\.0+)?%|票面利率0(?:\.0+)?%/.test(item.title + ' ' + (item.summaryParagraph || ''));
+        return !isMismatched && !isZeroYieldBond && !/早间要闻汇总|午间要闻汇总/.test(item.title);
+      });
+      healed.flashBriefs = (healed.flashBriefs || []).filter((item) => {
+        return !/0\.0000%|发行利率0(?:\.0+)?%|中标利率0(?:\.0+)?%|票面利率0(?:\.0+)?%/.test(item.content || '');
       });
       setNews(healed.news);
       setFlashBriefs(healed.flashBriefs);
