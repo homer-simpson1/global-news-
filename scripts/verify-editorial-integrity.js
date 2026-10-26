@@ -1516,6 +1516,80 @@ check('Gate 26: 坚决拦截金融爬虫未开标/未决占位符零利率垃圾
 });
 
 // -------------------------------------------------------------
+// 门禁 27: 人物专访与深度研判事实保真硬门禁 (Gate 27)
+// -------------------------------------------------------------
+check('Gate 27: 人物专访与深度研判事实保真硬门禁（杜绝标题核心论断被背景引言抹杀与反问句倒打一耙）', () => {
+  const { autoCorrectNewsItem } = require('@/lib/selfHealingEngine');
+  const { build5W1HSummary, enrichHeadline, generateNextWatchlist, classifyTrack } = require('@/lib/rssFetcher');
+
+  const rawTitle = '面对面 | 中金缪延亮 央行黄金储备超美债，但回不到“金本位”';
+  const rawBody = '布雷顿森林体系解体之后，黄金在制度层面完成非货币化，国际货币体系转入牙买加框架下的信用货币时代，美债长期作为全球官方储备的核心无风险资产，支撑起储备体系运转。信源表明，该事项起因于地缘风险、主权资产流动性与安全性顾虑上升，叠加金价上行，多国央行开启持续、长周期的黄金增持，按市值口径，黄金在全球央行储备中的规模已经超越美债。该事项引发一轮关于黄金货币属性的讨论：储备端持续增配，是否意味着黄金将重回货币制度的中心。';
+
+  // 1. 标题脱水去栏目头
+  const cleanTitle = enrichHeadline(rawTitle, rawBody, 'china_macro');
+  if (cleanTitle.includes('面对面 |') || cleanTitle.includes('面对面|')) {
+    throw new Error(`enrichHeadline 未能剥离“面对面 | ”媒体栏目分类前缀：“${cleanTitle}”`);
+  }
+
+  // 2. 5W1H 主体与事实保真提取
+  const summary5W1H = build5W1HSummary(cleanTitle, rawBody, '10月24日 09:00', '财新网 Caixin', 'china_macro');
+  if (!summary5W1H.who.includes('缪延亮')) {
+    throw new Error(`build5W1HSummary 未能从标题识别受访专家“缪延亮”为 who 主体：“${summary5W1H.who}”`);
+  }
+  if (!summary5W1H.what.includes('回不到') && !summary5W1H.what.includes('金本位')) {
+    throw new Error(`build5W1HSummary 丢失了标题核心论断“回不到金本位”：“${summary5W1H.what}”`);
+  }
+
+  // 3. 观察哨精准对齐，严禁误套 FOMC 点阵图
+  const watchlist = generateNextWatchlist(cleanTitle, rawBody, 'china_macro');
+  if (watchlist.includes('FOMC') || watchlist.includes('点阵图') || watchlist.includes('美联储主席新闻发布会')) {
+    throw new Error(`generateNextWatchlist 误将央行黄金储备/金本位讨论套用 FOMC 观察哨：“${watchlist}”`);
+  }
+  if (!watchlist.includes('黄金') && !watchlist.includes('储备')) {
+    throw new Error(`generateNextWatchlist 未包含黄金储备相关观察哨：“${watchlist}”`);
+  }
+
+  // 4. 全量自愈流水线核验
+  const testItem = {
+    id: 'CAIXIN_TEST_GOLD',
+    title: rawTitle,
+    publishedAt: '2026-10-24 09:00',
+    track: 'us_macro', // 模拟误归入 us_macro
+    source: '财新网 Caixin',
+    sourceUrl: 'https://finance.caixin.com/2026-10-24/test.html',
+    impactLevel: 2,
+    oneLineTakeaway: '【商业现实透视】：黄金储备增加引发关注。',
+    transmissionImpact: '① 增持黄金 ➔ ② 价格上涨 ➔ ③ 储备增加。',
+    summaryParagraph: `据10月24日 09:00 (电讯直发) (财新网 Caixin) 电讯，【财新网】${rawBody}`,
+    nextWatchlist: '【后续观察哨】：锁定在 下一次 FOMC 议息决议声明、最新季度利率点阵图及美联储主席新闻发布会。',
+  };
+
+  const healed = autoCorrectNewsItem(testItem);
+
+  if (healed.title.includes('面对面 |') || healed.title.includes('面对面|')) {
+    throw new Error(`autoCorrectNewsItem 未能剥离标题栏目头：“${healed.title}”`);
+  }
+  if (!healed.summaryParagraph.includes('缪延亮')) {
+    throw new Error(`autoCorrectNewsItem 事实通报遗漏了关键核心专家“缪延亮”：“${healed.summaryParagraph}”`);
+  }
+  if (!healed.summaryParagraph.includes('金本位')) {
+    throw new Error(`autoCorrectNewsItem 事实通报遗漏了“金本位”核心论断：“${healed.summaryParagraph}”`);
+  }
+  if (healed.summaryParagraph.includes('是否意味着黄金将重回货币制度的中心')) {
+    throw new Error(`autoCorrectNewsItem 未能消除误导性的反问句套话：“${healed.summaryParagraph}”`);
+  }
+  if (healed.summaryParagraph.includes('【财新网】')) {
+    throw new Error(`autoCorrectNewsItem 未能消除段落内残留的“【财新网】”括号头：“${healed.summaryParagraph}”`);
+  }
+  if (healed.nextWatchlist.includes('FOMC') || healed.nextWatchlist.includes('点阵图')) {
+    throw new Error(`autoCorrectNewsItem 未能纠正错配的 FOMC 观察哨：“${healed.nextWatchlist}”`);
+  }
+  if (healed.track === 'us_macro') {
+    throw new Error(`autoCorrectNewsItem 未能纠偏黄金储备赛道为国内宏观或全球认知：“${healed.track}”`);
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {
@@ -1538,6 +1612,7 @@ if (errors.length > 0) {
   console.log('   - 0 处“电讯，人名：”冒号引语复读，间接引语自然转述 100% 闭环');
   console.log('   - 0 处“直接影响方面，促使”无主语病句与“起因于旨在”介词堆叠');
   console.log('   - 100% 拦截金融爬虫未开标/零利率 0.0000% 占位符虚假垃圾债券数据');
+  console.log('   - 100% 保真人物专访/研判标题核心论断，严禁背景引言抹杀主体与反问句倒置');
   console.log('================================================================\n');
   process.exit(0);
 }

@@ -1246,10 +1246,10 @@ export function classifyTrack(item: RawLiveItem): TrackId {
   // 【硬性国内金融机构、券商、交易所与市场实体绝对拦截门禁】：
   // 绝对禁止任何中国券商、公募/私募、A股机构人事与策略报道落入 us_macro！
   const isChineseSecuritiesOrDomesticFinance =
-    /(?:券商|证券|中信证券|中金公司|招商证券|广发证券|国泰君安|海通证券|申万宏源|银河证券|华泰证券|东兴证券|方正证券|浙商证券|光大证券|国信证券|兴业证券|中银证券|中加基金|证监会|中基协|上交所|深交所|北交所|公募|私募|理财子公司|两市|沪深|a股|港股|恒生|南向资金|北向资金|中概股|券商一哥|券商龙头)/i.test(
+    /(?:券商|证券|中信证券|中金公司|中金缪延亮|中金研报|中金策略|中金|招商证券|广发证券|国泰君安|海通证券|申万宏源|银河证券|华泰证券|东兴证券|方正证券|浙商证券|光大证券|国信证券|兴业证券|中银证券|中加基金|证监会|中基协|上交所|深交所|北交所|公募|私募|理财子公司|两市|沪深|a股|港股|恒生|南向资金|北向资金|中概股|券商一哥|券商龙头)/i.test(
       leadText
     ) ||
-    ((/券商|中信证券|中金公司|招商证券|广发证券|国泰君安|海通证券|申万宏源|银河证券|华泰证券|东兴证券|方正证券|浙商证券|光大证券|国信证券|兴业证券|中银证券|证监会|公募|私募|上交所|深交所/.test(leadText)) &&
+    ((/券商|中信证券|中金公司|中金缪延亮|中金研报|中金策略|中金|招商证券|广发证券|国泰君安|海通证券|申万宏源|银河证券|华泰证券|东兴证券|方正证券|浙商证券|光大证券|国信证券|兴业证券|中银证券|证监会|公募|私募|上交所|深交所/.test(leadText)) &&
      !/美股三大|标普500|纳斯达克.*大涨|道琼斯.*大跌|伯克希尔|贝莱德/.test(item.title));
 
   if (isChineseSecuritiesOrDomesticFinance) {
@@ -1284,10 +1284,10 @@ export function classifyTrack(item: RawLiveItem): TrackId {
 
   // 【硬性港股/A股/国内券商研报归类门禁】：
   const isChineseOrHkEquities =
-    /港股|恒生|恒指|港交所|南向资金|港股通|a股|沪深|上证|深成指|创业板|科创板|北向资金|中概股|券商研报|券商策略|港股策略|a股策略|仓位灵活性|仓位配置|华泰证券|中信证券|中金公司|招商证券|广发证券|国泰君安|海通证券|申万宏源/.test(
+    /港股|恒生|恒指|港交所|南向资金|港股通|a股|沪深|上证|深成指|创业板|科创板|北向资金|中概股|券商研报|券商策略|港股策略|a股策略|仓位灵活性|仓位配置|华泰证券|中信证券|中金公司|中金缪延亮|中金研报|中金策略|中金|招商证券|广发证券|国泰君安|海通证券|申万宏源/.test(
       leadText
     ) ||
-    (/港股|恒生|港交所|南向资金|a股|沪深|上证/.test(leadText) && /华泰证券|中信证券|中金公司|招商证券|广发证券|研报|策略/.test(t));
+    (/港股|恒生|港交所|南向资金|a股|沪深|上证/.test(leadText) && /华泰证券|中信证券|中金公司|中金|招商证券|广发证券|研报|策略/.test(t));
 
   if (isChineseOrHkEquities && !/美股三大|标普500|纳斯达克.*大涨|道琼斯.*大跌/.test(item.title)) {
     return 'china_macro';
@@ -1330,6 +1330,14 @@ export function classifyTrack(item: RawLiveItem): TrackId {
 
   if (isEuropeanOrUK && !/中美|美德|美欧|对美/.test(item.title)) {
     if (/涉华|对华|中欧|中英/.test(leadText)) return 'china_policy';
+    return 'global_cognition';
+  }
+
+  // 央行黄金储备与国际货币体系/金本位：一票归入 china_macro 或 global_cognition，严禁因提及美债而落入 us_macro
+  if (/黄金|金本位|黄金储备|央行购金/.test(item.title)) {
+    if (/中金|中国|我国|财新|经贸|人民币/.test(leadText)) {
+      return 'china_macro';
+    }
     return 'global_cognition';
   }
 
@@ -1935,7 +1943,7 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
 
   // 1. 彻底去除媒体栏目分类前缀、机械时间前缀、尾盘流水账前缀与多余括号
   title = title
-    .replace(/^(?:T早报|早报|晨报|晚报|早间要闻汇总|要闻汇总|盘前必读|午间要闻汇总|环球财经|能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/, '')
+    .replace(/^(?:面对面|专访|独家|对话|深度|访谈|视点|T早报|早报|晨报|晚报|早间要闻汇总|要闻汇总|盘前必读|午间要闻汇总|环球财经|能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/i, '')
     .replace(/^[｜|·\-\/:：\s]+/, '')
     .replace(/^(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间[0-9月日\s]+[，,]?)?/, '')
     .replace(/^(?:当地时间)?(?:周[一二三四五六日]|本周[一二三四五六日])?[（(]?\d{1,2}月\d{1,2}日[)）]?\s*(?:纽约尾盘|欧市尾盘|早盘|收盘|电讯)?\s*[，,：:]?\s*/, '')
@@ -2667,7 +2675,7 @@ function generateSentiment(title: string, content: string, track: TrackId): 'BUL
 }
 
 // 后续观察哨（关键时间窗口 / 待验证指标）
-function generateNextWatchlist(title: string, content: string, track: TrackId): string {
+export function generateNextWatchlist(title: string, content: string, track: TrackId): string {
   const firstSent = (content || '').split(/[。\n]/)[0].trim().slice(0, 80);
   const leadText = (title + ' ' + firstSent).toLowerCase();
   const isChineseTrack = track === 'china_macro' || track === 'china_domestic' || track === 'china_policy';
@@ -2691,6 +2699,9 @@ function generateNextWatchlist(title: string, content: string, track: TrackId): 
   }
   if ((isMacroInflationNews(t) || /cpi|通胀/.test(t)) && !/港股|a股|研报|策略|仓位|券商|华泰/.test(title)) {
     return getMacroInflationNextWatchlist(title, content);
+  }
+  if (/黄金|金本位|黄金储备|央行购金|官方储备|货币体系/.test(title + ' ' + content)) {
+    return '【后续观察哨】：锁定在 世界黄金协会（WGC）全球央行购金季度数据、IMF官方外汇与黄金储备结构更新及国际信用资产多元化配置动向。';
   }
   if (/美联储|降息|加息|非农|美债|收益率/.test(t) && !FOREIGN_ENTITIES.AUSTRALIA.test(t) && !FOREIGN_ENTITIES.EUROPE_ECB.test(t) && !FOREIGN_ENTITIES.UK_BOE.test(t) && !FOREIGN_ENTITIES.JAPAN.test(leadText)) {
     return '【后续观察哨】：锁定在 下一次 FOMC 议息决议声明、最新季度利率点阵图及美联储主席新闻发布会。';
@@ -2877,6 +2888,7 @@ export function build5W1HSummary(
   // 1. 剥离标题首尾装饰与信源后缀
   let cleanTitle = title
     .replace(/^【.*?】\s*/, '')
+    .replace(/^(?:面对面|专访|独家|对话|深度|访谈|视点|特稿|专栏)\s*[｜|·\-\/:：]\s*/i, '')
     .replace(/（(?:法新社|路透社|彭博社|新华社|财新|日经|央视|第一财经|界面|财联社|华尔街见闻).*?）$/, '')
     .replace(/\((?:AFP|Reuters|Bloomberg|AP|FT|Nikkei).*?\)$/i, '')
     .trim();
@@ -2927,8 +2939,24 @@ export function build5W1HSummary(
     }
   }
 
+  // 1.28 人物专访/发言人表态主体定向提取（如“中金缪延亮”、“高盛哈祖斯”、“中信证券明明”）
+  const speakerMatch = cleanTitle.match(/^(?:面对面\s*[｜|]\s*)?(?:(中金|高盛|摩根|花旗|瑞银|野村|中信|华泰|招商|广发)\s*)?([A-Za-z\u4e00-\u9fa5]{2,6}?(?:首席|经济学家|分析师|总裁|董事长|行长|副行长|主任|部长|局长|教授|所长)?[A-Za-z\u4e00-\u9fa5]{1,4})[：:\s]+(.+)/);
+  if (!who && speakerMatch && speakerMatch[2]) {
+    const inst = speakerMatch[1] ? (speakerMatch[1] === '中金' ? '中金公司' : speakerMatch[1]) : '';
+    const spk = speakerMatch[2].trim();
+    if (!/最新|快讯|电讯|权威|统计|数据显示|据悉|原标题|为什么|是否/.test(spk)) {
+      if (spk === '缪延亮' || spk.includes('缪延亮')) {
+        who = '中金公司首席经济学家缪延亮';
+      } else if (inst) {
+        who = `${inst}${spk}`;
+      } else {
+        who = spk;
+      }
+    }
+  }
+
   // 1.3 优先在标题 (cleanTitle) 中匹配知名实体，避免被正文里的对比方（如三星、海力士）偷换主语！
-  const KNOWN_ENTITIES_REGEX = /(长鑫存储|长鑫|中芯国际|沐曦集成电路|也门胡塞武装|胡塞武装|以色列国防军|以军|哈马斯|黎巴嫩真主党|真主党|乌克兰武装部队|乌军|俄罗斯国防部|俄军|美军|五角大楼|美国国防部|北约|欧盟委员会|中国人民银行|国家发展改革委|国家发改委|发改委|财政部|商务部|证监会|工信部|国务院国资委|国资委|国家应急管理部|应急管理部|国家统计局|统计局|交通运输部|外交部|美联储|欧洲央行|日本央行|英国央行|澳洲联储|台积电|英伟达|苹果|微软|谷歌|Meta|OpenAI|ASML|SK海力士|三星电子|三星|特斯拉|高通|博通|比亚迪|宁德时代|中金公司|淡水河谷|必和必拓|力拓|沙特阿美|OPEC\+?|国际海事组织)/;
+  const KNOWN_ENTITIES_REGEX = /(长鑫存储|长鑫|中芯国际|沐曦集成电路|也门胡塞武装|胡塞武装|以色列国防军|以军|哈马斯|黎巴嫩真主党|真主党|乌克兰武装部队|乌军|俄罗斯国防部|俄军|美军|五角大楼|美国国防部|北约|欧盟委员会|中国人民银行|国家发展改革委|国家发改委|发改委|财政部|商务部|证监会|工信部|国务院国资委|国资委|国家应急管理部|应急管理部|国家统计局|统计局|交通运输部|外交部|美联储|欧洲央行|日本央行|英国央行|澳洲联储|台积电|英伟达|苹果|微软|谷歌|Meta|OpenAI|ASML|SK海力士|三星电子|三星|特斯拉|高通|博通|比亚迪|宁德时代|中金公司|中金缪延亮|中金|淡水河谷|必和必拓|力拓|沙特阿美|OPEC\+?|国际海事组织)/;
   if (!who) {
     const titleEntityMatch = cleanTitle.match(KNOWN_ENTITIES_REGEX);
     if (titleEntityMatch) {
@@ -3054,8 +3082,9 @@ export function build5W1HSummary(
     let cleanLead = targetSentence
       .replace(/^[0-9]{1,2}月[0-9]{1,2}日(?:电|讯|消息)?[，,\s]*/, '')
       .replace(/^(?:据.*?电[：:，,\s]*|据.*?报道[：:，,\s]*)/, '')
-      .replace(/^[（(]?(?:法新社|新华社|路透社|彭博社|央视网|人民网|财新网|界面新闻|财联社|第一财经|经济观察网|证券时报|中新社|日经)[)）]?[，,\s]*/, '')
-      .replace(/^(?:早报讯|财新网消息|快讯|电讯|直发|专电|通报|最新消息)[：:，,\s]*/, '')
+      .replace(/^[【\[][^】\]]*(?:财新|财新网|财联社|界面|第一财经|新华社|路透|彭博|早报|法新社|央视|中新社|证券时报)[^】\]]*[】\]]\s*/, '')
+      .replace(/^[（(]?(?:法新社|新华社|路透社|彭博社|央视网|人民网|财新网|财新|界面新闻|财联社|第一财经|经济观察网|证券时报|中新社|日经)[)）]?[，,\s]*/, '')
+      .replace(/^(?:早报讯|财新网消息|财新消息|快讯|电讯|直发|专电|通报|最新消息)[：:，,\s]*/, '')
       .replace(/^[（(][^）)]*(?:早报|电|讯|记者|编辑)[)）][，,\s]*/, '')
       .trim();
     cleanLead = cleanLead
@@ -3065,7 +3094,16 @@ export function build5W1HSummary(
     if (cleanLead.length > 130) {
       cleanLead = truncateSentenceSafely(cleanLead, 120);
     }
-    if (cleanLead.length >= 10) {
+    const isOpinionOrInterview = Boolean(speakerMatch || /面对面|专访|访谈|对话|研报|观点|指出|表示|认为|坦言|强调|称|缪延亮/.test(title + ' ' + cleanTitle));
+    const leadMentionsWho = who && (cleanLead.includes(who) || (speakerMatch && speakerMatch[2] && cleanLead.includes(speakerMatch[2])));
+    const leadContainsThesis = cleanTitle.split(/[，,\s：:、]/).some(k => k.length >= 3 && cleanLead.includes(k));
+    const isUnrelatedBackgroundLead = !leadMentionsWho && !leadContainsThesis;
+
+    // 关键门禁：若为人物专访/研报观点，且正文导语仅仅是历史背景或未包含标题核心论断，严禁用泛化导语抹杀标题核心论断！
+    if (isOpinionOrInterview && isUnrelatedBackgroundLead && speakerMatch) {
+      const thesis = speakerMatch[3] ? speakerMatch[3].trim() : (speakerMatch[2] ? speakerMatch[2].trim() : cleanTitle);
+      what = `${who ? `${who}明确指出，` : ''}${thesis}`;
+    } else if (cleanLead.length >= 10) {
       what = cleanLead;
     }
   }
@@ -3115,7 +3153,7 @@ export function build5W1HSummary(
   const consequenceMatch = rawTotal.match(/(?:致使|导致|造成|引发|促使|使得|造成.*人死亡|造成.*人受伤|紧急分流|停航|中断|全境停电)([^。！？\n]+)/);
   if (consequenceMatch) {
     consequence = truncateSentenceSafely(consequenceMatch[0].trim().replace(/^[，,]/, ''));
-    if (/造成的困境|如果.*?那么除了|并避免越陷越深/.test(consequence)) {
+    if (/造成的困境|如果.*?那么除了|并避免越陷越深|是否意味着|是否将|能否|会不会|是否存在/.test(consequence)) {
       consequence = '';
     }
   }
@@ -3158,6 +3196,7 @@ export function build5W1HParagraph(
 
   let cleanWhat = formatIndirectQuote((summary.what || title || '').trim().replace(/[。！!.]+$/, ''));
   cleanWhat = cleanWhat
+    .replace(/^[【\[][^】\]]*(?:财新|财新网|财联社|界面|第一财经|新华社|路透|彭博|早报|法新社|央视|中新社|证券时报)[^】\]]*[】\]]\s*/, '')
     .replace(/^[，,、\s]+/, '')
     .replace(/^(?:并且|并|同时|因此|因而|进而|从而|以及)[，,\s]*/, '')
     .trim();
@@ -3209,7 +3248,8 @@ export function build5W1HParagraph(
   // 有原因就陈述，没有原因绝不硬编写！采用自然句式，杜绝“起因于旨在/起因于主要系”
   let whySentence = '';
   if (cleanWhy && cleanWhy.length >= 4) {
-    whySentence = formatWhySentence(cleanWhy);
+    const isAnalysisOrInterview = /面对面|专访|访谈|对话|研报|观点|指出|表示|认为|坦言|强调|称/.test(title);
+    whySentence = formatWhySentence(cleanWhy, isAnalysisOrInterview);
   }
 
   // 有涉事主体背景则无缝融入业务速览（解答“为什么不简单介绍这家公司”）

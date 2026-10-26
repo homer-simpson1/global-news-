@@ -236,7 +236,9 @@ function TerminalApp() {
                 (/(?:英伟达|NVIDIA|日经亚洲)/.test(title + ' ' + para + ' ' + (item.source || '') + ' ' + (item.companyProfile?.name || '')) ||
                  item.track === 'apac_tech' || item.companyProfile?.name === '英伟达' || (item.companyProfile && /AI|算力|GPU|CPU|芯片|半导体|大模型|晶圆|光刻/i.test(item.companyProfile.sector)))) ||
               /早间要闻汇总|午间要闻汇总/.test(title) ||
-              /0\.0000%|发行利率0(?:\.0+)?%|中标利率0(?:\.0+)?%|票面利率0(?:\.0+)?%/.test(title + ' ' + takeaway + ' ' + para)
+              /0\.0000%|发行利率0(?:\.0+)?%|中标利率0(?:\.0+)?%|票面利率0(?:\.0+)?%/.test(title + ' ' + takeaway + ' ' + para) ||
+              (/金本位|黄金储备/.test(title) && /FOMC|点阵图/.test(watchlist)) ||
+              /是否意味着黄金将重回货币制度的中心|面对面\s*[｜|]/.test(title + ' ' + para)
             );
           };
           const hasCorruptNews = parsedN.some(isCorruptItem);

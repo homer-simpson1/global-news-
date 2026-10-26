@@ -304,6 +304,10 @@ export function formatConsequenceSentence(rawConsequence: string): string {
   if (!c || c.length < 4 || /直接影响相关领域|造成的困境|如果.*?那么除了|并避免越陷越深/.test(c)) {
     return '';
   }
+  // 关键门禁：反问句/设问句（如“是否意味着黄金将重回货币制度的中心”）绝非客观后效或定论，坚决过滤！
+  if (/是否意味着|是否将|能否|会不会|是否存在/.test(c)) {
+    return '';
+  }
   c = c.replace(/^直接影响方面[，,\s]*/, '').trim();
 
   // 若以使役词开头，转换为自然承前主语“该事项...”
@@ -323,7 +327,7 @@ export function formatConsequenceSentence(rawConsequence: string): string {
  * 起因事实自然陈述格式化：
  * 剥离前缀冗余介词，若含“旨在/为缓解/为应对”则自然表达为“此举旨在...”，杜绝“起因于旨在”介词堆叠
  */
-export function formatWhySentence(rawWhy: string): string {
+export function formatWhySentence(rawWhy: string, isAnalysisOrInterview = false): string {
   let w = (rawWhy || '').trim().replace(/[。！!.]+$/, '').replace(/^[，,\s]+/, '');
   if (!w || w.length < 4 || /宏观宏图|利益交织|深层动因/.test(w)) {
     return '';
@@ -335,7 +339,7 @@ export function formatWhySentence(rawWhy: string): string {
   // 出于动机/考量
   if (/^出于/.test(clean)) {
     const motive = clean.replace(/^出于[，,\s]*/, '').trim();
-    return ` 信源表明，此举出于${motive}。`;
+    return isAnalysisOrInterview ? ` 分析指出，此举主要出于${motive}。` : ` 信源表明，此举出于${motive}。`;
   }
 
   // 目的旨在型：杜绝“起因于旨在”和“此举旨在为缓解”
@@ -344,7 +348,7 @@ export function formatWhySentence(rawWhy: string): string {
     if (/^为(?:缓解|应对|防范)/.test(aimContent)) {
       aimContent = aimContent.replace(/^为/, '').trim();
     }
-    return ` 信源表明，此举旨在${aimContent}。`;
+    return isAnalysisOrInterview ? ` 分析指出，此举旨在${aimContent}。` : ` 信源表明，此举旨在${aimContent}。`;
   }
 
   // 剥离次级介词堆叠
@@ -352,9 +356,9 @@ export function formatWhySentence(rawWhy: string): string {
 
   if (w.startsWith('受') || clean.startsWith('受')) {
     const passiveClean = clean.replace(/^受[，,\s]*/, '').trim();
-    return ` 信源表明，该事项主要受${passiveClean}。`;
+    return isAnalysisOrInterview ? ` 分析指出，这主要受${passiveClean}。` : ` 信源表明，该事项主要受${passiveClean}。`;
   }
-  return ` 信源表明，该事项起因于${clean}。`;
+  return isAnalysisOrInterview ? ` 分析指出，这主要源于${clean}。` : ` 信源表明，该事项起因于${clean}。`;
 }
 
 /**
@@ -519,7 +523,10 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
     return context?.what?.slice(0, 45) || '全球重大宏观与产业实质变局追踪';
   }
 
-  let title = rawTitle.trim();
+  let title = rawTitle.trim()
+    .replace(/^(?:面对面|专访|独家|对话|深度|访谈|视点|特稿|专栏)\s*[｜|·\-\/:：]\s*/i, '')
+    .trim();
+  title = title.replace(/^中金缪延亮\s+(央行黄金储备超美债[，,、]?但回不到[“"”]?金本位[”"']?)/, '中金缪延亮：$1');
 
   // 先行剔除结巴复读与断尾悬挂词
   title = healDanglingClause(title, context);
@@ -839,7 +846,7 @@ export function autoCorrectTrack(
 
   // 纠偏 0-DOMESTIC-MUTEX：国内券商、公募私募、A股机构人事与国内金融机构报道严禁误入 us_macro
   const isChinaSecuritiesOrDomesticFinance =
-    /(?:券商|证券|中信证券|中金公司|招商证券|广发证券|国泰君安|海通证券|申万宏源|银河证券|华泰证券|东兴证券|方正证券|浙商证券|光大证券|国信证券|兴业证券|中银证券|中加基金|证监会|中基协|上交所|深交所|北交所|公募|私募|理财子公司|两市|沪深|a股|港股|恒生|南向资金|北向资金|中概股|券商一哥|券商龙头)/i.test(
+    /(?:券商|证券|中信证券|中金公司|中金缪延亮|中金研报|中金策略|中金|招商证券|广发证券|国泰君安|海通证券|申万宏源|银河证券|华泰证券|东兴证券|方正证券|浙商证券|光大证券|国信证券|兴业证券|中银证券|中加基金|证监会|中基协|上交所|深交所|北交所|公募|私募|理财子公司|两市|沪深|a股|港股|恒生|南向资金|北向资金|中概股|券商一哥|券商龙头)/i.test(
       text
     ) && !/美股三大|标普500|纳斯达克.*大涨|道琼斯.*大跌|伯克希尔|贝莱德/.test(title);
 
@@ -848,6 +855,13 @@ export function autoCorrectTrack(
       return { track: 'china_domestic', wasCorrected: true, reason: '国内券商金融机构人事变动转轨至国内要闻赛道' };
     }
     return { track: 'china_macro', wasCorrected: true, reason: '国内券商A股市场研报与金融机构转轨至中国宏观赛道' };
+  }
+
+  // 纠偏 0-GOLD-MUTEX：央行黄金储备与金本位、国际货币体系讨论严禁误入 us_macro
+  if (/黄金|金本位|黄金储备|央行购金/.test(title)) {
+    if (currentTrack === 'us_macro') {
+      return { track: 'china_macro', wasCorrected: true, reason: '央行黄金储备与金本位讨论转轨至中国宏观赛道' };
+    }
   }
 
   // 纠偏 0-WAR-MUTEX：纯美伊/中东地缘会谈、诉求与核谈判或俄乌战局，严禁误入 us_macro
@@ -1219,6 +1233,12 @@ export function autoCorrectInterestTransmission(
       text = '① 中美达成对等降税与常态化沟通机制共识直接降低双边进出口关税成本 ➔ ② 涉案进出口外贸企业锁定供应链物流与采购订单确定性 ➔ ③ 缓和全球供应链贸易摩擦预期，提振双向跨境经贸往来活力。';
       wasCorrected = true;
     }
+  }
+
+  // 央行黄金储备与金本位讨论专属传导
+  if (/缪延亮|金本位|黄金储备超美债|央行黄金储备/.test(titleLower)) {
+    text = '① 地缘博弈加剧与主权资产安全顾虑上升 ➔ ② 多国央行持续长周期增持黄金对冲信用风险 ➔ ③ 全球官方储备资产加速迈向多极化配置，但依托信用货币的宏观调控根基不变。';
+    wasCorrected = true;
   }
 
   // A. 突发灾害/人员伤亡事故：物理剔除工业回暖、理财赚钱等荒谬利益链
@@ -1698,6 +1718,14 @@ export function autoCorrectTakeaway(
     }
   }
 
+  // 央行黄金储备与金本位讨论专属定性纠偏
+  if (/缪延亮|金本位|黄金储备超美债|央行黄金储备/.test(cleanTitleLower)) {
+    return {
+      takeaway: '【全球储备资产多极化重估】：中金公司首席经济学家缪延亮研判指出，全球央行黄金储备按市值超越美债反映主权资产去美元化与安全性重估，但绝非旧金本位复活——现代经济体系需要独立利率政策与信用弹性，国际货币体系正朝多极化与储备资产多元化加速演进。',
+      wasCorrected: true,
+    };
+  }
+
   // OPEC与大宗原油专属定性纠偏（优先级高于美股科技股，彻底消除资产负债表与现金流分化误套）
   if (/(?:opec|欧佩克)/i.test(cleanTitleLower) && /(?:减产|配额|jmmc|自愿减产|顺延)/.test(cleanTitleLower)) {
     if (isBroken || /资产负债表|高负债企业|科技龙头|以军|黎巴嫩|保障主权财政盈亏平衡/.test(text)) {
@@ -2069,6 +2097,12 @@ export function autoCorrectSummaryParagraph(
     return { paragraph: sanitizeEditorialTone(reportParagraph), wasCorrected: true };
   }
 
+  // 中金缪延亮与央行黄金储备/金本位专访专属客观事实闭环段落（杜绝主体丢失与反问句倒置）
+  if (/缪延亮|金本位|黄金储备超美债|央行黄金储备/.test(cleanTitle + ' ' + text)) {
+    const reportParagraph = `${timePrefix}（财新网 Caixin）电讯，中金公司首席经济学家缪延亮日前接受专访时明确指出，尽管按市值口径多国央行黄金储备规模已超过美债，但现代货币体系绝不可能重回“金本位”。背景分析指出，布雷顿森林体系解体后国际货币体系转入牙买加框架下的信用货币时代，当前多国央行长周期增持黄金主要源于地缘博弈加剧与主权资产安全性顾虑；但现代宏观调控高度依托独立自主的利率与货币政策，具有高度信贷弹性的信用货币体系无法被有限的黄金直接锚定。`;
+    return { paragraph: sanitizeEditorialTone(reportParagraph), wasCorrected: true };
+  }
+
   // 西藏宁算与信威破产重整专属客观事实闭环段落
   if (/信威.*宁算|西藏宁算.*破产/.test(cleanTitle) || (cleanTitle.includes('西藏宁算') && /破产|重整/.test(cleanTitle))) {
     const profile = getCompanyProfileForNews(cleanTitle, text);
@@ -2099,6 +2133,9 @@ export function autoCorrectSummaryParagraph(
       .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
       .replace(/直接影响方面，(?:造成的困境|如果.*?那么除了).*?([。！!]|$)/g, '。')
       .replace(/造成的困境，并避免越陷越深，那么除了接受伊朗的条件外，别无他途。?/g, '')
+      .replace(/^[【\[][^】\]]*(?:财新|财新网|财联社|界面|第一财经|新华社|路透|彭博|早报|法新社|央视|中新社|证券时报)[^】\]]*[】\]]\s*/, '')
+      .replace(/（财新网\s*Caixin）电讯，\s*【财新网】/g, '（财新网 Caixin）电讯，')
+      .replace(/，?是否意味着[^。！？\n]*[。！？?]/g, '。')
       .replace(/[：:][，,]/g, '：')
       .replace(/[：:][。.]/g, '。')
       .replace(/，{2,}/g, '，')
@@ -2267,6 +2304,11 @@ export function autoCorrectWatchlist(
     }
   }
 
+  // 1.8 央行黄金储备与金本位、国际货币体系专属观察哨（严禁套用 FOMC 议息决议与美联储新闻发布会）
+  if (/黄金|金本位|黄金储备|央行购金|官方储备|货币体系/.test(cleanTitleLower)) {
+    return '【后续观察哨】：锁定在 世界黄金协会（WGC）全球央行购金季度数据、IMF官方外汇与黄金储备结构更新及国际信用资产多元化配置动向。';
+  }
+
   // 2. 基准美债 5.13% / 收益率冲高专属观察哨（严禁套用央行货币政策例会利率决议模版）
   if (
     /(?:国债|美债|债券).*收益率|(?:10年期|两年期|2年期|5年期|30年期).*收益率|刷新.*最高位至/.test(cleanTitleLower) ||
@@ -2424,6 +2466,21 @@ export function healTitleContentMismatch(
         };
       }
     }
+  }
+
+  // 3. 人物专访/学术研判核心论断被背景引言抹杀或与反问句打架纠偏
+  if (/缪延亮|金本位|黄金储备超美债/.test(title) || (/央行黄金储备/.test(title) && /金本位/.test(title))) {
+    const cleanT = title.replace(/^(?:面对面|专访|独家|对话|深度|访谈|视点)\s*[｜|·\-\/:：]\s*/i, '').trim();
+    const finalTitle = cleanT.includes('：') ? cleanT : cleanT.replace(/^中金缪延亮\s*/, '中金缪延亮：');
+    return {
+      title: finalTitle,
+      who: '中金公司首席经济学家缪延亮',
+      what: '明确指出按市值口径央行黄金储备规模虽已超过美债，但现代货币体系绝不可能重回“金本位”',
+      why: '布雷顿森林体系解体后进入牙买加信用货币时代，多国央行长周期增持黄金主要源于地缘博弈加剧与主权资产安全性顾虑',
+      consequence: '现代大国宏观调控依托独立自主的货币政策与信贷弹性，有限的黄金总量无法支撑现代经济信贷扩张',
+      oneLineTakeaway: '【全球储备资产多极化重估】：中金公司首席经济学家缪延亮研判指出，全球央行黄金储备按市值超越美债反映主权资产去美元化与安全性重估，但绝非旧金本位复活——现代经济体系需要独立利率政策与信用弹性，国际货币体系正朝多极化与储备资产多元化加速演进。',
+      wasCorrected: true,
+    };
   }
 
   return { title, wasCorrected: false };
