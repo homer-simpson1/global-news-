@@ -261,10 +261,11 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
       rawTakeaway,
       cleanTitle,
       item.summary5W1H,
-      item.track || 'us_macro'
+      item.track || 'us_macro',
+      [item.content, item.summaryParagraph, ...(item.bulletPoints || [])].filter(Boolean).join('\n')
     );
     return result.takeaway;
-  }, [item.oneLineTakeaway, cleanTitle, item.summary5W1H, item.track]);
+  }, [item.oneLineTakeaway, cleanTitle, item.summary5W1H, item.track, item.content, item.summaryParagraph, item.bulletPoints]);
 
   // 3. 利益链传导安全容灾（坚决铲除机械式敷衍免责套话与张冠李戴）
   const displayTransmission = React.useMemo(() => {
@@ -788,6 +789,9 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
           {(() => {
             const filteredBps = (item.bulletPoints || []).filter((bp) => {
               const cleanBp = bp.trim().replace(/^[0-9一二三四五六七八九十]+[、.：:]\s*/, '').replace(/[。！!.]+$/, '');
+              if (/^(?:电讯核验[：:]|信源出处[：:]|信源通道[：:]|图为|资料图|图[：:]|新华社照片|视觉中国|延伸阅读|订阅发布|设为谷歌新闻)/.test(cleanBp)) {
+                return false;
+              }
               const cleanT = cleanTitle.trim().replace(/^[【\[][^】\]]+[】\]]\s*/, '').replace(/[。！!.]+$/, '');
               return cleanBp !== cleanT && !cleanT.includes(cleanBp) && !factParagraph.includes(cleanBp);
             });
@@ -881,8 +885,11 @@ function NewsCard({ item, trackTheme, isLead = false }: NewsCardProps) {
               </div>
               <div className="space-y-2 bg-slate-50/70 p-4 rounded-xl border border-slate-200">
                 {(() => {
-                  const filteredBps = item.bulletPoints.filter((bp) => {
+                  const filteredBps = (item.bulletPoints || []).filter((bp) => {
                     const cleanBp = bp.trim().replace(/^[0-9一二三四五六七八九十]+[、.：:]\s*/, '').replace(/[。！!.]+$/, '');
+                    if (/^(?:电讯核验[：:]|信源出处[：:]|信源通道[：:]|图为|资料图|图[：:]|新华社照片|视觉中国|延伸阅读|订阅发布|设为谷歌新闻)/.test(cleanBp)) {
+                      return false;
+                    }
                     const cleanT = cleanTitle.trim().replace(/^[【\[][^】\]]+[】\]]\s*/, '').replace(/[。！!.]+$/, '');
                     return cleanBp !== cleanT && !cleanT.includes(cleanBp);
                   });

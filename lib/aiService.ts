@@ -58,11 +58,17 @@ export function extractIntelligenceDeterministic(
   time: string,
   track: string
 ): IntelExtractionResult {
-  const fullText = (content && content.length > title.length ? content : title).trim();
+  const fullText = (content && content.length > title.length ? content : title)
+    .replace(/订阅发布\/?\d{4}年[\s\S]*?(?:首选来源|延伸阅读)\s*/g, '')
+    .trim();
   const sentences = fullText
     .split(/[。！？\n]/)
-    .map((s) => s.replace(/<[^>]+>/g, '').trim())
-    .filter((s) => s.length >= 10);
+    .map((s) => s.replace(/<[^>]+>/g, '').replace(/^[【\[][^】\]]*(?:财新|早报|路透|彭博|新华社)[^】\]]*[】\]]\s*/, '').trim())
+    .filter(
+      (s) =>
+        s.length >= 10 &&
+        !/^(?:图为|资料图|图[：:]|新华社照片|新华社发|视觉中国|中新社发|摄影[：:]|图片来源|延伸阅读|订阅发布|设为谷歌新闻)/.test(s)
+    );
 
   // 1. 提炼完整标题 (保留主谓宾与核心数据，杜绝32字暴力截断)
   let refinedTitle = title.trim().replace(/^[【\[][^】\]]+[】\]]/, '').trim();
@@ -76,39 +82,46 @@ export function extractIntelligenceDeterministic(
   }
   refinedTitle = refinedTitle.replace(/(?:\d+\.|\.\d*)$/, '').replace(/(?:[，,、；;：:\s及与和等并]|为了|保证|以实现|以确保)+$/, '').trim();
 
-  // 2. 提炼真实 Bullet Points（从正文中提取包含数字与谓语的真实句子）
+  // 2. 提炼真实 Bullet Points（从正文中提取包含数字与谓语的真实句子，严禁塞入“信源通道/电讯核验”假大空注水词）
   const bullets: string[] = [];
   for (const s of sentences) {
-    if (bullets.length >= 3) break;
-    if (s.length >= 12 && !s.includes('版权所有') && !s.includes('关注我们') && !s.includes('点击查看')) {
+    if (bullets.length >= 4) break;
+    if (
+      s.length >= 12 &&
+      !s.includes('版权所有') &&
+      !s.includes('关注我们') &&
+      !s.includes('点击查看') &&
+      !s.includes('设为谷歌新闻')
+    ) {
       bullets.push(s.endsWith('。') ? s : s + '。');
     }
   }
-  if (bullets.length === 0) {
+  if (bullets.length === 0 && refinedTitle.length >= 6) {
     bullets.push(refinedTitle.endsWith('。') ? refinedTitle : refinedTitle + '。');
-    bullets.push(`信源通道：${source} 权威电讯（核验直发时间：${time}）。`);
-  } else if (bullets.length === 1) {
-    bullets.push(`信源出处：该要闻由 ${source} 权威直发，核心事实已确认。`);
   }
 
   // 3. 构建规范 5W1H（杜绝假媒体名称与盲目复制）
   const entityMatch = refinedTitle.match(/^([A-Za-z\u4e00-\u9fa5]{2,12}?)(?:在|就|于|同|与|宣布|发布|表示|称|将|已|启动|迎来|破产|投资|下调|上调|中标|开工|到期)/);
   const detectedWho = entityMatch ? entityMatch[1] : source;
 
-  // 寻找因果句
+  // 寻找因果句（严禁单字“因”匹配“因此/因素”，严禁截出“的...”残句）
   let detectedWhy = '';
-  const whySentence = sentences.find((s) => /因为|由于|因|起因于|鉴于|出于/.test(s));
+  const whySentence = sentences.find((s) => /(?:因为|由于|起因于|鉴于|主要系|出于.*考量)/.test(s));
   if (whySentence) {
-    const m = whySentence.match(/(?:因为|由于|因|起因于|鉴于)\s*([^，。]+)/);
-    if (m && m[1].length >= 4) detectedWhy = m[1].trim();
+    const m = whySentence.match(/(?:因为|由于|起因于|鉴于|主要系)\s*([^，。；\n]+)/);
+    if (m && m[1].length >= 6 && !/^[的了此及与和]/.test(m[1].trim())) {
+      detectedWhy = m[1].trim();
+    }
   }
 
-  // 寻找结果句
+  // 寻找结果句（严禁裸匹配“带来”误伤“带来的全面提升”）
   let detectedConsequence = '';
-  const conSentence = sentences.find((s) => /导致|引发|推动|带来|造成|预计将|将使/.test(s));
+  const conSentence = sentences.find((s) => /(?:直接导致|由此引发|预计将|将使得|从而推动|进而促使)/.test(s));
   if (conSentence) {
-    const m = conSentence.match(/(?:导致|引发|推动|带来|造成|预计将|将使)\s*([^。]+)/);
-    if (m && m[1].length >= 4) detectedConsequence = m[1].trim();
+    const m = conSentence.match(/(?:直接导致|由此引发|预计将|将使得|从而推动|进而促使)\s*([^。；\n]+)/);
+    if (m && m[1].length >= 6 && !/^[的了此及与和]/.test(m[1].trim())) {
+      detectedConsequence = m[1].trim();
+    }
   }
 
   const summary5W1H: Summary5W1H = {

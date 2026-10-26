@@ -412,8 +412,9 @@ export function isCalendarOrDigestSpam(title: string, content?: string): boolean
 
   // 1. 早报/要闻汇总/盘前必读类流水账（支持无冒号分隔、带/不带方括号）
   if (
-    /(?:早间要闻汇总|要闻汇总|午间要闻汇总|盘前必读|早盘必读|每日财经早餐|财经早餐|隔夜要闻)/i.test(t) ||
-    /(?:早间要闻汇总|要闻汇总|午间要闻汇总|盘前必读|早盘必读|每日财经早餐|财经早餐|隔夜要闻)/i.test(cleanT) ||
+    /(?:早间要闻汇总|要闻汇总|午间要闻汇总|盘前必读|早盘必读|每日财经早餐|财经早餐|华尔街见闻早餐|见闻早餐|隔夜要闻)/i.test(t) ||
+    /(?:早间要闻汇总|要闻汇总|午间要闻汇总|盘前必读|早盘必读|每日财经早餐|财经早餐|华尔街见闻早餐|见闻早餐|隔夜要闻)/i.test(cleanT) ||
+    /^(?:T早报|早报|晨报|晚报|早餐|华尔街见闻早餐|见闻早餐|能源内参)\s*[｜|]/i.test(t) ||
     /^(?:【?(?:提醒|晨报|早报|早餐|日内请重点关注|今日重点关注|今日关注|财经日历|重点数据前瞻|今日无重大数据|今日重要日程|日内重要日程|日内重要数据|日内关注事项|财经日历提醒|今日重点数据|今日重磅日程)】?)/i.test(
       t
     )
@@ -700,40 +701,68 @@ async function fetchArticleBodyContent(url: string, source: 'zaobao' | 'caixin')
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
       },
-      signal: AbortSignal.timeout(4000),
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
-    const html = await res.text();
+    const rawHtml = await res.text();
+    // 彻底剥离 SVG 图标 (<path> 严禁误匹配为 <p>)、脚本、样式、导航、页眉页脚与图片图注 (<figure>/<figcaption>)
+    const cleanedHtml = rawHtml
+      .replace(/<(?:script|style|svg|nav|header|footer|aside|figure|figcaption)\b[^>]*>[\s\S]*?<\/(?:script|style|svg|nav|header|footer|aside|figure|figcaption)>/gi, '')
+      .replace(/<!--[\s\S]*?-->/g, '');
     const paragraphs: string[] = [];
 
+    const cleanParagraphText = (rawP: string): string =>
+      rawP
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&ldquo;|&rdquo;/gi, '"')
+        .replace(/&lsquo;|&rsquo;/gi, "'")
+        .replace(/&amp;/gi, '&')
+        .replace(/订阅发布\/?\d{4}年[\s\S]*?(?:首选来源|延伸阅读)\s*/g, '')
+        .replace(/设为谷歌新闻首选来源[\s\S]*$/g, '')
+        .replace(/延伸阅读[\s\S]*$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const isImageCaptionOrUiJunk = (text: string): boolean =>
+      /^(?:图为|资料图|图[：:]|新华社照片|新华社发|视觉中国|中新社发|摄影[：:]|图片来源|关注我们|下载早报App|未经许可不得转载|版权所有|如需转载请联系|早报标志版权所有|即时新闻仅供参考|本文为财新网版权所有|未经书面授权|海量资讯|如需使用请联系|财新网所刊载内容|延伸阅读|订阅发布|小标准中大)/i.test(
+        text
+      ) ||
+      /(?:扫描二维码关注|下载APP阅读全文|早报保留所有版权|本文为财新网版权所有|未经书面授权|未经许可不得转载|设为谷歌新闻首选来源)/i.test(
+        text
+      );
+
     if (source === 'zaobao') {
-      const pMatches = html.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
+      // 严格匹配 <p> 或 <p ...>，杜绝 <path> 误匹配
+      const pMatches = cleanedHtml.match(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/gi) || [];
       for (const p of pMatches) {
-        const text = p.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
-        const isJunkFooter =
-          /^(?:关注我们|下载早报App|未经许可不得转载|版权所有|如需转载请联系|早报标志版权所有|即时新闻仅供参考)/i.test(text) ||
-          /(?:扫描二维码关注|下载APP阅读全文|早报保留所有版权)/i.test(text);
-        if (text.length > 20 && !isJunkFooter) {
+        const text = cleanParagraphText(p);
+        if (text.length > 20 && !isImageCaptionOrUiJunk(text)) {
           paragraphs.push(text);
         }
       }
     } else if (source === 'caixin') {
-      const contentSection = html.match(/<div[^>]+id=["']Main_Content_Val["'][^>]*>([\s\S]*?)<\/div>/i);
-      const searchTarget = contentSection ? contentSection[1] : html;
-      const pMatches = searchTarget.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
+      // 优先提取财新文章导语提要 (<div id="subhead">)
+      const subheadMatch = cleanedHtml.match(/<div[^>]+id=["']subhead["'][^>]*>([\s\S]*?)<\/div>/i);
+      if (subheadMatch && subheadMatch[1]) {
+        const subText = cleanParagraphText(subheadMatch[1]);
+        if (subText.length >= 15 && !isImageCaptionOrUiJunk(subText)) {
+          paragraphs.push(subText);
+        }
+      }
+      const contentSection = cleanedHtml.match(/<div[^>]+id=["']Main_Content_Val["'][^>]*>([\s\S]*?)<\/div>/i);
+      const searchTarget = contentSection ? contentSection[1] : cleanedHtml;
+      const pMatches = searchTarget.match(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/gi) || [];
       for (const p of pMatches) {
-        const text = p.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
-        if (
-          text.length > 20 &&
-          !/本文为财新网版权所有|未经书面授权|海量资讯|如需使用请联系|财新网所刊载内容|未经许可不得转载/i.test(text)
-        ) {
+        const text = cleanParagraphText(p);
+        if (text.length > 20 && !isImageCaptionOrUiJunk(text) && !paragraphs.includes(text)) {
           paragraphs.push(text);
         }
       }
     }
 
     const fullBody = paragraphs.slice(0, 8).join('\n\n').trim();
-    if (fullBody.length > 40) {
+    if (fullBody.length > 35) {
       if (articleBodyCache.size > 300) {
         const firstKey = articleBodyCache.keys().next().value;
         if (firstKey) articleBodyCache.delete(firstKey);
@@ -818,8 +847,8 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
           }
         }
 
-        // 二级深度爬取：为前8篇精选早报新闻抓取真实正文段落
-        const topZb = zbList.slice(0, 8);
+        // 二级深度爬取：为前18篇精选早报新闻抓取真实正文段落（杜绝第9篇之后只有标题无正文）
+        const topZb = zbList.slice(0, 18);
         await Promise.allSettled(
           topZb.map(async (item) => {
             const body = await fetchArticleBodyContent(item.url, 'zaobao');
@@ -863,32 +892,41 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
 
           seenCx.add(rawTitle);
 
-          // 从 HTML 后续片段中尝试提取真实发布时间（如 <span>2026年09月20日 19:07</span>）
-          const sliceAfter = html.slice(m.index, m.index + 500);
+          // 从 HTML 后续片段中尝试提取真实发布时间（如 <span>2026年09月20日 19:07</span>）及列表页内联摘要 <p>
+          const sliceAfter = html.slice(m.index, m.index + 650);
           const timeMatch = sliceAfter.match(/(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日\s*(\d{1,2}:\d{2})/);
           let timeStr = `${mo}月${d}日 09:00`;
           if (timeMatch) {
             timeStr = `${parseInt(timeMatch[2], 10)}月${parseInt(timeMatch[3], 10)}日 ${timeMatch[4]}`;
           }
+          const inlinePMatch = sliceAfter.match(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/i);
+          const inlineSummary = inlinePMatch
+            ? inlinePMatch[1].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
+            : '';
 
           cxList.push({
             id: generateIntelId(`CAIXIN_${fullUrl}`),
             wireChannel: 'CH_CAIXIN',
             title: rawTitle,
-            content: rawTitle,
+            content: inlineSummary && inlineSummary.length >= 15 ? `${rawTitle}\n\n${inlineSummary}` : rawTitle,
             time: timeStr,
             source: '财新网 Caixin',
             url: fullUrl,
           });
         }
 
-        // 二级深度爬取：为前8篇财新金融深度调查抓取真实正文段落
-        const topCx = cxList.slice(0, 8);
+        // 二级深度爬取：为前18篇财新金融深度调查抓取真实正文段落，并保留列表页核心数据提要
+        const topCx = cxList.slice(0, 18);
         await Promise.allSettled(
           topCx.map(async (item) => {
+            const existingSummary = item.content.length > item.title.length ? item.content.slice(item.title.length).trim() : '';
             const body = await fetchArticleBodyContent(item.url, 'caixin');
             if (body) {
-              item.content = `${item.title}\n\n${body}`;
+              const combinedBody =
+                existingSummary && !body.includes(existingSummary.slice(0, 15))
+                  ? `${existingSummary}\n\n${body}`
+                  : body;
+              item.content = `${item.title}\n\n${combinedBody}`;
             }
           })
         );
@@ -926,32 +964,41 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
 
           seenCx.add(rawTitle);
 
-          // 从 HTML 后续片段中尝试提取真实发布时间
-          const sliceAfter = html.slice(m.index, m.index + 500);
+          // 从 HTML 后续片段中尝试提取真实发布时间及列表页内联摘要 <p>
+          const sliceAfter = html.slice(m.index, m.index + 650);
           const timeMatch = sliceAfter.match(/(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日\s*(\d{1,2}:\d{2})/);
           let timeStr = `${mo}月${d}日 09:00`;
           if (timeMatch) {
             timeStr = `${parseInt(timeMatch[2], 10)}月${parseInt(timeMatch[3], 10)}日 ${timeMatch[4]}`;
           }
+          const inlinePMatch = sliceAfter.match(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/i);
+          const inlineSummary = inlinePMatch
+            ? inlinePMatch[1].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
+            : '';
 
           cxList.push({
             id: generateIntelId(`CAIXIN_CO_${fullUrl}`),
             wireChannel: 'CH_CAIXIN',
             title: rawTitle,
-            content: rawTitle,
+            content: inlineSummary && inlineSummary.length >= 15 ? `${rawTitle}\n\n${inlineSummary}` : rawTitle,
             time: timeStr,
             source: '财新网 Caixin',
             url: fullUrl,
           });
         }
 
-        // 二级深度爬取：为前8篇财新公司调查抓取真实正文段落
-        const topCx = cxList.slice(0, 8);
+        // 二级深度爬取：为前18篇财新公司调查抓取真实正文段落，并保留列表页核心数据提要
+        const topCx = cxList.slice(0, 18);
         await Promise.allSettled(
           topCx.map(async (item) => {
+            const existingSummary = item.content.length > item.title.length ? item.content.slice(item.title.length).trim() : '';
             const body = await fetchArticleBodyContent(item.url, 'caixin');
             if (body) {
-              item.content = `${item.title}\n\n${body}`;
+              const combinedBody =
+                existingSummary && !body.includes(existingSummary.slice(0, 15))
+                  ? `${existingSummary}\n\n${body}`
+                  : body;
+              item.content = `${item.title}\n\n${combinedBody}`;
             }
           })
         );
@@ -1054,7 +1101,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
   }
 
   // 过滤低信噪比杂音与陈年旧闻僵尸（isNonMarketTrivia 是唯一杂音过滤器，isStockTapeSpam 拦截股票分时噪声）
-  const seen = new Set<string>();
+  const seenMap = new Map<string, number>();
   const deduped: RawLiveItem[] = [];
   const currentYear = new Date().getFullYear();
 
@@ -1078,9 +1125,17 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
       if (isStockTapeSpam(item.title, item.content)) continue;
     }
     const key = item.title.slice(0, 16);
-    if (!seen.has(key) && item.title.length > 5) {
-      seen.add(key);
-      deduped.push(item);
+    if (item.title.length > 5) {
+      if (!seenMap.has(key)) {
+        seenMap.set(key, deduped.length);
+        deduped.push(item);
+      } else {
+        // 若后续跨频道抓取到了更长、更完整的正文段落，自动升级覆盖原先仅有标题的条目
+        const existingIdx = seenMap.get(key)!;
+        if (item.content && item.content.length > (deduped[existingIdx].content || '').length) {
+          deduped[existingIdx].content = item.content;
+        }
+      }
     }
   }
 
@@ -1899,30 +1954,33 @@ export function inferTransmission(track: TrackId, title: string, content: string
 }
 
 function extractBulletPoints(content: string, source: string, time: string): string[] {
-  // Patch 5: 清洗句尾标点后再追加句号，杜绝 。。 双句号
-  const cleanSentenceEnding = (s: string) => s.trim().replace(/[。！!？?\s.,;；、]+$/, '') + '。';
+  // Patch 5: 清洗句尾标点后再追加句号，杜绝 。。 双句号，并剥离媒体头与图注伪段落
+  const cleanSentenceEnding = (s: string) =>
+    s
+      .trim()
+      .replace(/^[【\[][^】\]]*(?:财新|财新网|早报|路透|彭博|新华社|法新社|中新社)[^】\]]*[】\]]\s*/, '')
+      .replace(/^[（(][^）)]*(?:早报|电|讯|记者|编辑)[)）][，,\s]*/, '')
+      .replace(/[。！!？?\s.,;；、]+$/, '') + '。';
 
-  const sents = content
-    .replace(/\r\n/g, '\n')
+  const cleanedContent = (content || '')
+    .replace(/订阅发布\/?\d{4}年[\s\S]*?(?:首选来源|延伸阅读)\s*/g, '')
+    .replace(/设为谷歌新闻首选来源[\s\S]*$/g, '')
+    .replace(/\r\n/g, '\n');
+
+  const sents = cleanedContent
     .split(/[。！？\n]/)
     .map((s) => s.trim())
-    .filter((s) => s.length > 8);
+    .filter(
+      (s) =>
+        s.length > 10 &&
+        !/^(?:图为|资料图|图[：:]|新华社照片|新华社发|视觉中国|中新社发|摄影[：:]|图片来源|延伸阅读|订阅发布|设为谷歌新闻|小标准中大)/.test(s)
+    );
 
-  if (sents.length >= 3) {
-    return [cleanSentenceEnding(sents[0]), cleanSentenceEnding(sents[1]), cleanSentenceEnding(sents[2])];
-  } else if (sents.length === 2) {
-    return [
-      cleanSentenceEnding(sents[0]),
-      cleanSentenceEnding(sents[1]),
-      `信源通道：${source} 权威电讯（核验直发时间：${time}）。`,
-    ];
-  } else {
-    return [
-      cleanSentenceEnding(content.slice(0, 120)),
-      `电讯核验：该条快讯由现场一线核实直发，包含该事件核心主体与最新态势。`,
-      `信源出处：${source} 权威发布（记录时间：${time}）。`,
-    ];
+  // 严禁在正文不足3句时硬塞“电讯核验：该条快讯由现场一线核实直发...”或“信源通道/信源出处”等无实质水分套话
+  if (sents.length > 0) {
+    return sents.slice(0, 4).map(cleanSentenceEnding);
   }
+  return cleanedContent.trim().length > 6 ? [cleanSentenceEnding(cleanedContent.slice(0, 140))] : [];
 }
 
 // 标题生成引擎：严格杜绝【事实】：【定性】单调冒号结构，字数控制在 22~28 字以内，自然断句，突出主体冲突、关键数字与反差
@@ -2030,7 +2088,7 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
   } else if (title.includes('《') && !title.includes('》')) {
     title = title.replace(/《.*$/, '').trim();
   }
-  title = title.replace(/[，,\s]*(?:有记者问|记者问|问|答)[：:\s]*(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
+  title = title.replace(/[，,\s]+(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
 
   // 1-C. 修复美债收益率断裂残缺标题（清除末尾截断残字，严禁硬编码过时数字）
   if (/创(?:去年|今年|历|历史|新|低|高)?$/.test(title)) {
@@ -2171,7 +2229,7 @@ export function enrichHeadline(rawTitle: string, rawContent: string, track: Trac
   title = title.replace(/(?:[，,、；;：:\s]*(?:[在于向从对将把与和或为就至达创报被由拟须]|位于|处于|关于|探讨|围绕|随着|导致|举行|进行|召开|主办|会见|会谈|商讨|协商|签署|达成|发布|宣布|表示|称|透露|指出|通过|经由|通过香港|收于|跌至|涨至|升至|降至|突破|面临|斥资|拟动用|拟以|面临须))+$/, '').trim();
 
   // 终极安全脱水：再次剔除所有自媒体口水词与非法标点，并严禁未闭合书名号与问答引导残片
-  title = title.replace(/[，,\s]*(?:有记者问|记者问|问|答)[：:\s]*(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
+  title = title.replace(/[，,\s]+(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
   title = title.replace(/[，,\s]*(?:区域防务安全态势进一步明朗|相关工作稳步推进落[实]?|多边贸易合规评估稳步开展|宏观统筹稳步推进落实|引发市场密切关注|市场密切评估后续进展|供应链供需格局受市场关注|现货与期货基差进入再平衡|宏观政策调控窗口保持相机抉择|跨国机构动态校准资产配置|市场密切评估宏观传导节奏)[。.]*$/g, '');
   title = title.replace(/^(?:能源内参|财新周刊|金融人事|周刊视点|每日内参|宏观晨报|晨会纪要|行业周报|特稿|快讯|电讯|热点聚焦|专栏)\s*[｜|·\-\/:：]\s*/, '').replace(/^[｜|·\-\/:：\s]+/, '').trim();
 
@@ -2335,7 +2393,7 @@ export function generateCoreTakeaway(
   if (/电网|特高压|变压器|电力设备/.test(t) && /a股|沪深|两市|板块|创业板|上证|指数|概念|涨停/.test(t)) {
     return sanitizeEditorialTone('【电网特高压与设备景气】：主网与特高压建设进入密集交付期，核心变电与特高压设备厂商在手订单充沛，受外需出海与国内电网双重驱动。');
   }
-  if (/openai|gpt|推理架构|思维链|agent/.test(t)) {
+  if (/openai|gpt|推理架构|思维链|agent/.test(cleanTitle) && (!content || content.length <= cleanTitle.length + 25)) {
     return sanitizeEditorialTone('【模型架构升级与商业化落地】：前沿AI模型逐步转向推理时多轮计算与思维链验证架构，降低生成幻觉并加速在高门槛企业级业务场景渗透。');
   }
   // 3.1 澳洲联储 (RBA 货币政策专属，严禁套用到中澳双边外交)
@@ -2355,13 +2413,13 @@ export function generateCoreTakeaway(
   if (FOREIGN_ENTITIES.UK_BOE.test(t)) {
     return sanitizeEditorialTone('【英国央行高息维稳】：薪资与服务业通胀粘性迫使英格兰银行保持审慎，全面宽松窗口被不断校准推迟。');
   }
-  // 3.4 中国国债 / 财政发债 / 央行逆回购
-  if (/(?:中国.*国债|财政部.*国债|超长期特别国债|特别国债发|国债发行|记账式国债)/.test(t)) {
+  // 3.4 中国国债 / 财政发债 / 央行逆回购（严格限定标题主语，防止家电以旧换新等正文顺带提及“特别国债”被劫持）
+  if (/(?:中国.*国债|财政部.*国债|超长期特别国债|特别国债发|国债发行|记账式国债)/.test(cleanTitle)) {
     return sanitizeEditorialTone(
       '【国家财政发债与跨周期稳增长】：财政部推进国债发行筹集长期建设资金，优化政府债务久期结构并为国家重点战略工程提供坚实流动性保障。'
     );
   }
-  if (/央行.*开展.*逆回购|开展.*逆回购操作|逆回购到期/.test(t)) {
+  if (/央行.*开展.*逆回购|开展.*逆回购操作|逆回购到期/.test(cleanTitle)) {
     return sanitizeEditorialTone(
       '【央行公开市场灵活平抑流动性】：央行根据银行间流动性供求灵活调节逆回购操作规模，确保资金面平稳跨月与金融机构流动性合理充裕。'
     );
@@ -2452,41 +2510,48 @@ export function generateCoreTakeaway(
     return '【中东地缘交火风险溢价走阔】：以色列国防军对黎巴嫩南部实施空袭，双方沿边境交火密集度上升；停火协议关键条款分歧难消，推升区域航运与能源风险溢价。';
   }
 
-  if (/泄密|五角大楼|测谎|武器库存/.test(t)) {
+  if (/泄密|测谎|武器库存/.test(cleanTitle) || (/五角大楼/.test(cleanTitle) && /泄密|测谎|武器库存|内鬼|调查/.test(t))) {
     return '【涉密合规与国防审计升级】：美国国防部（五角大楼）就关键战备库存泄露启动反间谍审查并执行测谎；涉密外包权限全面收紧，驱动防务数据安全与保密合规预算刚性扩张。';
   }
-  if (/物流.*景气|物流.*50.9%|货流/.test(t)) {
+  if (/物流.*景气|物流.*50.9%|货流/.test(cleanTitle)) {
     return '【物流景气指数企稳扩张】：中国8月物流业景气指数回升至 50.9% 扩张区间；工业原料周转提速与电商备货需求回暖，实体制造业供应链货流进入良性循环。';
   }
-  if (/(?:东兴|信达|中金).*(?:重组|合并|停牌)|(?:重组|合并).*(?:东兴|信达|中金)/.test(t)) {
+  if (/(?:东兴|信达|中金).*(?:重组|合并|停牌)|(?:重组|合并).*(?:东兴|信达|中金)/.test(cleanTitle)) {
     return '【券商头部集约整合推进】：中金公司、东兴证券与信达证券就并购重组进入停牌阶段；监管引导集约化经营与资本中介能力做强，行业竞争格局向具备全牌照资产池的龙头集中。';
   }
-  if (/商务部.*贸易救济|反歧视|反制|出口管制/.test(t)) {
+  if (
+    (/商务部.*(?:贸易救济|反歧视|反制|出口管制)|反歧视调查|出口管制清单/.test(cleanTitle) ||
+      (/商务部/.test(cleanTitle) && /贸易救济|反歧视|反制措施|出口管制/.test(t))) &&
+    !/反制裁日|津巴布韦/.test(t)
+  ) {
     return '【多边贸易救济合规评估启动】：商务部依法对单边经贸限制展开反歧视审查评估；中方依据世贸组织规则维护合法权益，推动多边经贸机制回归常态。';
   }
-  if (/禽流感|乌拉圭|卫生紧急状态/.test(t)) {
+  if (/禽流感|乌拉圭|卫生紧急状态/.test(cleanTitle)) {
     return '【生物安全防控升级防范外溢】：乌拉圭政府就禽流感疫情启动国家公共卫生紧急状态；周边主要农牧出口国提高海关边境抽检级别，防止疫情冲击南美核心蛋白供应产业链。';
   }
   // 16.2 刚果（金）埃博拉疫情与全球公共卫生预警
-  if (/刚果.*埃博拉|埃博拉疫情/.test(t)) {
+  if (/刚果.*埃博拉|埃博拉疫情/.test(cleanTitle)) {
     return '【全球公共卫生与海外疫情预警】：刚果（金）卫生部门与世界卫生组织（WHO）推进埃博拉病毒流行病学溯源与疫苗阻击，跨国矿业物流与赴非人员严防输入性接触感染。';
   }
   // 17. 监管铁拳与司法惩治 (王建军/做空/操纵市场/反腐调查)
-  if (/王建军/.test(t)) {
+  if (/王建军/.test(cleanTitle)) {
     return '【司法惩治严厉震慑发审寻租】：青岛市中院依法对证监会原副主席王建军受贿 9340 万元判处无期徒刑；司法机关严厉惩治资本市场审批腐败，从严确立制度规范与法治监管底盘。';
   }
   if (/(?:判死缓|判处无期|一审宣判|被判刑|依法审理|受贿逾|受贿|涉嫌受贿|涉嫌严重违纪违法|立案审查|纪律审查|监察调查|落马|双开)/.test(cleanTitle)) {
     return '【穿透治理与严肃追责惩戒】：纪检监察与司法机关严厉惩治职务犯罪与违纪违法行为，依法没收全部违法所得，强化制度刚性约束与权力运行监督。';
   }
-  // 18. 特别国债注资与地方化债
-  if (/特别国债注资|注资银行|注资险企|化债|地方债务/.test(t)) {
+  // 18. 特别国债注资与地方化债（限定标题，避免家电以旧换新等正文提及特别国债被误套）
+  if (/特别国债注资|注资银行|注资险企|化债|地方债务/.test(cleanTitle)) {
     return '【财政注资夯实商业银行资本】：财政部通过发行超长期特别国债注资大型国有商业银行；数千亿元资本金硬核注入全面提升核心一级资本充足率，筑牢金融系统稳健运行安全网。';
   }
-  // 19. 系统性责任事故与地方大震荡 (伤亡事故/撞车/矿难)
-  if (/内蒙古.*(?:事故|相撞|死)/.test(t)) {
+  // 19. 系统性责任事故与地方大震荡 (伤亡事故/撞车/矿难，严格排除政要自然逝世/病逝)
+  if (/内蒙古.*(?:事故|相撞|死)/.test(cleanTitle)) {
     return '【重大安全事故全链条倒查】：内蒙古重大交通事故造成 5 人死亡，涉事客运与货运运营方遭停产整顿与立案倒查；行业主管部门开展全域道路交通隐患排查，压实安全主体责任。';
   }
-  if (/相撞致.*死|重特大事故|坍塌|伤亡|遇难|停运/.test(t)) {
+  if (
+    /相撞致.*死|重特大事故|坍塌|矿难|事故.*(?:死|伤|遇难)/.test(cleanTitle) &&
+    !/逝世|去世|享年|病逝|哀悼|前首相|前总统/.test(t)
+  ) {
     return '【重大安全事故应急处置与倒查】：突发安全事故发生后应急救援力量全力组织搜救处置；主管部门依法开展事故调查与全域安全隐患排查，严格压实主体责任。';
   }
   // 19.2 吉隆口岸跨境地质灾害与抢险论证
@@ -2614,43 +2679,70 @@ export function generateCoreTakeaway(
     connector = '前线博弈与战略威慑态势：';
   }
 
-  let view = '';
-  if (why && consequence) {
-    view = `${why}，${connector}${consequence}。`;
-  } else if (why) {
-    view = `${why}。`;
-  } else if (consequence) {
-    view = formatConsequenceSentence(consequence).trim();
-  } else {
-    let factDesc = (summary5W1H.what || cleanTitle || '').trim().replace(/[。！!.]+$/, '');
-    // 严禁将“主持例行记者会 / 答记者问”等引言空话作为核心观点输出
-    if (/主持例行记者会|主持记者会|举行发布会|在例行发布会上|例行记者会|开场白/.test(factDesc)) {
-      if (content) {
-        const statements = content.split(/[。！？\n]/).map(s => s.trim()).filter(s => /表示|强调|指出|重申|称|明确|介绍|回答|谈到|回应/.test(s));
-        if (statements.length > 0) {
-          factDesc = statements[0].slice(0, 75).replace(/[。！!.]+$/, '');
-        } else {
-          factDesc = cleanTitle;
-        }
+  let factDesc = (summary5W1H.what || cleanTitle || '').trim().replace(/[。！!.]+$/, '');
+  // 严禁将“主持例行记者会 / 答记者问”等引言空话作为核心观点输出
+  if (/主持例行记者会|主持记者会|举行发布会|在例行发布会上|例行记者会|开场白/.test(factDesc)) {
+    if (content) {
+      const statements = content.split(/[。！？\n]/).map(s => s.trim()).filter(s => /表示|强调|指出|重申|称|明确|介绍|回答|谈到|回应/.test(s));
+      if (statements.length > 0) {
+        factDesc = statements[0].slice(0, 75).replace(/[。！!.]+$/, '');
       } else {
         factDesc = cleanTitle;
       }
-    }
-    const cleanT = cleanTitle.replace(/^[【\[][^】\]]+[】\]]/, '').replace(/[。！!.]+$/, '').trim();
-    if (summary5W1H.why && summary5W1H.consequence) {
-      view = `受${summary5W1H.why}影响，${factDesc}，直接导致${summary5W1H.consequence}。`;
-    } else if (summary5W1H.why) {
-      view = `该事项起因于${summary5W1H.why}，当前${factDesc}。`;
-    } else if (summary5W1H.consequence) {
-      view = `${factDesc}，后续直接导致${summary5W1H.consequence}。`;
     } else {
-      view = `${factDesc}。官方通报已确认相关核心事实细节，当事机构与主管方正推进各项应对落地。`;
+      factDesc = cleanTitle;
     }
   }
+  const cleanT = cleanTitle.replace(/^[【\[][^】\]]+[】\]]/, '').replace(/[。！!.]+$/, '').trim();
+  // 从正文提取除标题和首句外的第二句实质细节（优先选择含统计数字、引号表态或具体措施的句子），杜绝“官方通报已确认相关核心事实细节”空洞套话
+  const bodySents = (content || '')
+    .replace(/订阅发布\/?\d{4}年[\s\S]*?(?:首选来源|延伸阅读)\s*/g, '')
+    .split(/[。！？\n]/)
+    .map((s) =>
+      s
+        .replace(/^据[^，。]*?(?:电讯|通报|消息)[，,：:\s]*/, '')
+        .replace(/^[【\[][^】\]]*(?:财新|财新网|早报|路透|彭博|新华社)[^】\]]*[】\]]\s*/, '')
+        .replace(/^[（(][^）)]*(?:早报|电|讯|记者|编辑)[)）][，,\s]*/, '')
+        .trim()
+    )
+    .filter(
+      (s) =>
+        s.length >= 12 &&
+        !/^(?:图为|资料图|图[：:]|新华社照片|视觉中国|延伸阅读|订阅发布|设为谷歌新闻)/.test(s) &&
+        !s.includes(cleanT.slice(0, 10)) &&
+        !factDesc.includes(s.slice(0, 10))
+    );
+  const dataSent = bodySents.find((s) => /\d/.test(s) || /表示|指出|披露|显示|高达|达到|增长|减少|规模|亿元|美元|%/.test(s)) || bodySents[0];
 
-  // 严格在标点处自然截断，绝不硬切单词导致“大型。”等残句
-  if (view.length > 82) {
-    const sub = view.slice(0, 80);
+  let view = '';
+  if (why && consequence) {
+    view = why.includes(factDesc.slice(0, 8))
+      ? `${why}，${connector}${consequence}。`
+      : `${factDesc}；${why}，${connector}${consequence}。`;
+  } else if (why) {
+    view = why.includes(factDesc.slice(0, 8))
+      ? (dataSent ? `${why}；${dataSent.replace(/[。！!.]+$/, '')}。` : `${why}。`)
+      : `${factDesc}；${why}。`;
+  } else if (consequence) {
+    const fmtCon = formatConsequenceSentence(consequence).trim();
+    view = fmtCon.includes(factDesc.slice(0, 8))
+      ? fmtCon
+      : `${factDesc}，${fmtCon.replace(/^[，,\s]+/, '')}`;
+  } else if (summary5W1H.why && summary5W1H.consequence) {
+    view = `受${summary5W1H.why}影响，${factDesc}，直接导致${summary5W1H.consequence}。`;
+  } else if (summary5W1H.why) {
+    view = `该事项起因于${summary5W1H.why}，当前${factDesc}。`;
+  } else if (summary5W1H.consequence) {
+    view = `${factDesc}，后续直接导致${summary5W1H.consequence}。`;
+  } else if (dataSent) {
+    view = `${factDesc}；${dataSent.replace(/[。！!.]+$/, '')}。`;
+  } else {
+    view = `${factDesc}。`;
+  }
+
+  // 严格在标点处自然截断，放宽上限至 115 字以容纳双句实质内容，绝不硬切单词导致残句
+  if (view.length > 118) {
+    const sub = view.slice(0, 115);
     const punc = Math.max(sub.lastIndexOf('，'), sub.lastIndexOf('。'), sub.lastIndexOf('；'));
     if (punc >= 45) {
       view = sub.slice(0, punc) + '。';
@@ -2892,7 +2984,7 @@ export function build5W1HSummary(
     .replace(/（(?:法新社|路透社|彭博社|新华社|财新|日经|央视|第一财经|界面|财联社|华尔街见闻).*?）$/, '')
     .replace(/\((?:AFP|Reuters|Bloomberg|AP|FT|Nikkei).*?\)$/i, '')
     .trim();
-  const rawTotal = (cleanTitle + ' ' + content).trim();
+  const rawTotal = `${cleanTitle}。${content}`.trim();
   const t = rawTotal.toLowerCase();
 
   // 识别新闻中的具体日期
@@ -2990,12 +3082,22 @@ export function build5W1HSummary(
     }
   }
 
-  // 1.5 从正文首句识别知名实体
+  // 1.5 从正文首句识别知名实体（先剥离 UI 导航噪声与图注说明）
   const sents = content
+    .replace(/订阅发布\/?\d{4}年[\s\S]*?(?:首选来源|延伸阅读)\s*/g, '')
+    .replace(/设为谷歌新闻首选来源[\s\S]*$/g, '')
     .replace(/\r\n/g, '\n')
     .split(/[。！？\n]/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 8);
+    .map((s) =>
+      s
+        .replace(/^[【\[][^】\]]*(?:财新|财新网|早报|路透|彭博|新华社)[^】\]]*[】\]]\s*/, '')
+        .trim()
+    )
+    .filter(
+      (s) =>
+        s.length > 8 &&
+        !/^(?:图为|资料图|图[：:]|新华社照片|新华社发|视觉中国|中新社发|摄影[：:]|图片来源|延伸阅读|订阅发布|设为谷歌新闻|小标准中大)/.test(s)
+    );
 
   const normTitle = cleanTitle.replace(/^[【\[][^】\]]+[】\]]\s*/, '').replace(/[\s：:，,。！？!?.—–-]/g, '');
   const normSent0 = (sents[0] || '').replace(/^[【\[][^】\]]+[】\]]\s*/, '').replace(/[\s：:，,。！？!?.—–-]/g, '');
@@ -3076,6 +3178,19 @@ export function build5W1HSummary(
         if (substantive) {
           targetSentence = substantive;
         }
+      } else if (sents.length > candIdx + 1) {
+        // 若正文首句是宽泛行业背景铺垫（不含数字且不含标题核心词），而次句包含标题具体主体或核心量化数据，自动融合首句与次句核心事实
+        const titleTokens = cleanTitle.split(/[，,\s：:、]/).filter((k) => k.length >= 2);
+        const sentHasTitleToken = titleTokens.some((k) => targetSentence.includes(k));
+        const sentHasNumber = /\d/.test(targetSentence);
+        if (!sentHasTitleToken && !sentHasNumber) {
+          const concreteNext = sents
+            .slice(candIdx + 1, candIdx + 4)
+            .find((s) => /\d/.test(s) || titleTokens.some((k) => s.includes(k)));
+          if (concreteNext) {
+            targetSentence = concreteNext;
+          }
+        }
       }
     }
 
@@ -3111,14 +3226,17 @@ export function build5W1HSummary(
   what = formatIndirectQuote(what);
 
   // ─────────────────────────────────────────────────────────────
-  // 4. Why (起因事实：有原因就有原因，没有原因不要硬编写！严禁万能套话)
+  // 4. Why (起因事实：有原因就有原因，没有原因不要硬编写！严禁万能套话与自重复)
   // ─────────────────────────────────────────────────────────────
   let why = '';
   
-  // 4.1 从正文提取显式因果关联句（以句终标点为边界提取，废除定长截断）
+  // 4.1 从正文提取显式因果关联句（以句终标点为边界提取，废除定长截断，且避免重复已包含在 what 中的从句）
   const causeMatch = rawTotal.match(/(?:因为|由于|受.*?影响|因.*?导致|起因于|主要系|主要因|旨在|为缓解|为应对|为防范|出于.*?考量|受.*?拖累|受.*?提振)([^。！？\n]+)/);
   if (causeMatch) {
-    why = truncateSentenceSafely(causeMatch[0].trim().replace(/^[，,]/, ''));
+    const candidateWhy = truncateSentenceSafely(causeMatch[0].trim().replace(/^[，,]/, ''));
+    if (!what.includes(candidateWhy.slice(0, 10)) && !cleanTitle.includes(candidateWhy.slice(0, 10))) {
+      why = candidateWhy;
+    }
   }
 
   // 4.2 针对特定严重灾害/事故/司法判决提取具体事实原因（非万能套话）
@@ -3136,7 +3254,10 @@ export function build5W1HSummary(
   if (!why) {
     const implicitWhyMatch = rawTotal.match(/(?:旨在|为了|配合|基于|受.*?影响|伴随|随着|由于)([^。！？\n]+)/);
     if (implicitWhyMatch && implicitWhyMatch[1]) {
-      why = truncateSentenceSafely(implicitWhyMatch[1].replace(/^(?:着|随着|伴随|鉴于|鉴于此)\s*/, '').trim());
+      const candidateImplicit = truncateSentenceSafely(implicitWhyMatch[1].replace(/^(?:着|随着|伴随|鉴于|鉴于此)\s*/, '').trim());
+      if (!what.includes(candidateImplicit.slice(0, 10)) && !cleanTitle.includes(candidateImplicit.slice(0, 10))) {
+        why = candidateImplicit;
+      }
     } else if (/大跌|暴跌|跳水|走低|下挫|回调/.test(cleanTitle) && !/涨[0-9.]+%/.test(rawTotal)) {
       why = '受短期市场获利了结盘抛压或外部宏观利空情绪压制';
     } else if (/大涨|暴涨|飙升|走高|冲高|反弹|上扬/.test(cleanTitle) || (/涨[0-9.]+%/.test(rawTotal) && !/跌[0-9.]+%/.test(rawTotal))) {
@@ -3147,14 +3268,17 @@ export function build5W1HSummary(
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 5. Consequence (后续影响：以句终标点为边界提取，严禁字符数截断腰斩)
+  // 5. Consequence (后续影响：以句终标点为边界提取，严禁字符数截断腰斩与自重复)
   // ─────────────────────────────────────────────────────────────
   let consequence = '';
   const consequenceMatch = rawTotal.match(/(?:致使|导致|造成|引发|促使|使得|造成.*人死亡|造成.*人受伤|紧急分流|停航|中断|全境停电)([^。！？\n]+)/);
   if (consequenceMatch) {
-    consequence = truncateSentenceSafely(consequenceMatch[0].trim().replace(/^[，,]/, ''));
-    if (/造成的困境|如果.*?那么除了|并避免越陷越深|是否意味着|是否将|能否|会不会|是否存在/.test(consequence)) {
-      consequence = '';
+    const candidateCon = truncateSentenceSafely(consequenceMatch[0].trim().replace(/^[，,]/, ''));
+    if (
+      !what.includes(candidateCon.slice(0, 10)) &&
+      !/造成的困境|如果.*?那么除了|并避免越陷越深|是否意味着|是否将|能否|会不会|是否存在/.test(candidateCon)
+    ) {
+      consequence = candidateCon;
     }
   }
 
@@ -3286,7 +3410,48 @@ export function build5W1HParagraph(
     consequenceSentence = formatConsequenceSentence(cleanConsequence);
   }
 
-  const rawParagraph = `${factSentence}${profileSentence}${whySentence}${consequenceSentence}`.trim();
+  // 多句深度事实融合：当正文中包含第2~4句实质细节（如统计数据、政策举措、涉事主体表态等）且尚未被首句覆盖时，自动并入摘要段落，彻底解决“只有单句标题复读、内容无实质增量”问题
+  let extraDetailsSentence = '';
+  if (content && content.length > (title || '').length + 25) {
+    const cleanTNorm = (title || '').replace(/^[【\[][^】\]]+[】\]]\s*/, '').replace(/[\s：:，,。！？!?.]/g, '');
+    const currentDraft = `${factSentence}${whySentence}${consequenceSentence}`;
+    const bodySents = content
+      .replace(/订阅发布\/?\d{4}年[\s\S]*?(?:首选来源|延伸阅读)\s*/g, '')
+      .replace(/设为谷歌新闻首选来源[\s\S]*$/g, '')
+      .split(/[。！？\n]/)
+      .map((s) =>
+        s
+          .replace(/^[【\[][^】\]]*(?:财新|财新网|财联社|界面|第一财经|新华社|路透|彭博|早报|法新社|央视|中新社|证券时报)[^】\]]*[】\]]\s*/, '')
+          .replace(/^[（(][^）)]*(?:早报|电|讯|记者|编辑)[)）][，,\s]*/, '')
+          .trim()
+      )
+      .filter((s) => {
+        if (s.length < 15) return false;
+        if (/^(?:图为|资料图|图[：:]|新华社照片|新华社发|视觉中国|中新社发|摄影[：:]|图片来源|延伸阅读|订阅发布|设为谷歌新闻|小标准中大)/.test(s)) {
+          return false;
+        }
+        const sNorm = s.replace(/[\s：:，,。！？!?.]/g, '');
+        if (cleanTNorm && (sNorm === cleanTNorm || cleanTNorm.includes(sNorm))) return false;
+        if (currentDraft.includes(s.slice(0, 12)) || currentDraft.includes(s.slice(-12))) return false;
+        if (cleanWhy && cleanWhy.length >= 8 && s.includes(cleanWhy.slice(0, 10))) return false;
+        if (cleanConsequence && cleanConsequence.length >= 8 && s.includes(cleanConsequence.slice(0, 10))) return false;
+        return true;
+      });
+
+    const pickedExtras: string[] = [];
+    let extraLen = 0;
+    for (const s of bodySents) {
+      if (pickedExtras.length >= 2 || extraLen + s.length > 160) break;
+      const formattedExtra = formatIndirectQuote(s.replace(/[。！!.]+$/, ''));
+      pickedExtras.push(`${formattedExtra}。`);
+      extraLen += formattedExtra.length;
+    }
+    if (pickedExtras.length > 0) {
+      extraDetailsSentence = ` ${pickedExtras.join('')}`;
+    }
+  }
+
+  const rawParagraph = `${factSentence}${extraDetailsSentence}${profileSentence}${whySentence}${consequenceSentence}`.trim();
   return healDanglingSummaryText(rawParagraph, { content, title, what: cleanWhat });
 }
 
@@ -3385,12 +3550,30 @@ export function processSingleItemIsolated(raw: RawLiveItem, rawItems: RawLiveIte
   let effectiveRawContent = raw.content;
   if (/^(?:【?(?:T早报|早报|晨报|晚报|环球财经|宏观晨报|每日内参|早间要闻汇总|要闻汇总|盘前必读|午间要闻汇总)】?)\s*[｜|·\-\/:：]?/.test(effectiveRawTitle)) {
     const stripped = effectiveRawTitle.replace(/^[【\[]?(?:T早报|早报|晨报|晚报|环球财经|宏观晨报|每日内参|早间要闻汇总|要闻汇总|盘前必读|午间要闻汇总)[】\]]?\s*[｜|·\-\/:：]?\s*/, '');
-    const segments = stripped.split(/[；;]/);
-    if (segments.length > 0 && segments[0].trim().length >= 8) {
-      effectiveRawTitle = segments[0].trim();
-      const firstSection = effectiveRawContent.split(/[；;\n]/)[0];
-      if (firstSection && firstSection.length >= 12) {
-        effectiveRawContent = firstSection.trim();
+    const segments = stripped.split(/[；;]/).map((s) => s.trim()).filter(Boolean);
+    if (segments.length > 0 && segments[0].length >= 8 && !/^\d{4}年\d{1,2}月\d{1,2}日$/.test(segments[0])) {
+      effectiveRawTitle = segments[0];
+      const otherSegTokens = segments
+        .slice(1)
+        .flatMap((seg) => seg.split(/[，,\s：:、]/))
+        .filter((t) => t.length >= 3);
+      const firstSegTokens = segments[0].split(/[，,\s：:、]/).filter((t) => t.length >= 2);
+      const matchedParas = effectiveRawContent
+        .split(/[。\n；;]/)
+        .map((p) => p.replace(/^(?:推荐阅读[：:\s]*)/, '').trim())
+        .filter((p) => {
+          if (p.length < 10) return false;
+          if (/^(?:T早报|早报|晨报|晚报|早间要闻汇总)[｜|：:]/.test(p)) return false;
+          if (otherSegTokens.some((ot) => p.includes(ot))) return false;
+          return firstSegTokens.some((ft) => p.includes(ft));
+        });
+      if (matchedParas.length > 0) {
+        effectiveRawContent = `${effectiveRawTitle}。\n\n${matchedParas.join('。')}。`;
+      } else {
+        const firstSection = effectiveRawContent.split(/[；;\n]/)[0];
+        if (firstSection && firstSection.length >= 12) {
+          effectiveRawContent = firstSection.replace(/^[【\[]?(?:T早报|早报|晨报|晚报|早间要闻汇总)[】\]]?\s*[｜|·\-\/:：]?\s*/, '').trim();
+        }
       }
     } else {
       // 纯空壳汇总标题且无后续分段独立标题
@@ -3693,8 +3876,12 @@ export async function fetchAggregatedNews(forceRefresh = false): Promise<NewsIte
           if (b.source.includes('联合早报') || b.source.includes('财新网')) bSourceBonus = 20;
         }
 
-        const scoreA = aSpill + aImpact + aRecency + aSourceBonus;
-        const scoreB = bSpill + bImpact + bRecency + bSourceBonus;
+        // 正文实质丰富度加分：优先推选具备多句详实正文的深度报道，压降仅有单行标题的空壳快讯
+        const aSubstance = a.content && a.content.length > a.title.length + 35 ? 65 : 0;
+        const bSubstance = b.content && b.content.length > b.title.length + 35 ? 65 : 0;
+
+        const scoreA = aSpill + aImpact + aRecency + aSourceBonus + aSubstance;
+        const scoreB = bSpill + bImpact + bRecency + bSourceBonus + bSubstance;
 
         if (scoreB !== scoreA) {
           return scoreB - scoreA;

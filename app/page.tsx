@@ -235,10 +235,14 @@ function TerminalApp() {
               (/(?:A股|沪指|两市|上证|深成指|创业板|科创板|三大指数|大盘)/.test(title) &&
                 (/(?:英伟达|NVIDIA|日经亚洲)/.test(title + ' ' + para + ' ' + (item.source || '') + ' ' + (item.companyProfile?.name || '')) ||
                  item.track === 'apac_tech' || item.companyProfile?.name === '英伟达' || (item.companyProfile && /AI|算力|GPU|CPU|芯片|半导体|大模型|晶圆|光刻/i.test(item.companyProfile.sector)))) ||
-              /早间要闻汇总|午间要闻汇总/.test(title) ||
+              /早间要闻汇总|午间要闻汇总|华尔街见闻早餐/.test(title) ||
               /0\.0000%|发行利率0(?:\.0+)?%|中标利率0(?:\.0+)?%|票面利率0(?:\.0+)?%/.test(title + ' ' + takeaway + ' ' + para) ||
               (/金本位|黄金储备/.test(title) && /FOMC|点阵图/.test(watchlist)) ||
-              /是否意味着黄金将重回货币制度的中心|面对面\s*[｜|]/.test(title + ' ' + para)
+              /是否意味着黄金将重回货币制度的中心|面对面\s*[｜|]/.test(title + ' ' + para) ||
+              /电讯核验：该条快讯由现场一线核实直发|官方电讯已确认核心事实|官方通报已确认相关核心事实细节|NASDAQ公开警告称|设为谷歌新闻首选来源|受此影响，的/.test(
+                title + ' ' + takeaway + ' ' + para + ' ' + (item.bulletPoints || []).join(' ')
+              ) ||
+              /电讯[，,]\s*图为\d+月\d+日/.test(para)
             );
           };
           const hasCorruptNews = parsedN.some(isCorruptItem);

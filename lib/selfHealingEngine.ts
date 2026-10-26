@@ -212,7 +212,7 @@ export function formatIndirectQuote(text: string): string {
     prefix = tagMatch[1];
     clean = tagMatch[2];
   }
-  const colonMatch = clean.match(/^([^：:，,——\s\n]{2,16})[：:]\s*(.+)$/);
+  const colonMatch = clean.match(/^([^：:，,——（()）\[\]【】｜|\s\n]{2,16})[：:]\s*(.+)$/);
   if (!colonMatch) return text;
   const speaker = colonMatch[1].trim();
   let quote = colonMatch[2].trim().replace(/^[“"「『]+|[”"」』]+$/g, '');
@@ -266,7 +266,7 @@ export function formatIndirectQuote(text: string): string {
 /**
  * 语义安全因果从句截断：以标点为界，严禁在及物动词/连词/介词后截断腰斩
  */
-const DANGLING_TRUNC_END = /(?:要求采取|要求採取|采取|採取|出台|制定|实施|實施|推进|推進|开展|開展|进行|進行|启动|啟動|落实|落實|执行|執行|寻求|尋求|谋求|謀求|促使|导致|導致|造成|引发|引發|使得|推动|推動|加速|纳入|納入|列入|涵盖|涵蓋|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|计划|拟|考虑|面临|斥资|在|于|向|从|对|并|与|等|及|但|而|或者|以及|以|为了|为|由|被|随着|伴随|因|因为|由于|鉴于)$/;
+const DANGLING_TRUNC_END = /(?:要求采取|要求採取|采取|採取|出台|制定|寻求|尋求|谋求|謀求|促使|导致|導致|造成|引发|引發|使得|纳入|納入|列入|涵盖|涵蓋|要求|呼吁|警告|敦促|声称|指出|强调|重申|表明|宣布|预测|预计|计划|拟|考虑|面临|斥资|在|于|向|从|对|并|与|等|及|但|而|或者|以及|以|为了|为|由|被|随着|伴随|因|因为|由于|鉴于)$/;
 
 export function truncateSentenceSafely(clause: string, maxLen: number = 75): string {
   let text = (clause || '').trim().replace(/[。！!.]+$/, '');
@@ -373,7 +373,7 @@ export function healDanglingSummaryText(
   let text = paragraph;
   const rawContext = `${context?.content || ''} ${context?.title || ''} ${context?.what || ''}`.trim();
 
-  const DANGLING_INNER_REGEX = /(要求采取|要求採取|采取|採取|出台|制定|实施|實施|推进|推進|开展|開展|进行|進行|启动|啟動|落实|落實|执行|執行|寻求|尋求|谋求|謀求|促使|导致|導致|造成|引发|引發|使得|推动|推動|加速|纳入|納入|列入|涵盖|涵蓋)\s*([。！？!?])/g;
+  const DANGLING_INNER_REGEX = /(要求采取|要求採取|采取|採取|出台|制定|寻求|尋求|谋求|謀求|促使|导致|導致|造成|引发|引發|使得|纳入|納入|列入|涵盖|涵蓋)\s*([。！？!?])/g;
 
   text = text.replace(DANGLING_INNER_REGEX, (match, verb, punc) => {
     if (rawContext && verb) {
@@ -390,7 +390,7 @@ export function healDanglingSummaryText(
         continuation = continuation.replace(/[，,、\s]+$/, '');
         if (
           continuation.length >= 2 &&
-          !/(?:要求采取|要求採取|采取|採取|出台|制定|实施|實施|推进|推進|开展|開展|进行|進行|启动|啟動|落实|落實|执行|執行|寻求|尋求|谋求|謀求|促使|导致|導致|造成|引发|引發|使得|推动|推動|加速|纳入|納入|列入|涵盖|涵蓋)$/.test(
+          !/(?:要求采取|要求採取|采取|採取|出台|制定|寻求|尋求|谋求|謀求|促使|导致|導致|造成|引发|引發|使得|纳入|納入|列入|涵盖|涵蓋)$/.test(
             continuation
           )
         ) {
@@ -402,7 +402,7 @@ export function healDanglingSummaryText(
     return `${verb}${defObj}。`;
   });
 
-  const DANGLING_TAIL_REGEX = /(要求采取|要求採取|采取|採取|出台|制定|实施|實施|推进|推進|开展|開展|进行|進行|启动|啟動|落实|落實|执行|執行|寻求|尋求|谋求|謀求|促使|导致|導致|造成|引发|引發|使得|推动|推動|加速|纳入|納入|列入|涵盖|涵蓋)[，,、\s]*$/;
+  const DANGLING_TAIL_REGEX = /(要求采取|要求採取|采取|採取|出台|制定|寻求|尋求|谋求|謀求|促使|导致|導致|造成|引发|引發|使得|纳入|納入|列入|涵盖|涵蓋)[，,、\s]*$/;
   const tailMatch = text.match(DANGLING_TAIL_REGEX);
   if (tailMatch) {
     const verb = tailMatch[1];
@@ -622,8 +622,8 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
     title = 'Anthropic发布滥用报告 点名多机构利用Claude进行模型蒸馏';
   }
 
-  // 清洗记者问答引导残片（如“，问 美东时间”、“有记者问：”等）
-  title = title.replace(/[，,\s]*(?:有记者问|记者问|问|答)[：:\s]*(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
+  // 清洗记者问答引导残片（如“，问 美东时间”、“有记者问：”等；严格要求两侧分隔符以防误伤“问题不断/问答”等正常词汇）
+  title = title.replace(/[，,\s]+(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
   title = title.replace(/^(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间[0-9月日\s]+[，,]?)?/, '').trim();
 
   // A. 剥离前缀标签与媒体栏目头：如 【美股快讯】、【独家】、特稿 ｜、能源内参｜ 等（必须支持空格分隔符与多种破折线）
@@ -820,8 +820,8 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
   }
 
   // 刚果埃博拉标题结构化
-  // 终极守卫：消除未闭合书名号、括号与问答残片
-  title = title.replace(/[，,\s]*(?:有记者问|记者问|问|答)[：:\s]*(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
+  // 终极守卫：消除未闭合书名号、括号与问答残片（严格要求两侧分隔符以防误伤“问题不断”等正常词汇）
+  title = title.replace(/[，,\s]+(?:有记者问|记者问|问|答)[：:\s]+(?:美东时间|北京时间|[0-9]+月|[0-9]+日)?.*$/, '').trim();
   if (title.includes('《') && !title.includes('》')) {
     title = title.replace(/《.*$/, '').trim();
   }
@@ -1573,15 +1573,19 @@ export function isHeadlineEcho(takeawayText: string, title: string): boolean {
   if (!takeawayText || !title) return false;
   const cleanT = title
     .replace(/^[【\[][^】\]]+[】\]]/, '')
-    .replace(/[\s，,。！!？?：:·]/g, '')
+    .replace(/[\s，,。！!？?：:·；;]/g, '')
     .toLowerCase();
   const cleanTake = takeawayText
     .replace(/^[【\[][^】\]]+[】\]][：:]?/, '')
     .replace(/^(?:今日|快讯|电讯|消息称|据报道|消息|最新)[，,：:\s]*/, '')
-    .replace(/[\s，,。！!？?：:·]/g, '')
+    .replace(/官方(?:通报|电讯)已确认(?:相关)?核心事实(?:细节)?.*$/, '')
+    .replace(/(?:各)?当事(?:方|机构)(?:与主管方)?正推进(?:相关事项|各项)?(?:后续)?应对(?:与)?落地.*$/, '')
+    .replace(/[\s，,。！!？?：:·；;]/g, '')
     .toLowerCase();
   if (!cleanTake) return true;
   if (cleanTake === cleanT) return true;
+  // 若剥离空洞套话后，核心结论比标题多出 18 字以上的实质正文事实增量（如包含第二句具体数据或详情），绝不误判为标题复读
+  if (cleanTake.length > cleanT.length + 18) return false;
   if (cleanTake.startsWith(cleanT) || cleanT.startsWith(cleanTake)) return true;
   if (cleanTake.endsWith(cleanT) || cleanT.endsWith(cleanTake)) return true;
   if (cleanTake.includes(cleanT) && cleanTake.length <= cleanT.length + 12) return true;
@@ -1612,7 +1616,8 @@ export function autoCorrectTakeaway(
   takeaway: string | undefined,
   title: string,
   summary5W1H?: Summary5W1H,
-  track: TrackId = 'us_macro'
+  track: TrackId = 'us_macro',
+  contextText?: string
 ): { takeaway: string; wasCorrected: boolean } {
   let text = (takeaway || '').trim();
   const cleanTitle = title.replace(/^[【\[][^】\]]+[】\]]/, '').trim();
@@ -1622,8 +1627,18 @@ export function autoCorrectTakeaway(
   const isEcho = isHeadlineEcho(text, cleanTitle);
   const isMisattributedLiquidity = text.includes('宏观流动性再平衡') && !/利率|借贷|美债|收益率|加息|降息|国债|流动性|通胀|cpi|ppi|pce/.test(cleanTitleLower);
   const isGenericCorporateCliché =
-    /标的主体推进核心业务调整|涉事主体推进核心战略部署|根据市场信号与制度合规框架重构|资产负债表与现金流分化|高利率环境对依赖外部信贷|具备充沛自由现金流|高负债企业构成估值压制|向高确定性标的集聚|多空资金正对宏观贴现率与微观资产溢价实施日内动态调仓|保障主权财政盈亏平衡|先进制程晶圆代工产能紧平衡/.test(text);
-  const isBrokenGrammar = /造成的困境|如果.*?那么除了|并避免越陷越深|造成困境/.test(text);
+    /标的主体推进核心业务调整|涉事主体推进核心战略部署|根据市场信号与制度合规框架重构|资产负债表与现金流分化|高利率环境对依赖外部信贷|具备充沛自由现金流|高负债企业构成估值压制|向高确定性标的集聚|多空资金正对宏观贴现率与微观资产溢价实施日内动态调仓|保障主权财政盈亏平衡|先进制程晶圆代工产能紧平衡|官方电讯已确认核心事实|官方通报已确认相关核心事实细节/.test(text);
+  const isBrokenGrammar = /造成的困境|如果.*?那么除了|并避免越陷越深|造成困境|受此影响，的/.test(text);
+  const isPentagonLeakMismatch =
+    text.includes('涉密合规与国防审计升级') && !/泄密|测谎|武器库存|五角大楼/.test(cleanTitleLower);
+  const isTreasuryBondMismatch =
+    text.includes('国家财政发债与跨周期稳增长') && !/国债|发债|财政部|特别国债|专项债|地方债/.test(cleanTitleLower);
+  const isTradeRemedyMismatch =
+    text.includes('多边贸易救济合规评估启动') &&
+    (!/商务部|贸易救济|反歧视|反制|出口管制|制裁/.test(cleanTitleLower) || /津巴布韦|反制裁日/.test(cleanTitleLower));
+  const isSafetyAccidentMismatch =
+    text.includes('重大安全事故应急处置与倒查') &&
+    (/逝世|去世|享年|病逝|哀悼|前首相|前总统/.test(cleanTitleLower) || !/事故|相撞|坍塌|伤亡|遇难|矿难|火灾|爆炸|死/.test(cleanTitleLower));
   const isEventProvisionsMismatch =
     (/格雷厄姆|制裁俄罗斯和伊朗/.test(cleanTitleLower) && !text.includes('制裁') && !text.includes('长臂管辖')) ||
     (/伊朗.*(?:7项|七项)?谈判条件|伊朗向美国开出|伊朗向美开出/.test(cleanTitleLower) && !text.includes('谈判') && !text.includes('要价'));
@@ -1694,6 +1709,10 @@ export function autoCorrectTakeaway(
     isFoodSafetyMismatch ||
     isTariffMismatch ||
     isDefenseMismatch ||
+    isPentagonLeakMismatch ||
+    isTreasuryBondMismatch ||
+    isTradeRemedyMismatch ||
+    isSafetyAccidentMismatch ||
     (/航班|航线|民航|客运/.test(cleanTitleLower) && /涉外长臂管辖与二级制裁/.test(text)) ||
     /主持例行记者会|主持记者会|举行发布会|在例行发布会上|例行记者会|开场白/.test(text) ||
     /使得市场面临现实痛点/.test(text) ||
@@ -1866,6 +1885,45 @@ export function autoCorrectTakeaway(
   const hasSubstantial5W1H = (cleanWhy.length >= 4 && !/宏观宏图|利益交织|深层动因|涉事主体/.test(cleanWhy)) ||
                              (cleanCon.length >= 4 && !/直接影响相关领域|涉事当事方/.test(cleanCon));
 
+  // 从上下文提取除标题与首句外的实质事实句（用于丰富核心结论，消灭“官方电讯已确认核心事实”注水句与泛化行业套话）
+  const extraBodySent = (() => {
+    if (!contextText) return '';
+    const cleanTNorm = cleanTitle.replace(/[\s：:，,。！？!?.]/g, '');
+    const whatNorm = (summary5W1H?.what || '').replace(/[\s：:，,。！？!?.]/g, '');
+    const candidates = contextText
+      .replace(/订阅发布\/?\d{4}年[\s\S]*?(?:首选来源|延伸阅读)\s*/g, '')
+      .replace(/设为谷歌新闻首选来源[\s\S]*$/g, '')
+      .split(/[。！？\n]/)
+      .map((s) =>
+        s
+          .replace(/^据[^，。]*?(?:电讯|通报|消息)[，,：:\s]*/, '')
+          .replace(/^[【\[][^】\]]*(?:财新|财新网|早报|路透|彭博|新华社)[^】\]]*[】\]]\s*/, '')
+          .replace(/^[（(][^）)]*(?:早报|电|讯|记者|编辑)[)）][，,\s]*/, '')
+          .trim()
+      )
+      .filter((s) => {
+        if (s.length < 14) return false;
+        if (
+          /^(?:图为|资料图|图[：:]|新华社照片|视觉中国|延伸阅读|订阅发布|设为谷歌新闻|电讯核验|信源出处|信源通道|涉事主体)/.test(s)
+        ) {
+          return false;
+        }
+        const sNorm = s.replace(/[\s：:，,。！？!?.]/g, '');
+        if (cleanTNorm && (sNorm === cleanTNorm || cleanTNorm.includes(sNorm) || sNorm.startsWith(cleanTNorm.slice(0, 10)))) {
+          return false;
+        }
+        if (whatNorm && whatNorm.length >= 10 && (sNorm === whatNorm || whatNorm.includes(sNorm))) {
+          return false;
+        }
+        return true;
+      });
+    return (
+      candidates.find((s) => /\d/.test(s) || /表示|指出|披露|显示|高达|达到|增长|减少|规模|亿元|美元|%/.test(s)) ||
+      candidates[0] ||
+      ''
+    );
+  })();
+
   if (hasSubstantial5W1H) {
     const trackTagDefaults: Record<TrackId, string> = {
       us_macro: '美股宏观动态',
@@ -1886,14 +1944,18 @@ export function autoCorrectTakeaway(
     else if (/ai|大模型|算力/.test(cleanTitleLower)) tag = 'AI算力与模型动态';
 
     let core = '';
-    if (cleanWhy && cleanCon) {
+    if (cleanWhy && cleanCon && !whatFact.includes(cleanWhy.slice(0, 8))) {
       core = `受${cleanWhy}影响，${whatFact}，直接导致${cleanCon}。`;
-    } else if (cleanWhy) {
-      core = `该事项起因于${cleanWhy}，当前${whatFact}。各当事方正推进相关事项后续应对与落地。`;
-    } else if (cleanCon) {
+    } else if (cleanWhy && !whatFact.includes(cleanWhy.slice(0, 8))) {
+      core = extraBodySent
+        ? `该事项起因于${cleanWhy}，当前${whatFact}；${extraBodySent.replace(/[。！!.]+$/, '')}。`
+        : `该事项起因于${cleanWhy}，当前${whatFact}。`;
+    } else if (cleanCon && !whatFact.includes(cleanCon.slice(0, 8))) {
       core = `${whatFact}，后续直接导致${cleanCon}。`;
+    } else if (extraBodySent) {
+      core = `${whatFact}；${extraBodySent.replace(/[。！!.]+$/, '')}。`;
     } else {
-      core = `${whatFact}。官方电讯已确认核心事实，当事方正推进相关事项后续应对与落地。`;
+      core = `${whatFact}。`;
     }
 
     return {
@@ -2028,14 +2090,18 @@ export function autoCorrectTakeaway(
     };
     tag = trackTagDefaults[track] || '要闻核心事实';
 
-    if (cleanWhy && cleanCon) {
+    if (cleanWhy && cleanCon && !whatFact.includes(cleanWhy.slice(0, 8))) {
       core = `受${cleanWhy}影响，${whatFact}，直接导致${cleanCon}。`;
-    } else if (cleanWhy) {
-      core = `该事项起因于${cleanWhy}，当前${whatFact}。官方通报已确认相关事实细节。`;
-    } else if (cleanCon) {
+    } else if (cleanWhy && !whatFact.includes(cleanWhy.slice(0, 8))) {
+      core = extraBodySent
+        ? `该事项起因于${cleanWhy}，当前${whatFact}；${extraBodySent.replace(/[。！!.]+$/, '')}。`
+        : `该事项起因于${cleanWhy}，当前${whatFact}。`;
+    } else if (cleanCon && !whatFact.includes(cleanCon.slice(0, 8))) {
       core = `${whatFact}，后续直接导致${cleanCon}。`;
+    } else if (extraBodySent) {
+      core = `${whatFact}；${extraBodySent.replace(/[。！!.]+$/, '')}。`;
     } else {
-      core = `${whatFact}。官方电讯已确认核心事实，当事方正推进相关事项后续应对与落地。`;
+      core = `${whatFact}。`;
     }
   }
 
@@ -2054,7 +2120,8 @@ export function autoCorrectSummaryParagraph(
   title: string,
   summary5W1H?: Summary5W1H,
   source?: string,
-  time?: string
+  time?: string,
+  rawContent?: string
 ): { paragraph: string; wasCorrected: boolean } {
   let text = sanitizeFedRatePolicyWording(paragraph || '').trim();
   let wasCorrected = false;
@@ -2067,6 +2134,7 @@ export function autoCorrectSummaryParagraph(
     /造成的困境，并避免越陷越深/.test(text) ||
     /(?:相关主管机构与)?涉事当事方正依法依规推进后续处置/.test(text) ||
     /主持例行记者会|主持记者会|举行发布会|在例行发布会上|开场白/.test(text) ||
+    /电讯[，,]\s*(?:图为|资料图|图[：:]|新华社照片)/.test(text) ||
     /：[，,、\s]*。?$/.test(text);
 
   const cleanTitle = title.replace(/^[【\[][^】\]]+[】\]]/, '').trim();
@@ -2130,12 +2198,19 @@ export function autoCorrectSummaryParagraph(
 
   if (!isBroken) {
     let cleaned = sanitizeEditorialTone(sanitizeFedRatePolicyWording(text))
+      .replace(/订阅发布\/?\d{4}年[\s\S]*?(?:首选来源|延伸阅读)\s*/g, '')
+      .replace(/设为谷歌新闻首选来源[\s\S]*?(?:[。！？\n]|$)/g, '')
       .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
       .replace(/直接影响方面，(?:造成的困境|如果.*?那么除了).*?([。！!]|$)/g, '。')
       .replace(/造成的困境，并避免越陷越深，那么除了接受伊朗的条件外，别无他途。?/g, '')
+      .replace(/受此影响[，,]\s*的[^。！？\n]*[。！？]?/g, '')
+      .replace(/相关业务当事方正根据现场情况与合规指引展开处置[。.]?/g, '')
+      .replace(/官方(?:电讯|通报)已确认(?:相关)?核心事实(?:细节)?[，,]?[^。]*[。.]?/g, '')
       .replace(/^[【\[][^】\]]*(?:财新|财新网|财联社|界面|第一财经|新华社|路透|彭博|早报|法新社|央视|中新社|证券时报)[^】\]]*[】\]]\s*/, '')
       .replace(/（财新网\s*Caixin）电讯，\s*【财新网】/g, '（财新网 Caixin）电讯，')
+      .replace(/（([^）]+?)）公开警告称[，,]\s*([A-Z0-9.\-]+[）)])/g, '（$1: $2')
       .replace(/，?是否意味着[^。！？\n]*[。！？?]/g, '。')
+      .replace(/(此举旨在[^。！？\n]+)[。.]\s*(?:信源表明[，,])?\s*\1[。.]/g, '$1。')
       .replace(/[：:][，,]/g, '：')
       .replace(/[：:][。.]/g, '。')
       .replace(/，{2,}/g, '，')
@@ -2147,10 +2222,37 @@ export function autoCorrectSummaryParagraph(
       cleaned = cleaned.replace(/(?:受此影响[，,]|直接影响方面[，,])?\s*缩减行业即期供给规模[，,]收紧现货市场可流通库存缓冲垫[。.]?/g, ' 受此影响，引导关联品种活跃合约日内持仓再平衡与基差重定价。');
     }
 
-    // 修复间接引语：彻底消除“电讯，人名：”冒号引语
-    cleaned = cleaned.replace(/电讯[，,]\s*([^：:，,——\s\n]{2,16})[：:]\s*(.+?)(?:[。！？\n]|$)/g, (m, spk, q) => {
+    // 修复间接引语：彻底消除“电讯，人名：”冒号引语（排除括号内股票代码如 NASDAQ: AAPL）
+    cleaned = cleaned.replace(/电讯[，,]\s*([^：:，,——（()）\[\]【】｜|\s\n]{2,16})[：:]\s*(.+?)(?:[。！？\n]|$)/g, (m, spk, q) => {
       return `电讯，${formatIndirectQuote(`${spk}：${q}`)}。`;
     });
+
+    // 若现有段落仅复读了单句标题而 rawContent 中存在更多实质细节，自动融合补充
+    if (rawContent && rawContent.length > cleanTitle.length + 25 && cleaned.length < cleanTitle.length + 38) {
+      const cleanTNorm = cleanTitle.replace(/[\s：:，,。！？!?.]/g, '');
+      const extraSents = rawContent
+        .replace(/订阅发布\/?\d{4}年[\s\S]*?(?:首选来源|延伸阅读)\s*/g, '')
+        .split(/[。！？\n]/)
+        .map((s) =>
+          s
+            .replace(/^据[^，。]*?(?:电讯|通报|消息)[，,：:\s]*/, '')
+            .replace(/^[【\[][^】\]]*(?:财新|财新网|早报|路透|彭博|新华社)[^】\]]*[】\]]\s*/, '')
+            .replace(/^[（(][^）)]*(?:早报|电|讯|记者|编辑)[)）][，,\s]*/, '')
+            .trim()
+        )
+        .filter((s) => {
+          if (s.length < 15) return false;
+          if (/^(?:图为|资料图|图[：:]|新华社照片|视觉中国|延伸阅读|订阅发布|设为谷歌新闻|电讯核验|信源出处|信源通道)/.test(s)) return false;
+          const sNorm = s.replace(/[\s：:，,。！？!?.]/g, '');
+          if (cleanTNorm && (sNorm === cleanTNorm || cleanTNorm.includes(sNorm))) return false;
+          if (cleaned.includes(s.slice(0, 12))) return false;
+          return true;
+        });
+      if (extraSents.length > 0) {
+        const picked = extraSents.slice(0, 2).map((s) => `${formatIndirectQuote(s.replace(/[。！!.]+$/, ''))}。`).join('');
+        cleaned = `${cleaned} ${picked}`.trim();
+      }
+    }
 
     // 修复无主语病句：彻底消灭“直接影响方面，...”
     cleaned = cleaned.replace(/直接影响方面[，,\s]*([^。！？\n]+)/g, (m, rest) => {
@@ -2240,12 +2342,38 @@ export function autoCorrectSummaryParagraph(
     // 如果 what 与标题完全一致，跳过标题复读，直接讲起因与实质！
     res = `据${sourceName}通报，${formatWhySentence(why).trim()}`;
   } else {
-    // 如果没有明确起因，说明该事项的核心动向
-    res = `据${sourceName}现场电讯，${what}。相关业务当事方正根据现场情况与合规指引展开处置。`;
+    // 如果没有明确起因，直接陈述核心事实，严禁追加“相关业务当事方正根据现场情况与合规指引展开处置”空洞套话
+    res = `据${sourceName}现场电讯，${what}。`;
+  }
+
+  // 若 rawContent 中包含未被覆盖的实质细节句子，自动并入重建段落
+  if (rawContent && rawContent.length > cleanTitle.length + 20) {
+    const cleanTNorm = cleanTitle.replace(/[\s：:，,。！？!?.]/g, '');
+    const extraSents = rawContent
+      .replace(/订阅发布\/?\d{4}年[\s\S]*?(?:首选来源|延伸阅读)\s*/g, '')
+      .split(/[。！？\n]/)
+      .map((s) =>
+        s
+          .replace(/^据[^，。]*?(?:电讯|通报|消息)[，,：:\s]*/, '')
+          .replace(/^[【\[][^】\]]*(?:财新|财新网|早报|路透|彭博|新华社)[^】\]]*[】\]]\s*/, '')
+          .replace(/^[（(][^）)]*(?:早报|电|讯|记者|编辑)[)）][，,\s]*/, '')
+          .trim()
+      )
+      .filter((s) => {
+        if (s.length < 14) return false;
+        if (/^(?:图为|资料图|图[：:]|新华社照片|视觉中国|延伸阅读|订阅发布|设为谷歌新闻|电讯核验|信源出处|信源通道)/.test(s)) return false;
+        const sNorm = s.replace(/[\s：:，,。！？!?.]/g, '');
+        if (cleanTNorm && (sNorm === cleanTNorm || cleanTNorm.includes(sNorm))) return false;
+        if (res.includes(s.slice(0, 12))) return false;
+        return true;
+      });
+    if (extraSents.length > 0) {
+      res += ` ${extraSents.slice(0, 2).map((s) => `${formatIndirectQuote(s.replace(/[。！!.]+$/, ''))}。`).join('')}`;
+    }
   }
 
   // 确保绝无“电讯，人名：”残留
-  res = res.replace(/电讯[，,]\s*([^：:，,——\s\n]{2,16})[：:]\s*(.+?)(?:[。！？\n]|$)/g, (m, spk, q) => {
+  res = res.replace(/电讯[，,]\s*([^：:，,——（()）\[\]【】｜|\s\n]{2,16})[：:]\s*(.+?)(?:[。！？\n]|$)/g, (m, spk, q) => {
     return `电讯，${formatIndirectQuote(`${spk}：${q}`)}。`;
   });
 
@@ -2551,12 +2679,30 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   const cleanTitleLower = cleanTitle.toLowerCase();
   const cleanTransmission = sanitizeEditorialTone(correctedTransmission);
 
+  // 清洗 bulletPoints 中的伪造注水套话（“电讯核验：...”、“信源出处：...”、“信源通道：...”及图注/UI残片）
+  const rawBulletContext = (item.bulletPoints || [])
+    .map((bp) =>
+      bp
+        .replace(/订阅发布\/?\d{4}年[\s\S]*?(?:首选来源|延伸阅读)\s*/g, '')
+        .replace(/设为谷歌新闻首选来源[\s\S]*$/g, '')
+        .replace(/^[【\[][^】\]]*(?:财新|财新网|早报|路透|彭博|新华社)[^】\]]*[】\]]\s*/, '')
+        .replace(/（([^）]+?)）公开警告称[，,]\s*([A-Z0-9.\-]+[）)])/g, '（$1: $2')
+        .trim()
+    )
+    .filter(
+      (bp) =>
+        bp.length >= 8 &&
+        !/^(?:电讯核验[：:]|信源出处[：:]|信源通道[：:]|图为|资料图|图[：:]|新华社照片|视觉中国|延伸阅读|订阅发布|设为谷歌新闻)/.test(bp)
+    );
+  const fullContextForHealing = [item.content, item.summaryParagraph, rawBulletContext.join(' ')].filter(Boolean).join('\n');
+
   // 核心结论深度自愈（彻底杜绝标题复读与八股破损）
   const { takeaway: cleanTakeaway } = autoCorrectTakeaway(
     effectiveTakeaway,
     cleanTitle,
     corrected5W1H,
-    correctedTrack
+    correctedTrack,
+    fullContextForHealing
   );
 
   const cleanWatchlist = autoCorrectWatchlist(item.nextWatchlist, cleanTitle, item.summaryParagraph);
@@ -2587,7 +2733,8 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
     cleanTitle,
     corrected5W1H,
     correctedSource,
-    correctedTime
+    correctedTime,
+    fullContextForHealing
   );
 
   // 涉事主体档案检索与挂载
@@ -2651,6 +2798,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
     oneLineTakeaway: cleanTakeaway,
     transmissionImpact: cleanTransmission,
     summaryParagraph: cleanParagraph,
+    bulletPoints: item.bulletPoints ? rawBulletContext : undefined,
     nextWatchlist: cleanWatchlist,
     summary5W1H: corrected5W1H,
     companyProfile: detectedProfile || undefined,
@@ -2708,7 +2856,8 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
     flash.oneLineTakeaway,
     cleanContent,
     corrected5W1H,
-    correctedTrack
+    correctedTrack,
+    flash.rawContent || flash.summaryParagraph
   );
 
   const cleanTransmission = sanitizeEditorialTone(correctedTransmission);
@@ -2719,7 +2868,8 @@ export function autoCorrectFlashBrief(flash: FlashBrief): FlashBrief {
     cleanContent,
     corrected5W1H,
     correctedSource,
-    correctedTime
+    correctedTime,
+    flash.rawContent || flash.summaryParagraph
   );
 
   let detectedProfile = flash.companyProfile;

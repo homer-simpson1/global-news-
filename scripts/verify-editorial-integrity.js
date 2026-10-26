@@ -1590,6 +1590,99 @@ check('Gate 27: 人物专访与深度研判事实保真硬门禁（杜绝标题�
 });
 
 // -------------------------------------------------------------
+// 门禁 28: 正文实质内容丰富度、多句事实融合与零注水套话硬门禁 (Gate 28)
+// -------------------------------------------------------------
+check('Gate 28: 正文实质内容丰富度、多句事实融合、防“问”字误截与防股票代码冒号畸变硬门禁', () => {
+  const { autoCorrectNewsItem, autoCorrectTitle, formatIndirectQuote } = require('@/lib/selfHealingEngine');
+  const { processSingleItemIsolated, build5W1HSummary, build5W1HParagraph } = require('@/lib/rssFetcher');
+  const { extractIntelligenceDeterministic } = require('@/lib/aiService');
+
+  // 1. 严禁因标题含“问题不断”的“问”字而把标题截断为“苹果折叠屏发售后硬件、生态”
+  const appleTitle = '苹果折叠屏发售后硬件、生态问题不断 电商平台两天后破价';
+  const healedAppleTitle = autoCorrectTitle(appleTitle);
+  if (!healedAppleTitle.includes('问题不断') || !healedAppleTitle.includes('破价')) {
+    throw new Error(`autoCorrectTitle 误将含“问题不断”的正常标题截断：“${healedAppleTitle}”`);
+  }
+
+  // 2. 严禁将括号内美股代码冒号（如“苹果（NASDAQ: AAPL）”）篡改为“NASDAQ公开警告称”
+  const tickerText = '苹果（NASDAQ: AAPL）首款折叠屏iPhone Fold发售后硬件和生态问题不断';
+  const formattedTicker = formatIndirectQuote(tickerText);
+  if (formattedTicker.includes('公开警告称') || !formattedTicker.includes('NASDAQ: AAPL')) {
+    throw new Error(`formatIndirectQuote 错误篡改了括号内股票代码冒号：“${formattedTicker}”`);
+  }
+
+  // 3. 严禁 extractIntelligenceDeterministic 将“带来的全面提升”截出残句“的全面提升”
+  const aiRes = extractIntelligenceDeterministic(
+    '智谱开源GLM-4.7-Flash模型，30B级SOTA',
+    '智谱正式发布并开源GLM-4.7-Flash模型。该模型在编码、推理、Agent能力上获得了大规模RL（强化学习）带来的全面提升，并在SWE-bench基准测试中刷新同尺寸SOTA。',
+    '全球宏观专线',
+    '10月26日 14:00',
+    'apac_tech'
+  );
+  if (aiRes.summary5W1H.consequence && aiRes.summary5W1H.consequence.startsWith('的')) {
+    throw new Error(`extractIntelligenceDeterministic 截出了残缺后果从句：“${aiRes.summary5W1H.consequence}”`);
+  }
+  if (aiRes.bulletPoints.some((b) => /电讯核验|信源出处|信源通道/.test(b))) {
+    throw new Error(`extractIntelligenceDeterministic 混入了无实质注水套话：“${aiRes.bulletPoints.join(' | ')}”`);
+  }
+
+  // 4. 多句深度事实融合与防图注/导航栏污染验证（模拟财新/早报多段正文）
+  const richItem = processSingleItemIsolated(
+    {
+      id: 'TEST_RICHBODY_SHENZHEN',
+      wireChannel: 'CH_CAIXIN',
+      title: '聚焦存储、算力等领域 前三季度深圳相关新增中长期贷款超千亿元',
+      content:
+        '聚焦存储、算力等领域 前三季度深圳相关新增中长期贷款超千亿元\n\n订阅发布/2026年10月26日 设为谷歌新闻首选来源\n\n图为6月14日，顾客在河北省石家庄市北国商城华为生活馆选购智能眼镜。\n\n【财新网】中国经济进入换挡提质期，人工智能等产业以及“六张网”建设亟需强化金融支持。\n\n由于加大对新动能领域的信贷支持力度，截至2026年9月末，深圳制造业以及信息传输、软件和信息技术服务业两项贷款余额同比分别增长22.8%、68.8%，前三季度新增中长期贷款超1100亿元。\n\n中国人民银行深圳市分行引导辖内银行推出“算力贷”“词元贷”“算力租赁贷”等专项信贷产品，精准支持存储芯片与智算中心建设。',
+      time: '10月26日 15:20',
+      source: '财新网 Caixin',
+      url: 'https://finance.caixin.com/2026-10-26/102200001.html',
+    },
+    []
+  );
+  if (!richItem) {
+    throw new Error('processSingleItemIsolated 处理深圳算力贷款深度报道意外返回 null');
+  }
+  const healedRich = autoCorrectNewsItem(richItem);
+  if (healedRich.summaryParagraph.includes('图为6月14日') || healedRich.summaryParagraph.includes('设为谷歌新闻')) {
+    throw new Error(`summaryParagraph 混入了图注或导航栏噪声：“${healedRich.summaryParagraph}”`);
+  }
+  if (!healedRich.summaryParagraph.includes('22.8%') && !healedRich.summaryParagraph.includes('算力贷')) {
+    throw new Error(`summaryParagraph 未能融合正文第2~3段的核心量化数据（22.8% / 算力贷）：“${healedRich.summaryParagraph}”`);
+  }
+  if (
+    healedRich.oneLineTakeaway.includes('官方电讯已确认核心事实') ||
+    healedRich.oneLineTakeaway.includes('官方通报已确认相关核心事实细节')
+  ) {
+    throw new Error(`oneLineTakeaway 依然包含空洞注水套话：“${healedRich.oneLineTakeaway}”`);
+  }
+  if ((healedRich.bulletPoints || []).some((b) => /电讯核验|信源出处|信源通道|图为6月14日/.test(b))) {
+    throw new Error(`bulletPoints 包含空洞注水套话或图注：“${(healedRich.bulletPoints || []).join(' | ')}”`);
+  }
+
+  // 5. 防 what/why 自重复验证（如“此举旨在持续打击当地犯罪。信源表明，此举旨在持续打击当地犯罪。”）
+  const peruSummary = build5W1HSummary(
+    '秘鲁政府延长首都等地紧急状态60天',
+    '秘鲁政府延长首都等地紧急状态60天\n\n秘鲁政府21日颁布最高法令，将首都利马和邻近的卡亚俄省的紧急状态延长60天，此举旨在持续打击当地犯罪。\n\n秘鲁内政部长罗梅罗说，今年前9个月秘鲁全国共接到1万9961起敲诈勒索报案和1651起凶杀案。',
+    '10月26日 11:00',
+    '联合早报 Zaobao',
+    'global_cognition'
+  );
+  const peruPara = build5W1HParagraph(
+    peruSummary,
+    '秘鲁政府延长首都等地紧急状态60天',
+    '秘鲁政府延长首都等地紧急状态60天\n\n秘鲁政府21日颁布最高法令，将首都利马和邻近的卡亚俄省的紧急状态延长60天，此举旨在持续打击当地犯罪。\n\n秘鲁内政部长罗梅罗说，今年前9个月秘鲁全国共接到1万9961起敲诈勒索报案和1651起凶杀案。',
+    '联合早报 Zaobao'
+  );
+  if ((peruPara.match(/此举旨在持续打击当地犯罪/g) || []).length > 1) {
+    throw new Error(`build5W1HParagraph 发生了 what 与 why 原句自重复：“${peruPara}”`);
+  }
+  if (!peruPara.includes('1万9961起') && !peruPara.includes('罗梅罗')) {
+    throw new Error(`build5W1HParagraph 未能并入正文第二段的具体犯罪统计数据：“${peruPara}”`);
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {
