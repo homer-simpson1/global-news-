@@ -2527,7 +2527,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
   );
   if (alignCheck.why) corrected5W1H.why = alignCheck.why;
   if (alignCheck.who) corrected5W1H.who = alignCheck.who;
-  if (alignCheck.what && (!corrected5W1H.what || /opec|欧佩克/i.test(corrected5W1H.what))) {
+  if (alignCheck.what) {
     corrected5W1H.what = alignCheck.what;
   }
   if (alignCheck.consequence) {
