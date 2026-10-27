@@ -268,10 +268,10 @@ function TerminalApp() {
           (/(?:英伟达|NVIDIA|日经亚洲)/.test(item.title + ' ' + item.summaryParagraph + ' ' + item.source + ' ' + (item.companyProfile?.name || '')) ||
            item.track === 'apac_tech' || item.companyProfile?.name === '英伟达' || (item.companyProfile && /AI|算力|GPU|CPU|芯片|半导体|大模型|晶圆|光刻/i.test(item.companyProfile.sector)));
         const isZeroYieldBond = /0\.0000%|发行利率0(?:\.0+)?%|中标利率0(?:\.0+)?%|票面利率0(?:\.0+)?%/.test(item.title + ' ' + (item.summaryParagraph || ''));
-        return !isMismatched && !isZeroYieldBond && !/早间要闻汇总|午间要闻汇总/.test(item.title);
+        return !isMismatched && !isZeroYieldBond && !/早间要闻汇总|午间要闻汇总|华尔街见闻早餐|见闻早餐/.test(item.title);
       });
       healed.flashBriefs = (healed.flashBriefs || []).filter((item) => {
-        return !/0\.0000%|发行利率0(?:\.0+)?%|中标利率0(?:\.0+)?%|票面利率0(?:\.0+)?%/.test(item.content || '');
+        return !/0\.0000%|发行利率0(?:\.0+)?%|中标利率0(?:\.0+)?%|票面利率0(?:\.0+)?%|早间要闻汇总|午间要闻汇总|华尔街见闻早餐|见闻早餐/.test(item.content || '');
       });
       setNews(healed.news);
       setFlashBriefs(healed.flashBriefs);

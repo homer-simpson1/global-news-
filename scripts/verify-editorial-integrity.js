@@ -1683,6 +1683,86 @@ check('Gate 28: 正文实质内容丰富度、多句事实融合、防“问”�
 });
 
 // -------------------------------------------------------------
+// 门禁 29: 防早餐汇总漏网、防空格标题误判“明确指出”、防小数截断与多品种行情张冠李戴硬门禁
+// -------------------------------------------------------------
+check('Gate 29: 拦截“华尔街见闻早餐”汇总、杜绝“明确指出，|”病句、防尾部小数截断与多品种行情错位', () => {
+  const {
+    isCalendarOrDigestSpam,
+    enrichHeadline,
+    build5W1HSummary,
+    build5W1HParagraph,
+    processSingleItemIsolated,
+  } = require('../lib/rssFetcher.ts');
+  const {
+    autoCorrectTitle,
+    autoCorrectAllNews,
+    formatIndirectQuote,
+  } = require('../lib/selfHealingEngine.ts');
+
+  // 1. 严禁放行“华尔街见闻早餐 | 2026年10月27日”
+  if (!isCalendarOrDigestSpam('华尔街见闻早餐 | 2026年10月27日', '1、美伊重启谈判...')) {
+    throw new Error('isCalendarOrDigestSpam 未能拦截“华尔街见闻早餐 | 2026年10月27日”');
+  }
+  const filteredDigest = autoCorrectAllNews(
+    [{ id: 'n1', track: 'us_macro', title: '华尔街见闻早餐 | 2026年10月27日', oneLineTakeaway: '', summaryParagraph: '', bulletPoints: [], transmissionImpact: '', impactLevel: 1, publishedAt: '07:15', source: '全球宏观专线', sentiment: 'NEUTRAL', nextWatchlist: '' }],
+    [{ id: 'f1', tag: '宏观', track: 'us_macro', content: '华尔街见闻早餐 | 2026年10月27日', oneLineTakeaway: '', transmission: '', impactLevel: 1, time: '07:15', source: '全球宏观专线' }]
+  );
+  if (filteredDigest.news.length !== 0 || filteredDigest.flashBriefs.length !== 0) {
+    throw new Error('autoCorrectAllNews 未能物理清除“华尔街见闻早餐”条目');
+  }
+
+  // 2. 严禁普通空格分词标题触发 speakerMatch 生成“明确指出”
+  const cpcSummary = build5W1HSummary(
+    '中共五中全会聚焦治党 为明年二十一大布局',
+    '中共五中全会聚焦治党 为明年二十一大布局 （北京综合讯）中共二十届中央委员会第五次全体会议星期一（10月26日）在北京开幕，为期四天。会议聚焦全面从严治党。',
+    '10月26日 08:30',
+    '联合早报 Zaobao',
+    'china_domestic'
+  );
+  if (cpcSummary.what.includes('明确指出')) {
+    throw new Error(`空格分词标题被误判为人物表态：“${cpcSummary.what}”`);
+  }
+
+  // 3. 严禁尾部小数（如 6.7162）被正则误截为整数 6
+  const fxTitle = '人民币兑美元中间价报6.7171，下调9点，上一交易日中间价6.7162';
+  const enrichedFx = enrichHeadline(fxTitle, fxTitle, 'china_macro');
+  const healedFx = autoCorrectTitle(fxTitle);
+  if (!enrichedFx.includes('6.7162') || !healedFx.includes('6.7162')) {
+    throw new Error(`尾部小数 6.7162 被错误截断：enrich="${enrichedFx}", heal="${healedFx}"`);
+  }
+
+  // 4. 多品种并列行情快讯（LME期铜 / 国开行1年期债券）严禁跳过首句取次句导致张冠李戴
+  const lmeSummary = build5W1HSummary(
+    'LME期铜收涨5美元，报14328美元/吨',
+    'LME期铜收涨5美元，报14328美元/吨。LME期铝收跌3美元，报3040美元/吨。',
+    '10月27日 01:50',
+    '大宗商品航运',
+    'commodities_shipping'
+  );
+  if (!lmeSummary.what.includes('LME期铜')) {
+    throw new Error(`多品种行情快讯丢失首句核心品种（LME期铜）：“${lmeSummary.what}”`);
+  }
+
+  // 5. 多段双引号间接引语自然转换（严禁残留 ”、“ 或追加冗余“明确表示”）
+  const comeyQuote = formatIndirectQuote('科米26日在社交媒体上回应说：“他们又来了”，“我仍然是无辜的”');
+  if (comeyQuote.includes('“') || comeyQuote.includes('”') || comeyQuote.includes('明确表示')) {
+    throw new Error(`多段引语转述失败：“${comeyQuote}”`);
+  }
+
+  // 6. 严禁“截至10月26日”回溯匹配出“0月26日”
+  const marginSummary = build5W1HSummary(
+    '两市融资余额减少55.63亿元',
+    '截至10月26日，上交所融资余额报12346.97亿元，较前一交易日减少26.54亿元。',
+    '10月27日 08:46',
+    '全球宏观专线',
+    'china_macro'
+  );
+  if (/(?<![1-9])0月/.test(marginSummary.when)) {
+    throw new Error(`eventDateMatch 发生正则回溯产生畸形日期：“${marginSummary.when}”`);
+  }
+});
+
+// -------------------------------------------------------------
 // 汇总输出与退出码控制
 // -------------------------------------------------------------
 if (errors.length > 0) {

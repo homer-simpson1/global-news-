@@ -195,7 +195,7 @@ export const DEFAULT_TRANSITIVE_OBJECTS: Record<string, string> = {
   '加速': '产业链上下游重塑与调整',
 };
 
-const NON_SPEAKER_GENRE_TAGS = /^(?:最新消息|最新进展|快讯|电讯|权威发布|权威通报|通报|专报|直发|专电|快报|播报|消息|报道|特稿|专访|内参|要闻|重磅|深度|独家|观察|评论|综述|视点|热点|焦点|导读|速递|速报|追踪|动态|简报|汇总|盘点|前瞻|提醒|警示|辟谣|答问|记者会|新闻发布会|重磅快讯|突发|突发快讯)$/;
+const NON_SPEAKER_GENRE_TAGS = /^(?:最新消息|最新进展|快讯|电讯|权威发布|权威通报|通报|专报|直发|专电|快报|播报|消息|报道|特稿|专访|内参|要闻|重磅|深度|独家|观察|评论|综述|视点|热点|焦点|导读|速递|速报|追踪|动态|简报|汇总|盘点|前瞻|提醒|警示|辟谣|答问|记者会|新闻发布会|重磅快讯|突发|突发快讯|下午察|早报|晨报|晚报|华尔街见闻早餐|见闻早餐|财经早餐|隔夜要闻|要闻汇总)$/;
 const NON_SPEAKER_DATA_TAGS = /^(?:数据显示|数据表明|统计显示|统计表明|报告显示|报告指出|调研显示|调查显示|公告显示|通告显示|文件显示|协议显示|监测显示)$/;
 const NON_SPEAKER_METADATA_LABELS = /^(?:涉事主体|核心要点|核心事实|主要内容|关键细节|事件脉络|影响评估|时间|地点|人物|背景|原因|起因|结果|影响|赛道|赛道纠偏|赛道分类|风险提示|投资建议|盘面解读|行情直击|标题|副标题|小结|总结|结语|备注|附注|声明|引言|导语)$/;
 
@@ -215,7 +215,10 @@ export function formatIndirectQuote(text: string): string {
   const colonMatch = clean.match(/^([^：:，,——（()）\[\]【】｜|\s\n]{2,16})[：:]\s*(.+)$/);
   if (!colonMatch) return text;
   const speaker = colonMatch[1].trim();
-  let quote = colonMatch[2].trim().replace(/^[“"「『]+|[”"」』]+$/g, '');
+  let quote = colonMatch[2]
+    .trim()
+    .replace(/[”"」』][，,、\s]*[“"「『]/g, '，')
+    .replace(/^[“"「『]+|[”"」』]+$/g, '');
 
   // 1. 过滤非主体标签（如“最新消息：”、“数据显示：”、“涉事主体：”）
   if (NON_SPEAKER_GENRE_TAGS.test(speaker)) {
@@ -228,8 +231,8 @@ export function formatIndirectQuote(text: string): string {
     return text;
   }
 
-  // 2. 发言人末尾已自带动作动词
-  if (/(?:称|表示|指出|强调|呼吁|警告|敦促|重申|宣布|坦言|证实|回答)$/.test(speaker)) {
+  // 2. 发言人末尾已自带动作动词（如“回应说”、“表示”、“称”）
+  if (/(?:称|表示|指出|强调|呼吁|警告|敦促|重申|宣布|坦言|证实|回答|回应说|回应|说|写道|透露|介绍|提到|表态|发声|发文|发帖)$/.test(speaker)) {
     return `${prefix}${speaker}，${quote}`;
   }
 
@@ -781,8 +784,8 @@ export function autoCorrectTitle(rawTitle: string, context?: { takeaway?: string
     }
   }
 
-  // 清除末尾悬垂小数点与残缺连接词（绝不误伤“8月份”、“26.9亿”等正常数字内容；使用分组避免误伤“落实”之“实”）
-  title = title.replace(/(?:\d+\.|\.\d*)$/, '').trim();
+  // 清除末尾悬垂小数点与残缺连接词（绝不误伤“8月份”、“26.9亿”、“6.7162”等正常小数；使用分组避免误伤“落实”之“实”）
+  title = title.replace(/\.+$/, '').trim();
   title = title.replace(/(?:[，,、；;：:\s及与和等并]|为了|保证|以实现|以确保|正在全力)+$/, '').trim();
 
   // 严禁以介词、连词、半截动词断裂结尾（杜绝“...在”、“...于”、“...向”、“...举行”等腰斩断裂）
@@ -864,8 +867,22 @@ export function autoCorrectTrack(
     }
   }
 
+  // 纠偏 0-CHINA-MACRO-MUTEX：中国国家统计局工业企业利润、长债、国开行/进出口行债券等严禁因正文顺带提及中东油价而误入 war_conflict 或 us_macro
+  if (/(?:中国\d+月|国家统计局|工业企业利润|规模以上工业|长债|银行债券投资|国开行|进出口行|农发行|隔夜SHIBOR|人民币兑美元中间价)/i.test(title)) {
+    if (currentTrack === 'war_conflict' || currentTrack === 'us_macro') {
+      return { track: 'china_macro', wasCorrected: true, reason: '中国宏观统计数据与银行间债市转轨至中国宏观赛道' };
+    }
+  }
+
+  // 纠偏 0-CHINA-POLICY-MUTEX：中方/北京反对或回应美方涉华举措（如孔子学院等）严禁误入 us_macro
+  if (/(?:北京|中方|中国|外交部|商务部|驻美使馆).*?(?:反对|谴责|回应|抗议|严正|敦促|驳斥).*?(?:美国|美方)/.test(title)) {
+    if (currentTrack !== 'china_policy') {
+      return { track: 'china_policy', wasCorrected: true, reason: '中方回应美方涉华事务转轨至涉华博弈赛道' };
+    }
+  }
+
   // 纠偏 0-WAR-MUTEX：纯美伊/中东地缘会谈、诉求与核谈判或俄乌战局，严禁误入 us_macro
-  if (currentTrack === 'us_macro' && (/伊朗.*(?:会谈|谈判|诉求|核协议|多哈|卡塔尔)|美伊|以军|哈马斯|真主党|加沙|也门|胡塞|霍尔木兹|乌克兰|俄军/.test(text))) {
+  if (currentTrack === 'us_macro' && (/伊朗.*(?:会谈|谈判|诉求|核协议|多哈|卡塔尔)|美伊|以军|哈马斯|真主党|加沙|也门|胡塞|霍尔木兹|乌克兰|俄军/.test(title))) {
     if (!/中国|中方|北京|涉华/.test(text)) {
       return { track: 'war_conflict', wasCorrected: true, reason: '美伊地缘外交交涉与战局防务转轨至战局防务赛道' };
     }
@@ -951,10 +968,10 @@ export function autoCorrectTrack(
     }
   }
 
-  // 纠偏 3：其他外国实体（日本、韩国、拉美、澳洲、非洲、刚果、世卫疫情等）被误划入 china_domestic
+  // 纠偏 3：其他外国实体（日本、韩国、拉美、澳洲、非洲、刚果、世卫疫情等）被误划入 china_domestic 或 china_macro
   const isForeignOther = /(?:日本|日元|日银|韩国|澳大利亚|澳洲|巴西|阿根廷|土耳其|印度|俄罗斯|乌克兰|加拿大|墨西哥|刚果|非洲|苏丹|肯尼亚|尼日利亚|埃塞俄比亚|津巴布韦|加纳|几内亚|埃博拉|世卫组织|who)/i.test(title);
   if (isForeignOther && !isExplicitChinaPolicy) {
-    if (currentTrack === 'china_domestic') {
+    if (currentTrack === 'china_domestic' || currentTrack === 'china_macro') {
       return { track: 'global_cognition', wasCorrected: true, reason: '海外国家事务与非洲公共卫生疫情一票否决国内赛道，转轨至全球认知' };
     }
   }
@@ -967,11 +984,11 @@ export function autoCorrectTrack(
     }
   }
 
-  // 纠偏 5：中国贷款市场报价利率(LPR)被误划入 global_cognition 或 us_macro
-  const isLPR = /lpr|贷款市场报价利率|全国银行间同业拆借中心/i.test(title);
+  // 纠偏 5：中国贷款市场报价利率(LPR)/SHIBOR/政策性金融债/融资余额被误划入 global_cognition 或 us_macro 或 war_conflict
+  const isLPR = /lpr|shibor|贷款市场报价利率|全国银行间同业拆借中心|国开行|国家开发银行|进出口行|农发行|两市融资余额|人民币.*中间价报|兑美元中间价|央行逆回购/i.test(title);
   if (isLPR && !/美联储|美债/.test(title)) {
-    if (currentTrack !== 'china_macro') {
-      return { track: 'china_macro', wasCorrected: true, reason: '中国贷款市场报价利率(LPR)转轨至中国宏观赛道' };
+    if (currentTrack !== 'china_macro' && currentTrack !== 'china_domestic') {
+      return { track: 'china_macro', wasCorrected: true, reason: '中国银行间资金面与政策性金融债转轨至中国宏观赛道' };
     }
   }
 
@@ -992,8 +1009,8 @@ export function autoCorrectSourceAndUrl(
   let wasCorrected = false;
 
   // A. 纠偏荒谬张冠李戴：外国主权报道被挂上中国官方部委标签
-  const isForeignNews = track === 'us_macro' || track === 'apac_tech' || track === 'war_conflict';
-  if (isForeignNews && /中国财政部|中国人民银行|国家发改委|中纪委/.test(finalSource)) {
+  const isForeignNews = track === 'us_macro' || track === 'apac_tech' || track === 'war_conflict' || /(?:巴西|美国|日本|欧洲|英国|印度|俄罗斯|乌克兰|以色列)/.test(title || '');
+  if (isForeignNews && /中国财政部|中国人民银行|国家发改委|中纪委|最高人民法院|最高人民检察院/.test(finalSource)) {
     if (track === 'apac_tech') {
       finalSource = '日经亚洲 Nikkei Asia';
       finalUrl = 'https://asia.nikkei.com';
@@ -1160,10 +1177,9 @@ export function autoCorrectInterestTransmission(
     }
   }
 
-  // AI劳动力替代与就业结构转型专属精准传导
+  // AI劳动力替代与就业结构转型专属精准传导（必须具备AI/自动化上下文或明确岗位替代）
   if (
-    /就业|转行|失业|劳动力|岗位替代|裁员|用工|雇佣|技能再培训|白领|劳动者|员工/.test(titleLower) ||
-    (/麦肯锡/.test(titleLower) && /迫使|转行|就业|ai|人工智能/.test(titleLower))
+    /(?:ai|人工智能|大模型|生成式|自动化|机器人|麦肯锡).*(?:就业|转行|失业|劳动力|岗位|裁员|用工|雇佣|技能再培训|白领|劳动者|员工)|(?:就业|转行|失业|劳动力|岗位|裁员|白领|劳动者|员工).*(?:ai|人工智能|大模型|生成式|自动化|麦肯锡)|岗位替代|技能再培训/i.test(titleLower)
   ) {
     if (!text || /智算集群|互联拓扑|长思考思维链|芯片代工|晶圆|先进制程|信源仅陈述单一动作/.test(text) || text.length < 25) {
       text = '① 生成式AI及自动化应用在日常办公与基础业务场景中加速渗透 ➔ ② 知识型与低技能岗位面临重构与跨行业职业转型摩擦成本 ➔ ③ 倒逼劳动力市场供给结构调整并催生人机协同技能再培训需求。';
@@ -1281,7 +1297,7 @@ export function autoCorrect5W1H(
   let s = summary5W1H ? { ...summary5W1H } : null;
   let wasCorrected = false;
 
-  const authorityMatch = title.match(/(长鑫存储|长鑫|中芯国际|工信部|国家发改委|发改委|商务部|财政部|中国人民银行|央行|证监会|应急管理部|交通运输部|国务院|外交部|最高检|最高法|国资委|生态环境部|国家能源局|美联储|五角大楼|也门胡塞武装|胡塞武装|以军|俄军|乌军|台积电|英伟达|苹果|微软|SK海力士|三星电子|三星|比亚迪|宁德时代)/);
+  const authorityMatch = title.match(/(长鑫存储|长鑫|中芯国际|工信部|国家发改委|发改委|商务部|财政部|中国人民银行|央行|全国银行间同业拆借中心|国家开发银行|国开行|证监会|应急管理部|交通运输部|国务院|外交部|最高检|最高法|国资委|生态环境部|国家能源局|国家统计局|统计局|中共二十届五中全会|中共五中全会|中国石油|中石油|中国石化|中石化|中国信达|美联储|美国司法部|美司法部|巴西最高法院|五角大楼|也门胡塞武装|胡塞武装|以军|俄军|乌军|伦敦金属交易所|台积电|英伟达|苹果|微软|谷歌|OpenAI|Anthropic|ASML|SK海力士|三星电子|三星|比亚迪|宁德时代|大众汽车|奥迪|宇树科技|元戎启行|胡润研究院|张一鸣|国瓷材料)/);
   const detectedWho = authorityMatch ? (authorityMatch[1] === '长鑫' ? '长鑫存储' : (authorityMatch[1] === '三星' ? '三星电子' : (authorityMatch[1] === '胡塞武装' ? '也门胡塞武装' : authorityMatch[1]))) : '涉事当事方';
 
   if (!s) {
@@ -1357,9 +1373,27 @@ export function autoCorrect5W1H(
     wasCorrected = true;
   }
 
-  // 6. 严禁硬编深层动因与起因：命中虚假套话直接物理清空，无原因绝不硬编！
+  // 5.5 修复错误触发的“明确指出，|”以及残留状语后缀的 who
+  if (s.what && /明确指出[，,]\s*[｜|]/.test(s.what)) {
+    s.what = title;
+    wasCorrected = true;
+  }
+  if (s.who && /(?:再次|再度|计划在美|计划在华|华尔街见闻早餐|见闻早餐|下午察|今日开盘)$/.test(s.who)) {
+    s.who = s.who.replace(/(?:再次|再度|计划在美|计划在华)+$/, '').trim();
+    if (/华尔街见闻早餐|见闻早餐|下午察/.test(s.who)) s.who = detectedWho;
+    if (s.who === '今日开盘') s.who = '沪深两市交易所与A股市场';
+    wasCorrected = true;
+  }
+
+  // 6. 严禁硬编深层动因与起因：命中虚假套话或错配模板直接物理清空，无原因绝不硬编！
   if (s.why) {
-    if (/外部供需周期切换与突发地缘环境共振引发连锁反应|重大实质事件触发供需与流动性重塑|利益交织对立|宏观宏图|深层动因/.test(s.why)) {
+    const isFalseDebtWhy = /此前债务结构严重失衡/.test(s.why) && !/破产|清算|违约|重整|信威|宁算/.test(title);
+    const isFalseBullWhy = /受多头买盘资金集中涌入/.test(s.why) && !/指数|期指|股价|美股|A股|港股|日经|恒指|沪指|主力合约|期货|板块/.test(title);
+    if (
+      /外部供需周期切换与突发地缘环境共振引发连锁反应|重大实质事件触发供需与流动性重塑|利益交织对立|宏观宏图|深层动因|^受到不利影响/.test(s.why) ||
+      isFalseDebtWhy ||
+      isFalseBullWhy
+    ) {
       s.why = '';
       wasCorrected = true;
     }
@@ -1675,9 +1709,10 @@ export function autoCorrectTakeaway(
   const isInflationMismatch =
     text.includes('宏观物价中枢与货币政策校准') &&
     (/(?:国债|美债|债券).*收益率|(?:10年期|两年期|2年期|5年期|30年期).*收益率|刷新.*最高位/.test(cleanTitleLower) || /(?:5\.\d+%|4\.\d+%|基点|bps)/.test(cleanTitleLower));
+  const isAILaborTopicTitle = /(?:ai|人工智能|大模型|生成式|自动化|机器人|麦肯锡).*(?:就业|转行|失业|劳动力|岗位|裁员|白领|劳动者|员工)|(?:就业|转行|失业|劳动力|岗位|裁员|白领|劳动者|员工).*(?:ai|人工智能|大模型|生成式|自动化|麦肯锡)|岗位替代|技能再培训/i.test(cleanTitleLower);
   const isAILaborMismatch =
-    (/就业|转行|失业|劳动力|岗位替代|裁员|用工|雇佣|技能再培训|白领|劳动者|员工/.test(cleanTitleLower) || (/麦肯锡/.test(cleanTitleLower) && /迫使|转行|就业/.test(cleanTitleLower))) &&
-    /算力架构|智算集群|互联拓扑|长思考思维链|芯片代工|晶圆/.test(text);
+    (isAILaborTopicTitle && /算力架构|智算集群|互联拓扑|长思考思维链|芯片代工|晶圆/.test(text)) ||
+    (!isAILaborTopicTitle && text.includes('AI劳动力替代与就业结构转型'));
   const isFoodSafetyMismatch =
     /餐饮|外卖|食品安全|外卖封签|餐饮店|后厨/.test(cleanTitleLower) &&
     /医保|集采|药品集采|公立医院|医保局/.test(text);
@@ -1729,6 +1764,7 @@ export function autoCorrectTakeaway(
       .replace(/，使得市场面临现实痛点[：:]。?/g, '。')
       .replace(/[：:][，,]/g, '：')
       .replace(/[：:][。.]/g, '。')
+      .replace(/；+。/g, '。')
       .replace(/，{2,}/g, '，')
       .replace(/。{2,}/g, '。')
       .trim();
@@ -1879,9 +1915,9 @@ export function autoCorrectTakeaway(
 
   // 核心原则：用户明确强调，核心结论板块要把事情的来龙去脉写清楚，不需要对事件有任何独家的看法。
   // 若提供了 5W1H 核心事实要素（起因背景 + 核心事实动作 + 直接实质结果），统一由 5W1H 生成客观事实陈述，叙述事情的前因后果与来龙去脉！
-  const cleanWhy = (summary5W1H?.why || '').trim().replace(/[。！!.]+$/, '').replace(/^[，,\s]*(?:受|起因于|因为|由于|因)+\s*/, '').trim();
-  const cleanCon = (summary5W1H?.consequence || '').trim().replace(/[。！!.]+$/, '').trim();
-  const whatFact = (summary5W1H?.what || cleanTitle).trim().replace(/^[【\[][^】\]]+[】\]]\s*/, '').replace(/[。！!.]+$/, '');
+  const cleanWhy = (summary5W1H?.why || '').trim().replace(/[。！!.；;]+$/, '').replace(/^[，,\s]*(?:受|起因于|因为|由于|因)+\s*/, '').trim();
+  const cleanCon = (summary5W1H?.consequence || '').trim().replace(/[。！!.；;]+$/, '').trim();
+  const whatFact = (summary5W1H?.what || cleanTitle).trim().replace(/^[【\[][^】\]]+[】\]]\s*/, '').replace(/[。！!.；;]+$/, '');
   const hasSubstantial5W1H = (cleanWhy.length >= 4 && !/宏观宏图|利益交织|深层动因|涉事主体/.test(cleanWhy)) ||
                              (cleanCon.length >= 4 && !/直接影响相关领域|涉事当事方/.test(cleanCon));
 
@@ -1896,7 +1932,7 @@ export function autoCorrectTakeaway(
       .split(/[。！？\n]/)
       .map((s) =>
         s
-          .replace(/^据[^，。]*?(?:电讯|通报|消息)[，,：:\s]*/, '')
+          .replace(/^据[^。！？\n]*?(?:电讯|通报|消息)[，,：:]\s*/, '')
           .replace(/^[【\[][^】\]]*(?:财新|财新网|早报|路透|彭博|新华社)[^】\]]*[】\]]\s*/, '')
           .replace(/^[（(][^）)]*(?:早报|电|讯|记者|编辑)[)）][，,\s]*/, '')
           .trim()
@@ -1940,7 +1976,7 @@ export function autoCorrectTakeaway(
       tag = '大宗商品期货盘前波动与资金定价';
     } else if (/opec|原油|布伦特|减产/.test(cleanTitleLower)) tag = '产油国供给调节与市场平衡';
     else if (/芯片|半导体|先进制程|晶圆/.test(cleanTitleLower)) tag = '半导体产业动态';
-    else if (/就业|转行|失业|劳动力|岗位替代|裁员|用工|雇佣|技能再培训|白领|劳动者|员工/.test(cleanTitleLower) || (/麦肯锡/.test(cleanTitleLower) && /迫使|转行|就业|ai|人工智能/.test(cleanTitleLower))) tag = 'AI劳动力替代与就业结构转型';
+    else if (isAILaborTopicTitle) tag = 'AI劳动力替代与就业结构转型';
     else if (/ai|大模型|算力/.test(cleanTitleLower)) tag = 'AI算力与模型动态';
 
     let core = '';
@@ -2022,7 +2058,7 @@ export function autoCorrectTakeaway(
   } else if (/中美.*(?:降税|对等降税|关税|经贸磋商|经贸会谈|经贸对话)|300亿对300亿|对等降税商品清单/.test(cleanTitleLower)) {
     tag = '经贸博弈与涉外对等反制';
     core = '中美达成阶段性经贸关税与对话共识框架，双边以对等降税清单与多领域沟通机制推进经贸关系再平衡，降低外贸供应链外部不确定性。';
-  } else if (/就业|转行|失业|劳动力|岗位替代|裁员|用工|雇佣|技能再培训|白领|劳动者|员工/.test(cleanTitleLower) || (/麦肯锡/.test(cleanTitleLower) && /迫使|转行|就业|ai|人工智能/.test(cleanTitleLower))) {
+  } else if (isAILaborTopicTitle) {
     tag = 'AI劳动力替代与就业结构转型';
     core = '权威机构评估报告指出，前沿生成式AI加速向知识型与基础业务场景渗透，将迫使数千万劳动者面临转行压力与技能重构摩擦，驱动劳动力市场供需深度调整。';
   } else if (/模型|算力|推理|大模型|ai|算法|openai|agent/.test(cleanTitleLower)) {
@@ -2074,7 +2110,7 @@ export function autoCorrectTakeaway(
     core = '涉事各方在边境沿线及关键节点持续保持军事戒备与交火态势，多方就防务预警与停火谈判条款持续交涉。';
   } else {
     // 核心结论板块颗粒度彻底对齐：必须写清事情的前因后果与来龙去脉，0假大空独家看法！
-    const whatFact = (summary5W1H?.what || cleanTitle).trim().replace(/[。！!.]+$/, '');
+    const whatFact = (summary5W1H?.what || cleanTitle).trim().replace(/[。！!.；;]+$/, '');
     const cleanWhy = (summary5W1H?.why || '').trim().replace(/[。！!.]+$/, '').replace(/^[，,\s]*(?:受|起因于|因为|由于|因)+\s*/, '').trim();
     const cleanCon = (summary5W1H?.consequence || '').trim().replace(/[。！!.]+$/, '').trim();
 
@@ -2213,6 +2249,7 @@ export function autoCorrectSummaryParagraph(
       .replace(/(此举旨在[^。！？\n]+)[。.]\s*(?:信源表明[，,])?\s*\1[。.]/g, '$1。')
       .replace(/[：:][，,]/g, '：')
       .replace(/[：:][。.]/g, '。')
+      .replace(/；+。/g, '。')
       .replace(/，{2,}/g, '，')
       .replace(/。{2,}/g, '。')
       .trim();
@@ -2232,14 +2269,19 @@ export function autoCorrectSummaryParagraph(
       const cleanTNorm = cleanTitle.replace(/[\s：:，,。！？!?.]/g, '');
       const extraSents = rawContent
         .replace(/订阅发布\/?\d{4}年[\s\S]*?(?:首选来源|延伸阅读)\s*/g, '')
+        .replace(/\s*【(?:财新网|财新|新华社|路透|彭博|早报|第一财经|界面新闻|财联社|华尔街见闻)[^】]*】\s*/g, '。')
         .split(/[。！？\n]/)
-        .map((s) =>
-          s
-            .replace(/^据[^，。]*?(?:电讯|通报|消息)[，,：:\s]*/, '')
+        .map((s) => {
+          let cs = s.trim();
+          if (cleanTitle.length >= 8 && cs.startsWith(cleanTitle + ' ')) {
+            cs = cs.slice(cleanTitle.length).trim();
+          }
+          return cs
+            .replace(/^据[^。！？\n]*?(?:电讯|通报|消息)[，,：:]\s*/, '')
             .replace(/^[【\[][^】\]]*(?:财新|财新网|早报|路透|彭博|新华社)[^】\]]*[】\]]\s*/, '')
-            .replace(/^[（(][^）)]*(?:早报|电|讯|记者|编辑)[)）][，,\s]*/, '')
-            .trim()
-        )
+            .replace(/^[（(][^）)]*(?:早报|综合讯|电|讯|记者|编辑)[)）][，,\s]*/, '')
+            .trim();
+        })
         .filter((s) => {
           if (s.length < 15) return false;
           if (/^(?:图为|资料图|图[：:]|新华社照片|视觉中国|延伸阅读|订阅发布|设为谷歌新闻|电讯核验|信源出处|信源通道)/.test(s)) return false;
@@ -2249,7 +2291,7 @@ export function autoCorrectSummaryParagraph(
           return true;
         });
       if (extraSents.length > 0) {
-        const picked = extraSents.slice(0, 2).map((s) => `${formatIndirectQuote(s.replace(/[。！!.]+$/, ''))}。`).join('');
+        const picked = extraSents.slice(0, 2).map((s) => `${formatIndirectQuote(s.replace(/[。！!.；;]+$/, ''))}。`).join('');
         cleaned = `${cleaned} ${picked}`.trim();
       }
     }
@@ -2351,14 +2393,19 @@ export function autoCorrectSummaryParagraph(
     const cleanTNorm = cleanTitle.replace(/[\s：:，,。！？!?.]/g, '');
     const extraSents = rawContent
       .replace(/订阅发布\/?\d{4}年[\s\S]*?(?:首选来源|延伸阅读)\s*/g, '')
+      .replace(/\s*【(?:财新网|财新|新华社|路透|彭博|早报|第一财经|界面新闻|财联社|华尔街见闻)[^】]*】\s*/g, '。')
       .split(/[。！？\n]/)
-      .map((s) =>
-        s
-          .replace(/^据[^，。]*?(?:电讯|通报|消息)[，,：:\s]*/, '')
+      .map((s) => {
+        let cs = s.trim();
+        if (cleanTitle.length >= 8 && cs.startsWith(cleanTitle + ' ')) {
+          cs = cs.slice(cleanTitle.length).trim();
+        }
+        return cs
+          .replace(/^据[^。！？\n]*?(?:电讯|通报|消息)[，,：:]\s*/, '')
           .replace(/^[【\[][^】\]]*(?:财新|财新网|早报|路透|彭博|新华社)[^】\]]*[】\]]\s*/, '')
-          .replace(/^[（(][^）)]*(?:早报|电|讯|记者|编辑)[)）][，,\s]*/, '')
-          .trim()
-      )
+          .replace(/^[（(][^）)]*(?:早报|综合讯|电|讯|记者|编辑)[)）][，,\s]*/, '')
+          .trim();
+      })
       .filter((s) => {
         if (s.length < 14) return false;
         if (/^(?:图为|资料图|图[：:]|新华社照片|视觉中国|延伸阅读|订阅发布|设为谷歌新闻|电讯核验|信源出处|信源通道)/.test(s)) return false;
@@ -2368,7 +2415,7 @@ export function autoCorrectSummaryParagraph(
         return true;
       });
     if (extraSents.length > 0) {
-      res += ` ${extraSents.slice(0, 2).map((s) => `${formatIndirectQuote(s.replace(/[。！!.]+$/, ''))}。`).join('')}`;
+      res += ` ${extraSents.slice(0, 2).map((s) => `${formatIndirectQuote(s.replace(/[。！!.；;]+$/, ''))}。`).join('')}`;
     }
   }
 
@@ -2437,10 +2484,19 @@ export function autoCorrectWatchlist(
     return '【后续观察哨】：锁定在 世界黄金协会（WGC）全球央行购金季度数据、IMF官方外汇与黄金储备结构更新及国际信用资产多元化配置动向。';
   }
 
+  // 1.9 中国债市/长债/政策性金融债/SHIBOR专属观察哨（严禁误挂美国FOMC与点阵图）
+  if (
+    /(?:长债|银行债券投资|国开行|进出口行|农发行|隔夜shibor|shibor报|中国.*国债|特别国债|地方债|专项债)/i.test(cleanTitleLower) &&
+    /fomc|点阵图|美联储/i.test(cleanWatchlist)
+  ) {
+    return '【后续观察哨】：锁定在 中国人民银行公开市场操作净投放规模、银行间资金面利率中枢及财政部国债招标发行结果。';
+  }
+
   // 2. 基准美债 5.13% / 收益率冲高专属观察哨（严禁套用央行货币政策例会利率决议模版）
   if (
-    /(?:国债|美债|债券).*收益率|(?:10年期|两年期|2年期|5年期|30年期).*收益率|刷新.*最高位至/.test(cleanTitleLower) ||
-    /(?:5\.\d+%|4\.\d+%|基点|bps)/.test(cleanTitleLower)
+    !/(?:中国|我国|国内|长债|银行债券|国开行|进出口行|农发行|shibor|lpr|地方债|专项债|特别国债)/i.test(cleanTitleLower) &&
+    (/(?:国债|美债|债券).*收益率|(?:10年期|两年期|2年期|5年期|30年期).*收益率|刷新.*最高位至/.test(cleanTitleLower) ||
+    /(?:5\.\d+%|4\.\d+%|基点|bps)/.test(cleanTitleLower))
   ) {
     if (
       /央行下一次货币政策例会利率决议与核心通胀次月读数趋势/.test(cleanWatchlist) ||
@@ -2798,7 +2854,7 @@ export function autoCorrectNewsItem(item: NewsItem): NewsItem {
     oneLineTakeaway: cleanTakeaway,
     transmissionImpact: cleanTransmission,
     summaryParagraph: cleanParagraph,
-    bulletPoints: item.bulletPoints ? rawBulletContext : undefined,
+    bulletPoints: item.bulletPoints ? rawBulletContext : [],
     nextWatchlist: cleanWatchlist,
     summary5W1H: corrected5W1H,
     companyProfile: detectedProfile || undefined,
@@ -2989,11 +3045,17 @@ export function autoCorrectAllNews(
   flashList: FlashBrief[]
 ): { news: NewsItem[]; flashBriefs: FlashBrief[] } {
   // 严格过滤金融爬虫未开标/零利率占位符脏数据快讯及要闻
+  const isDigestOrTriviaSpam = (title?: string) =>
+    /(?:华尔街见闻早餐|见闻早餐|每日财经早餐|财经早餐|早间要闻汇总|午间要闻汇总|盘前必读|早盘必读|隔夜要闻|下午察[：:\s｜|]|马驹桥里的中国|蔡康永.*政治出柜)/.test(
+      title || ''
+    );
   const validFlash = (flashList || []).filter(
-    (item) => !isZeroYieldPlaceholderBond(item.content, item.rawContent)
+    (item) => !isZeroYieldPlaceholderBond(item.content, item.rawContent) && !isDigestOrTriviaSpam(item.content)
   );
   const validNews = (newsList || []).filter(
-    (item) => !isZeroYieldPlaceholderBond(item.title, (item.summaryParagraph || '') + ' ' + (item.oneLineTakeaway || ''))
+    (item) =>
+      !isZeroYieldPlaceholderBond(item.title, (item.summaryParagraph || '') + ' ' + (item.oneLineTakeaway || '')) &&
+      !isDigestOrTriviaSpam(item.title)
   );
 
   const healedFlash = validFlash.map(autoCorrectFlashBrief);
