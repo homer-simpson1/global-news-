@@ -799,7 +799,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
     // 1. 《联合早报》中国新闻频道（中立全景覆盖中国政治、社会、突发、法治与重大民生事件，零内宣废话）
     fetch('https://www.zaobao.com.sg/realtime/china', {
       headers: defaultHeaders,
-      cache: 'no-store',
+
       signal: AbortSignal.timeout(6000),
     })
       .then((r) => r.text())
@@ -868,7 +868,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
     // 2. 《财新网》金融频道（调查报道、法治监管、专抓重特大责任事故、金融反腐与违规暴雷）
     fetch('https://finance.caixin.com/', {
       headers: defaultHeaders,
-      cache: 'no-store',
+
       signal: AbortSignal.timeout(6000),
     })
       .then((r) => r.text())
@@ -942,7 +942,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
     // 3. 《财新网》公司与产业频道（抓企业停产、违约逾期、供应链断裂、实业风险）
     fetch('https://companies.caixin.com/', {
       headers: defaultHeaders,
-      cache: 'no-store',
+
       signal: AbortSignal.timeout(6000),
     })
       .then((r) => r.text())
@@ -1014,7 +1014,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
 
     // 4. 全球宏观、外汇、大宗商品电讯
     ...endpoints.map((ep) =>
-      fetch(ep.url, { headers: defaultHeaders, cache: 'no-store', signal: AbortSignal.timeout(6000) })
+      fetch(ep.url, { headers: defaultHeaders, signal: AbortSignal.timeout(6000) })
         .then((r) => r.json())
         .then((d) => ({ source: ep.source, data: d }))
         .catch((err) => ({ source: ep.source, data: null, error: String(err?.message || err) }))
