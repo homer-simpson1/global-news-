@@ -45,6 +45,8 @@ let cachedQuotes: MarketQuote[] | null = null;
 let lastFetchTime = 0;
 let lastQuotesFetchTime = 0;
 let inFlightFetch: Promise<NewsItem[]> | null = null;
+let lastRawNewsDiag: any = null;
+export function getLastRawNewsDiag() { return lastRawNewsDiag; }
 
 // 毫秒级内存瞬时快照（用于自检与即时渲染，0 网络 I/O，且经过全域自动纠偏引擎净化）
 export function getFastIntelSnapshot(): {
@@ -861,7 +863,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
 
         return { source: '联合早报', data: zbList };
       })
-      .catch(() => ({ source: '联合早报', data: null })),
+      .catch((err) => ({ source: '联合早报', data: null, error: String(err?.message || err) })),
 
     // 2. 《财新网》金融频道（调查报道、法治监管、专抓重特大责任事故、金融反腐与违规暴雷）
     fetch('https://finance.caixin.com/', {
@@ -935,7 +937,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
 
         return { source: '财新网', data: cxList };
       })
-      .catch(() => ({ source: '财新网', data: null })),
+      .catch((err) => ({ source: '财新网', data: null, error: String(err?.message || err) })),
 
     // 3. 《财新网》公司与产业频道（抓企业停产、违约逾期、供应链断裂、实业风险）
     fetch('https://companies.caixin.com/', {
@@ -1008,16 +1010,31 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
 
         return { source: '财新网公司频道', data: cxList };
       })
-      .catch(() => ({ source: '财新网公司频道', data: null })),
+      .catch((err) => ({ source: '财新网公司频道', data: null, error: String(err?.message || err) })),
 
     // 4. 全球宏观、外汇、大宗商品电讯
     ...endpoints.map((ep) =>
       fetch(ep.url, { headers: defaultHeaders, cache: 'no-store', signal: AbortSignal.timeout(6000) })
         .then((r) => r.json())
         .then((d) => ({ source: ep.source, data: d }))
-        .catch(() => ({ source: ep.source, data: null }))
+        .catch((err) => ({ source: ep.source, data: null, error: String(err?.message || err) }))
     ),
   ]);
+
+  lastRawNewsDiag = results.map((r, idx) => {
+    if (r.status === 'rejected') {
+      return { idx, status: 'rejected', reason: String((r as any).reason?.message || (r as any).reason) };
+    }
+    const val = r.value as any;
+    return {
+      idx,
+      source: val?.source,
+      hasData: !!val?.data,
+      isArray: Array.isArray(val?.data),
+      dataLen: Array.isArray(val?.data) ? val.data.length : (val?.data?.data?.items?.length || 0),
+      rawError: val?.error,
+    };
+  });
 
   for (const res of results) {
     if (res.status !== 'fulfilled' || !res.value?.data) continue;

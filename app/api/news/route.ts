@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchAggregatedNews, getFlashBriefs } from '@/lib/rssFetcher';
+import { fetchAggregatedNews, getFlashBriefs, getLastRawNewsDiag } from '@/lib/rssFetcher';
 import { autoCorrectAllNews } from '@/lib/selfHealingEngine';
 
 export const dynamic = 'force-dynamic';
@@ -60,6 +60,7 @@ export async function GET(request: Request) {
 
       try {
         const rawItems = await fetchAggregatedNews(true);
+        debugResults.lastRawNewsDiag = getLastRawNewsDiag();
         debugResults.aggregatedCount = rawItems.length;
         debugResults.sampleAggregated = rawItems.slice(0, 3).map((x: any) => ({ title: x.title, publishedAt: x.publishedAt, source: x.source }));
       } catch (e: any) {
