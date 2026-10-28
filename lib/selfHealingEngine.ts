@@ -3084,6 +3084,15 @@ export function autoCorrectAllNews(
 
   return {
     news: finalNews,
-    flashBriefs: healedFlash,
+    flashBriefs: (() => {
+      const seenF = new Set<string>();
+      return healedFlash.filter((item) => {
+        const k = (item.content || '').replace(/^[【\[][^】\]]+[】\]]\s*/, '').replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 12);
+        if (seenF.has(k) || seenF.has(item.id)) return false;
+        seenF.add(k);
+        seenF.add(item.id);
+        return true;
+      });
+    })(),
   };
 }

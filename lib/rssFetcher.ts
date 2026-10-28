@@ -45,8 +45,8 @@ let cachedQuotes: MarketQuote[] | null = null;
 let lastFetchTime = 0;
 let lastQuotesFetchTime = 0;
 let inFlightFetch: Promise<NewsItem[]> | null = null;
-let lastRawNewsDiag: any = null;
-export function getLastRawNewsDiag() { return lastRawNewsDiag; }
+
+
 
 // 毫秒级内存瞬时快照（用于自检与即时渲染，0 网络 I/O，且经过全域自动纠偏引擎净化）
 export function getFastIntelSnapshot(): {
@@ -1020,21 +1020,6 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
         .catch((err) => ({ source: ep.source, data: null, error: String(err?.message || err) }))
     ),
   ]);
-
-  lastRawNewsDiag = results.map((r, idx) => {
-    if (r.status === 'rejected') {
-      return { idx, status: 'rejected', reason: String((r as any).reason?.message || (r as any).reason) };
-    }
-    const val = r.value as any;
-    return {
-      idx,
-      source: val?.source,
-      hasData: !!val?.data,
-      isArray: Array.isArray(val?.data),
-      dataLen: Array.isArray(val?.data) ? val.data.length : (val?.data?.data?.items?.length || 0),
-      rawError: val?.error,
-    };
-  });
 
   for (const res of results) {
     if (res.status !== 'fulfilled' || !res.value?.data) continue;
