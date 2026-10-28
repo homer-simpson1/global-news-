@@ -701,7 +701,7 @@ async function fetchArticleBodyContent(url: string, source: 'zaobao' | 'caixin')
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
       },
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) return null;
     const rawHtml = await res.text();
@@ -849,7 +849,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
         }
 
         // 二级深度爬取：为前18篇精选早报新闻抓取真实正文段落（杜绝第9篇之后只有标题无正文）
-        const topZb = zbList.slice(0, 18);
+        const topZb = zbList.slice(0, 4);
         await Promise.allSettled(
           topZb.map(async (item) => {
             const body = await fetchArticleBodyContent(item.url, 'zaobao');
@@ -918,7 +918,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
         }
 
         // 二级深度爬取：为前18篇财新金融深度调查抓取真实正文段落，并保留列表页核心数据提要
-        const topCx = cxList.slice(0, 18);
+        const topCx = cxList.slice(0, 2);
         await Promise.allSettled(
           topCx.map(async (item) => {
             const existingSummary = item.content.length > item.title.length ? item.content.slice(item.title.length).trim() : '';
@@ -991,7 +991,7 @@ async function fetchRealTimeRawNews(): Promise<RawLiveItem[]> {
         }
 
         // 二级深度爬取：为前18篇财新公司调查抓取真实正文段落，并保留列表页核心数据提要
-        const topCx = cxList.slice(0, 18);
+        const topCx = cxList.slice(0, 2);
         await Promise.allSettled(
           topCx.map(async (item) => {
             const existingSummary = item.content.length > item.title.length ? item.content.slice(item.title.length).trim() : '';

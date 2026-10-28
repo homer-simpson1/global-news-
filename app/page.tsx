@@ -183,12 +183,12 @@ function TerminalApp() {
       let parsedN = cachedNews ? JSON.parse(cachedNews) : null;
       let parsedB = cachedBriefs ? JSON.parse(cachedBriefs) : null;
 
-      // 关键防守：清除任何包含 9月9日、9月5日、9月7日 等过往调试旧日期或旧种子缓存
+      // 关键防守：清除任何包含 9月9日、9月5日、9月7日、9月23日 等过往调试旧日期或9月过期种子缓存
       const hasStaleDateNews = Array.isArray(parsedN) && parsedN.some((n: any) =>
-        /9月9日|9月5日|9月7日/.test(JSON.stringify(n))
+        /9月9日|9月5日|9月7日|9月23日|9月\d{1,2}日/.test(JSON.stringify(n))
       );
       const hasStaleDateBriefs = Array.isArray(parsedB) && parsedB.some((b: any) =>
-        /9月9日|9月5日|9月7日/.test(JSON.stringify(b))
+        /9月9日|9月5日|9月7日|9月23日|9月\d{1,2}日/.test(JSON.stringify(b))
       );
       if (hasStaleDateNews || hasStaleDateBriefs) {
         console.log('[Cache] 本地缓存检测到 9月9日 历史旧闻或过期种子，强制清除旧缓存');

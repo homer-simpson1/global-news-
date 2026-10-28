@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const force = searchParams.get('refresh') === 'true' || searchParams.get('force') === 'true';
 
     const rawNews = await fetchAggregatedNews(force);
-    const rawFlashBriefs = await getFlashBriefs(false);
+    const rawFlashBriefs = await getFlashBriefs(force);
     // API 出口端二次强校验与自愈纠偏
     const { news, flashBriefs } = autoCorrectAllNews(rawNews, rawFlashBriefs);
 
